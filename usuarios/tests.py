@@ -7,7 +7,7 @@ from django.test import RequestFactory
 from django.test import TestCase
 from django.urls import reverse
 
-from financeiro.models import CategoriaFinanceira, Conta, Transacao
+from financeiro.models import Despesa, Receita
 from .views import UsuarioLoginView
 
 
@@ -40,7 +40,7 @@ class AdminPermissaoPerfilTests(TestCase):
         user = self.criar_usuario("orc_financeiro", "orcamentista")
         self.client.force_login(user)
 
-        response = self.client.get(reverse("admin:financeiro_conta_add"))
+        response = self.client.get(reverse("admin:financeiro_receita_add"))
 
         self.assertEqual(response.status_code, 200)
 
@@ -48,8 +48,8 @@ class AdminPermissaoPerfilTests(TestCase):
         user = self.criar_usuario("visualizador", "visualizador")
         self.client.force_login(user)
 
-        changelist_response = self.client.get(reverse("admin:financeiro_transacao_changelist"))
-        add_response = self.client.get(reverse("admin:financeiro_transacao_add"))
+        changelist_response = self.client.get(reverse("admin:financeiro_receita_changelist"))
+        add_response = self.client.get(reverse("admin:financeiro_receita_add"))
 
         self.assertEqual(changelist_response.status_code, 200)
         self.assertEqual(add_response.status_code, 403)
@@ -58,7 +58,7 @@ class AdminPermissaoPerfilTests(TestCase):
         user = self.criar_usuario("visualizador_conta", "visualizador")
         self.client.force_login(user)
 
-        response = self.client.get(reverse("admin:financeiro_conta_add"))
+        response = self.client.get(reverse("admin:financeiro_receita_add"))
 
         self.assertEqual(response.status_code, 403)
 
@@ -94,14 +94,12 @@ class AdminPermissaoPerfilTests(TestCase):
         self.client.force_login(user)
 
         response_usuarios = self.client.get(reverse("admin:usuarios_usuario_add"))
-        response_conta = self.client.get(reverse("admin:financeiro_conta_add"))
-        response_categoria = self.client.get(reverse("admin:financeiro_categoriafinanceira_add"))
-        response_transacao = self.client.get(reverse("admin:financeiro_transacao_add"))
+        response_receita = self.client.get(reverse("admin:financeiro_receita_add"))
+        response_despesa = self.client.get(reverse("admin:financeiro_despesa_add"))
 
         self.assertEqual(response_usuarios.status_code, 200)
-        self.assertEqual(response_conta.status_code, 200)
-        self.assertEqual(response_categoria.status_code, 200)
-        self.assertEqual(response_transacao.status_code, 200)
+        self.assertEqual(response_receita.status_code, 200)
+        self.assertEqual(response_despesa.status_code, 200)
 
 
 class UsuarioPermissaoPropriedadesTests(TestCase):
@@ -175,34 +173,36 @@ class UsuarioVisitanteTests(TestCase):
             perfil="orcamentista",
         )
         usuario.groups.set([empresa])
-        conta = Conta.objects.create(nome="Conta Sigilosa", empresa=empresa)
-        categoria = CategoriaFinanceira.objects.create(nome="Despesa Sigilosa", tipo="despesa", empresa=empresa)
-        Transacao.objects.create(
-            tipo="despesa",
+        Receita.objects.create(
+            descricao="Receita Sigilosa",
+            valor=Decimal("500.00"),
+            data=date(2026, 4, 10),
+            empresa=empresa,
+            criado_por=usuario,
+        )
+        Despesa.objects.create(
             descricao="Pagamento Sigiloso",
             valor=Decimal("120.00"),
-            data_competencia=date(2026, 4, 11),
-            conta=conta,
-            categoria=categoria,
+            data=date(2026, 4, 11),
+            tipo="variavel",
+            categoria="Despesa Sigilosa",
             empresa=empresa,
             criado_por=usuario,
         )
 
         self.client.post(reverse("login"), {"entrar_visitante": "1"})
 
-        response_contas = self.client.get(reverse("financeiro:conta_lista"))
-        response_transacoes = self.client.get(reverse("financeiro:transacao_lista"))
+        response_receitas = self.client.get(reverse("financeiro:receita_lista"))
+        response_despesas = self.client.get(reverse("financeiro:despesa_lista"))
         response_dashboard = self.client.get(reverse("dashboard"))
-        response_conta_direta = self.client.get(reverse("financeiro:conta_visualizar", args=[conta.pk]))
 
-        self.assertEqual(response_contas.status_code, 200)
-        self.assertNotContains(response_contas, "Conta Sigilosa")
-        self.assertEqual(response_transacoes.status_code, 200)
-        self.assertNotContains(response_transacoes, "Pagamento Sigiloso")
+        self.assertEqual(response_receitas.status_code, 200)
+        self.assertNotContains(response_receitas, "Receita Sigilosa")
+        self.assertEqual(response_despesas.status_code, 200)
+        self.assertNotContains(response_despesas, "Pagamento Sigiloso")
         self.assertEqual(response_dashboard.status_code, 200)
         self.assertNotContains(response_dashboard, "Pagamento Sigiloso")
-        self.assertNotContains(response_dashboard, "Conta Sigilosa")
-        self.assertEqual(response_conta_direta.status_code, 404)
+        self.assertNotContains(response_dashboard, "Receita Sigilosa")
 
 
 class UsuarioVisitanteIpTests(TestCase):

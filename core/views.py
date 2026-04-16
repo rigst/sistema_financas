@@ -11,11 +11,13 @@ from django.http import HttpResponseNotFound, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from core.tenancy import definir_empresa_ativa, queryset_da_empresa
-from financeiro.models import Conta, FaturaCartao, Transacao, arredondar
+from financeiro.models import Despesa, Receita, Reserva, arredondar
+from financeiro.planejamento import calcular_planejamento_semanal, dados_graficos_dashboard, navegacao_semanal
 
 
 def healthz(request):
@@ -30,11 +32,11 @@ def healthz(request):
 @login_required
 def dashboard(request):
     periodo = request.GET.get("periodo", "30")
-    contas = queryset_da_empresa(Conta.objects.filter(ativa=True).order_by("nome"), request.user)
-    transacoes = queryset_da_empresa(
-        Transacao.objects.select_related("conta", "conta_destino", "categoria").exclude(status="cancelado"),
-        request.user,
-    )
+    referencia = parse_date(request.GET.get("semana", "")) or timezone.localdate()
+    receitas_qs = queryset_da_empresa(Receita.objects.all(), request.user)
+    despesas_qs = queryset_da_empresa(Despesa.objects.exclude(status="cancelada"), request.user)
+    planejamento = calcular_planejamento_semanal(request.user, referencia, quantidade=5)
+    graficos = dados_graficos_dashboard(request.user, referencia)
 
     if periodo != "todos":
         try:
@@ -42,57 +44,59 @@ def dashboard(request):
         except (TypeError, ValueError):
             dias = 30
         inicio = timezone.localdate() - timedelta(days=dias)
-        transacoes_periodo = transacoes.filter(data_competencia__gte=inicio)
+        receitas_periodo = receitas_qs.filter(data__gte=inicio)
+        despesas_periodo = despesas_qs.filter(data__gte=inicio)
     else:
-        transacoes_periodo = transacoes
+        receitas_periodo = receitas_qs
+        despesas_periodo = despesas_qs
 
     soma_field = DecimalField(max_digits=14, decimal_places=2)
-    receitas = transacoes_periodo.filter(tipo="receita", status="pago").aggregate(
+    receitas = receitas_periodo.filter(status="recebida").aggregate(
         total=Coalesce(Sum("valor"), Value(0), output_field=soma_field)
     )["total"]
-    despesas = transacoes_periodo.filter(tipo="despesa", status="pago").aggregate(
+    despesas = despesas_periodo.filter(status="paga").aggregate(
         total=Coalesce(Sum("valor"), Value(0), output_field=soma_field)
     )["total"]
-    pendente_receber = transacoes.filter(tipo="receita", status="pendente").aggregate(
+    pendente_receber = receitas_qs.filter(status="prevista").aggregate(
         total=Coalesce(Sum("valor"), Value(0), output_field=soma_field)
     )["total"]
-    pendente_pagar = transacoes.filter(tipo="despesa", status="pendente").aggregate(
+    pendente_pagar = despesas_qs.filter(status="pendente").aggregate(
         total=Coalesce(Sum("valor"), Value(0), output_field=soma_field)
     )["total"]
 
-    contas_lista = list(contas)
-    saldo_total = arredondar(sum((conta.saldo_atual() for conta in contas_lista), Decimal("0.00")))
     indicadores = {
-        "saldo_total": saldo_total,
+        "saldo_total": planejamento["saldo_total"],
+        "disponivel_semana": planejamento["semana_atual"]["disponivel"] if planejamento["semana_atual"] else Decimal("0.00"),
+        "gasto_semana": planejamento["semana_atual"]["gasto_total"] if planejamento["semana_atual"] else Decimal("0.00"),
+        "compromissos": planejamento["total_comprometido"],
+        "disponivel_apos_compromissos": planejamento["disponivel_apos_compromissos"],
         "receitas": arredondar(receitas),
         "despesas": arredondar(despesas),
         "resultado": arredondar(receitas - despesas),
         "pendente_receber": arredondar(pendente_receber),
         "pendente_pagar": arredondar(pendente_pagar),
-        "total_contas": len(contas_lista),
-        "total_transacoes": transacoes_periodo.count(),
+        "total_contas": 0,
+        "total_transacoes": receitas_periodo.count() + despesas_periodo.count(),
     }
 
-    categorias_despesa = (
-        transacoes_periodo.filter(tipo="despesa", status="pago", categoria__isnull=False)
-        .values("categoria__nome", "categoria__cor")
-        .annotate(total=Coalesce(Sum("valor"), Value(0), output_field=soma_field))
-        .order_by("-total")[:5]
-    )
-    ultimas_transacoes = transacoes.order_by("-data_competencia", "-id")[:8]
-    faturas_abertas = queryset_da_empresa(
-        FaturaCartao.objects.select_related("cartao").filter(status__in=["aberta", "fechada"]),
-        request.user,
-    ).order_by("data_vencimento", "ano", "mes")[:6]
+    ultimas_receitas = list(receitas_qs.order_by("-data", "-id")[:4])
+    ultimas_despesas = list(despesas_qs.order_by("-data", "-id")[:4])
+    ultimos_lancamentos = sorted(
+        [{"tipo": "Receita", "data": item.data, "descricao": item.descricao, "valor": item.valor, "status": item.get_status_display()} for item in ultimas_receitas]
+        + [{"tipo": "Despesa", "data": item.data, "descricao": item.descricao, "valor": item.valor, "status": item.get_status_display()} for item in ultimas_despesas],
+        key=lambda item: item["data"],
+        reverse=True,
+    )[:8]
+    reservas_resumo = queryset_da_empresa(Reserva.objects.all(), request.user)[:3]
 
     context = {
-        "contas": contas_lista,
-        "categorias_despesa": categorias_despesa,
-        "ultimas_transacoes": ultimas_transacoes,
-        "faturas_abertas": faturas_abertas,
+        "planejamento_semanal": planejamento["semanas"],
+        "ultimos_lancamentos": ultimos_lancamentos,
+        "reservas_resumo": reservas_resumo,
+        "graficos": graficos,
         "indicadores": indicadores,
         "periodo": periodo,
-        "saudacao_dashboard": f"Bom ter você por aqui, {request.user}.",
+        "semana_nav": navegacao_semanal(referencia),
     }
     return render(request, "core/dashboard.html", context)
 
@@ -106,7 +110,7 @@ def manual(request):
         },
         {
             "nome": "Editor",
-            "descricao": "Registra contas, categorias e transações financeiras.",
+            "descricao": "Registra receitas, despesas, reservas e ajustes do planejamento semanal.",
         },
         {
             "nome": "Visualizador",

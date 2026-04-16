@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load br_format %}
+
+{% block title %}Receitas{% endblock %}
+
+{% block content %}
+<section>
+    <div class="section-heading">
+        <div>
+            <h2>Receitas</h2>
+            <p>Entradas de dinheiro registradas de forma direta.</p>
+        </div>
+        <div class="inline-actions">
+            {% if user.pode_gerenciar_financeiro %}
+                <a class="btn btn-primary-lite" href="{% url 'financeiro:receita_criar' %}" title="Nova receita"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span>Nova receita</span></a>
+            {% endif %}
+            <a class="btn btn-secondary" href="{% url 'financeiro:exportar_csv' %}" title="Exportar CSV"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span>Exportar CSV</span></a>
+        </div>
+    </div>
+    <form method="get" class="filters-form">
+        <input type="text" name="q" placeholder="Buscar receita" value="{{ busca }}">
+        <select name="status"><option value="" {% if not status %}selected{% endif %}>Todas</option><option value="recebida" {% if status == "recebida" %}selected{% endif %}>Recebidas</option><option value="prevista" {% if status == "prevista" %}selected{% endif %}>Previstas</option></select>
+        <button class="btn btn-secondary btn-icon-action" type="submit" title="Buscar"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.2-4.2"/></svg><span class="visually-hidden">Buscar</span></button>
+    </form>
+    {% if receitas %}
+        <div class="table-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Status</th><th>Valor</th><th class="actions-col">Ações</th></tr></thead><tbody>{% for receita in receitas %}<tr><td>{{ receita.data|date:"d/m/Y" }}</td><td>{{ receita.descricao }}</td><td>{{ receita.categoria|default:"-" }}</td><td><span class="badge status-{{ receita.status }}">{{ receita.get_status_display }}</span></td><td class="money">{{ receita.valor|brl }}</td><td class="actions-col"><div class="actions-stack actions-stack-inline">{% if user.pode_gerenciar_financeiro %}{% if receita.status == "prevista" %}<form method="post" action="{% url 'financeiro:receita_marcar_recebida' receita.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="btn btn-status-approved btn-icon-action" type="submit" title="Marcar como recebida" aria-label="Marcar receita como recebida"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M20 7 9 18l-5-5"/></svg><span class="visually-hidden">Marcar como recebida</span></button></form>{% endif %}<a class="btn btn-secondary btn-icon-action" href="{% url 'financeiro:receita_editar' receita.pk %}" title="Editar receita" aria-label="Editar receita"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M4 20l4.5-1 9.2-9.2a1.8 1.8 0 0 0 0-2.6l-.9-.9a1.8 1.8 0 0 0-2.6 0L5 15.5 4 20Z"/><path d="M13.5 7.5l3 3"/></svg><span class="visually-hidden">Editar</span></a>{% endif %}</div></td></tr>{% endfor %}</tbody></table></div>
+    {% else %}
+        <p class="empty-state">Nenhuma receita encontrada.</p>
+    {% endif %}
+    {% include "partials/pagination.html" with page_obj=page_obj %}
+</section>
+{% endblock %}

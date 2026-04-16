@@ -66,15 +66,9 @@
                         <ul class="nav-links">
                             <li><a href="{% url 'dashboard' %}" {% if request.resolver_match.url_name == 'dashboard' %}class="active"{% endif %}>Dashboard</a></li>
                             {% if user.pode_visualizar_financeiro %}
-                                <li><a href="{% url 'financeiro:transacao_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'transacao' in request.resolver_match.url_name %}class="active"{% endif %}>Transações</a></li>
-                                <li><a href="{% url 'financeiro:conta_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'conta' in request.resolver_match.url_name %}class="active"{% endif %}>Contas</a></li>
-                                <li><a href="{% url 'financeiro:categoria_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'categoria' in request.resolver_match.url_name %}class="active"{% endif %}>Categorias</a></li>
-                                <li><a href="{% url 'financeiro:cartao_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'cartao' in request.resolver_match.url_name %}class="active"{% endif %}>Cartões</a></li>
-                                <li><a href="{% url 'financeiro:fatura_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'fatura' in request.resolver_match.url_name %}class="active"{% endif %}>Faturas</a></li>
-                                <li><a href="{% url 'financeiro:planejamento_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'planejamento' in request.resolver_match.url_name %}class="active"{% endif %}>Planejamento</a></li>
-                                <li><a href="{% url 'financeiro:meta_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'meta' in request.resolver_match.url_name %}class="active"{% endif %}>Metas</a></li>
-                                <li><a href="{% url 'financeiro:recorrencia_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'recorrencia' in request.resolver_match.url_name %}class="active"{% endif %}>Recorrências</a></li>
-                                <li><a href="{% url 'financeiro:relatorio_fluxo_caixa' %}" {% if request.resolver_match.namespace == 'financeiro' and 'relatorio' in request.resolver_match.url_name %}class="active"{% endif %}>Relatórios</a></li>
+                                <li><a href="{% url 'financeiro:receita_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'receita' in request.resolver_match.url_name %}class="active"{% endif %}>Receitas</a></li>
+                                <li><a href="{% url 'financeiro:despesa_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'despesa' in request.resolver_match.url_name %}class="active"{% endif %}>Despesas</a></li>
+                                <li><a href="{% url 'financeiro:controle' %}" {% if request.resolver_match.namespace == 'financeiro' and request.resolver_match.url_name == 'controle' or request.resolver_match.namespace == 'financeiro' and 'reserva' in request.resolver_match.url_name %}class="active"{% endif %}>Controle</a></li>
                             {% endif %}
                             <li><a href="{% url 'manual' %}" {% if request.resolver_match.url_name == 'manual' %}class="active"{% endif %}>Manual</a></li>
                         </ul>
@@ -442,6 +436,31 @@
         });
       };
 
+      const bindExpenseInstallments = (scope = document) => {
+        scope.querySelectorAll("[data-expense-type]").forEach((select) => {
+          if (select.dataset.installmentsBound === "1") return;
+          select.dataset.installmentsBound = "1";
+          const form = select.form;
+          const field = form ? form.querySelector("[data-installments-field]") : null;
+          const input = form ? form.querySelector("[data-installments-input]") : null;
+          if (!field || !input) return;
+
+          const sync = () => {
+            const isInstallment = select.value === "parcelada";
+            field.hidden = !isInstallment;
+            input.disabled = !isInstallment;
+            if (!isInstallment) {
+              input.value = "1";
+            } else if (!input.value || Number(input.value) < 2) {
+              input.value = "2";
+            }
+          };
+
+          select.addEventListener("change", sync);
+          sync();
+        });
+      };
+
       const showGlobalSaveErrorNotice = () => {
         const hasFormErrors = document.querySelector(".errorlist, .form-errors");
         if (!hasFormErrors) return;
@@ -555,6 +574,7 @@
       initDraftPersistence();
       bindAutoSubmitControls();
       bindConfirmForms();
+      bindExpenseInstallments();
       bindMobileHeaderToggle();
       setTableCardLabels();
       document.addEventListener("codex:refresh-decimals", (event) => {
@@ -563,6 +583,7 @@
         initDraftPersistence(event.detail?.scope || document);
         bindAutoSubmitControls(event.detail?.scope || document);
         bindConfirmForms(event.detail?.scope || document);
+        bindExpenseInstallments(event.detail?.scope || document);
         bindMobileHeaderToggle();
         setTableCardLabels(event.detail?.scope || document);
       });

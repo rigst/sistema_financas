@@ -1,103 +1,43 @@
 {% extends "base.html" %}
 
-{% block title %}Manual do Sistema{% endblock %}
+{% block title %}Manual{% endblock %}
 
 {% block content %}
 <section>
     <div class="section-heading">
         <div>
-            <h2>Manual do sistema</h2>
-            <p>Um guia rápido para trabalhar com o StölbenFinanças no dia a dia.</p>
+            <h2>Manual</h2>
+            <p>Fluxo simples para acompanhar entradas, gastos e o dinheiro livre da semana.</p>
         </div>
     </div>
 
     <div class="stats-grid manual-grid">
-        <div class="stat-card">
-            <span class="label"><strong>1. Cadastros</strong></span>
-            <p>Comece criando suas contas, categorias financeiras e cartões de crédito.</p>
-        </div>
-        <div class="stat-card">
-            <span class="label"><strong>2. Lançamentos</strong></span>
-            <p>Registre receitas, despesas, transferências e compras no cartão conforme elas acontecem.</p>
-        </div>
-        <div class="stat-card">
-            <span class="label"><strong>3. Status</strong></span>
-            <p>Use os status para separar lançamentos pendentes, pagos e cancelados.</p>
-        </div>
-        <div class="stat-card">
-            <span class="label"><strong>4. Relatórios</strong></span>
-            <p>Acompanhe fluxo de caixa, planejamento mensal, faturas, metas e recorrências.</p>
-        </div>
+        <div class="stat-card"><span class="label"><strong>1. Receitas</strong></span><p>Registre salário, vendas, reembolsos e qualquer entrada prevista ou recebida.</p></div>
+        <div class="stat-card"><span class="label"><strong>2. Despesas</strong></span><p>Cadastre gastos variáveis, fixos e parcelados em um único formulário.</p></div>
+        <div class="stat-card"><span class="label"><strong>3. Controle</strong></span><p>Acompanhe planejamento semanal, metas, reservas e despesas fixas.</p></div>
+        <div class="stat-card"><span class="label"><strong>4. Dashboard</strong></span><p>Veja quanto está livre para gastar nesta semana e nas próximas.</p></div>
     </div>
 
     <div class="manual-layout">
         <div class="panel">
             <h3>Fluxo básico</h3>
             <ul class="simple-list manual-list">
-                <li>Cadastre as contas bancárias, dinheiro físico ou carteiras que você quer controlar.</li>
-                <li>Organize categorias de receita e despesa para facilitar relatórios.</li>
-                <li>Registre transações pagas e pendentes para manter saldo realizado e previsões.</li>
-                <li>Cadastre cartões, acompanhe faturas e baixe o saldo apenas no pagamento.</li>
-                <li>Use planejamento, metas e recorrências para acompanhar o mês sem depender de planilhas.</li>
+                <li>Adicione as receitas quando souber que o dinheiro entrou ou vai entrar.</li>
+                <li>Adicione despesas variáveis para gastos do dia a dia.</li>
+                <li>Use despesa fixa para compromissos que se repetem.</li>
+                <li>Use despesa parcelada para compras que ocupam várias semanas ou meses.</li>
+                <li>Abra Controle para decidir quanto ainda pode gastar sem comprometer as próximas semanas.</li>
             </ul>
         </div>
 
         <div class="panel">
             <h3>Dicas rápidas</h3>
             <ul class="simple-list manual-list">
-                <li>Os campos monetários aceitam formato brasileiro, como <strong>R$ 15.000,00</strong>.</li>
-                <li>Contas, categorias e cartões podem ser inativados sem perder histórico.</li>
-                <li>Ao sair com alterações pendentes, o sistema avisa para evitar perda de dados.</li>
-                <li>Use filtros e ordenação para localizar transações, faturas e categorias rapidamente.</li>
+                <li>Os campos monetários aceitam formato brasileiro, como <strong>R$ 1.250,00</strong>.</li>
+                <li>Despesas pendentes entram no planejamento como dinheiro já comprometido.</li>
+                <li>Metas e reservas ficam em Controle para consulta rápida.</li>
+                <li>O Dashboard prioriza o valor livre da semana.</li>
             </ul>
-        </div>
-    </div>
-
-    <div class="panel manual-panel-gap">
-        <h3>Fluxo financeiro</h3>
-        <div class="manual-status-flow">
-            <div>
-                <strong>Planejar</strong>
-                <p>Defina categorias, metas e planejamentos mensais antes de lançar grandes volumes de dados.</p>
-            </div>
-            <div>
-                <strong>Lançar</strong>
-                <p>Registre receitas, despesas e transferências na conta correta, usando status pendente ou pago.</p>
-            </div>
-            <div>
-                <strong>Conferir</strong>
-                <p>Acompanhe saldos, faturas e fluxo de caixa para verificar se os lançamentos batem com a realidade.</p>
-            </div>
-            <div>
-                <strong>Ajustar</strong>
-                <p>Use recorrências, metas e planejamento para corrigir desvios e prever os próximos meses.</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="panel manual-panel-gap">
-        <h3>Legenda dos ícones</h3>
-        <ul class="simple-list manual-list">
-            <li><span class="manual-icon-label"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="3"/></svg>Visualizar</span>: consultar o registro.</li>
-            <li><span class="manual-icon-label"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M4 20l4.5-1 9.2-9.2a1.8 1.8 0 0 0 0-2.6l-.9-.9a1.8 1.8 0 0 0-2.6 0L5 15.5 4 20Z"/><path d="M13.5 7.5l3 3"/></svg>Editar</span>: alterar o registro.</li>
-            <li><span class="manual-icon-label"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M7 3.5h7l4 4V20a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 20V5A1.5 1.5 0 0 1 7.5 3.5Z"/><path d="M14 3.5V8h4"/><path d="M9 12h6M9 16h6"/></svg>Relatórios</span>: abrir análises financeiras.</li>
-            <li><span class="manual-icon-label"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M5 7.5h14"/><path d="M8 7.5V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1.5"/><path d="M7.5 7.5v10A2 2 0 0 0 9.5 19.5h5A2 2 0 0 0 16.5 17.5v-10"/><path d="M10 11v4M14 11v4"/></svg>Inativar ou reativar</span>: alternar o status do cadastro.</li>
-            <li><span class="manual-icon-label"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M4 6h16"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>Filtrar</span>: aplicar filtros na listagem.</li>
-            <li><span class="manual-icon-label"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.2-4.2"/></svg>Buscar</span>: executar a busca digitada.</li>
-            <li><span class="manual-icon-label"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Adicionar</span>: criar um novo registro.</li>
-            <li><span class="manual-icon-label"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m12 6-5 5"/><path d="m12 6 5 5"/><path d="M12 6v12"/></svg>Atualizar</span>: recalcular ou gerar informações financeiras.</li>
-        </ul>
-    </div>
-
-    <div class="panel manual-panel-gap">
-        <h3>Perfis e autorizações</h3>
-        <div class="manual-roles">
-            {% for perfil in perfis_manual %}
-                <div>
-                    <strong>{{ perfil.nome }}</strong>
-                    <p>{{ perfil.descricao }}</p>
-                </div>
-            {% endfor %}
         </div>
     </div>
 </section>

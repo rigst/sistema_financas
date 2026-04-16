@@ -1,3 +1,4 @@
+import calendar
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -15,6 +16,152 @@ DUAS_CASAS = Decimal("0.01")
 
 def arredondar(valor: Decimal) -> Decimal:
     return Decimal(valor or 0).quantize(DUAS_CASAS, rounding=ROUND_HALF_UP)
+
+
+def adicionar_meses_data(data_base, incremento):
+    total = (data_base.year * 12) + (data_base.month - 1) + incremento
+    mes = (total % 12) + 1
+    ano = total // 12
+    dia = min(data_base.day, calendar.monthrange(ano, mes)[1])
+    return data_base.replace(year=ano, month=mes, day=dia)
+
+
+class Receita(models.Model):
+    STATUS_CHOICES = [
+        ("recebida", "Recebida"),
+        ("prevista", "Prevista"),
+    ]
+
+    descricao = models.CharField(max_length=255)
+    valor = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
+    data = models.DateField(default=date.today)
+    categoria = models.CharField(max_length=120, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="recebida")
+    observacoes = models.TextField(blank=True)
+    empresa = models.ForeignKey("auth.Group", on_delete=models.PROTECT, related_name="receitas", null=True, blank=True)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="receitas_criadas")
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-data", "-id"]
+        indexes = [
+            models.Index(fields=["empresa", "data"], name="receita_emp_data_idx"),
+            models.Index(fields=["empresa", "status"], name="receita_emp_status_idx"),
+        ]
+
+    def __str__(self):
+        return self.descricao
+
+    def save(self, *args, **kwargs):
+        if self.empresa_id is None:
+            self.empresa = obter_grupo_empresa_padrao()
+        super().save(*args, **kwargs)
+
+
+class Despesa(models.Model):
+    TIPO_CHOICES = [
+        ("variavel", "Variável"),
+        ("fixa", "Fixa"),
+        ("parcelada", "Parcelada"),
+    ]
+    STATUS_CHOICES = [
+        ("pendente", "Pendente"),
+        ("paga", "Paga"),
+        ("cancelada", "Cancelada"),
+    ]
+
+    descricao = models.CharField(max_length=255)
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default="variavel")
+    valor = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
+    data = models.DateField(default=date.today)
+    categoria = models.CharField(max_length=120, blank=True)
+    parcelas = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(120)])
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pendente")
+    observacoes = models.TextField(blank=True)
+    empresa = models.ForeignKey("auth.Group", on_delete=models.PROTECT, related_name="despesas", null=True, blank=True)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="despesas_criadas")
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-data", "-id"]
+        indexes = [
+            models.Index(fields=["empresa", "data"], name="despesa_emp_data_idx"),
+            models.Index(fields=["empresa", "status", "tipo"], name="despesa_emp_stat_tipo_idx"),
+        ]
+
+    def __str__(self):
+        return self.descricao
+
+    def clean(self):
+        if self.tipo != "parcelada" and self.parcelas != 1:
+            raise ValidationError({"parcelas": "Use parcelas apenas para despesa parcelada."})
+        if self.tipo == "parcelada" and self.parcelas < 2:
+            raise ValidationError({"parcelas": "Despesa parcelada precisa ter pelo menos 2 parcelas."})
+
+    def save(self, *args, **kwargs):
+        if self.empresa_id is None:
+            self.empresa = obter_grupo_empresa_padrao()
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    @property
+    def valor_parcela(self):
+        if self.tipo != "parcelada":
+            return arredondar(self.valor)
+        return arredondar(self.valor / Decimal(self.parcelas))
+
+    def ocorrencias(self, inicio, fim):
+        if self.status == "cancelada":
+            return []
+        if self.tipo == "fixa":
+            ocorrencias = []
+            indice = 0
+            while indice < 120:
+                data_ocorrencia = adicionar_meses_data(self.data, indice)
+                if data_ocorrencia > fim:
+                    break
+                if data_ocorrencia >= inicio:
+                    ocorrencias.append({"data": data_ocorrencia, "valor": arredondar(self.valor), "parcela": None})
+                indice += 1
+            return ocorrencias
+        if self.tipo == "parcelada":
+            return [
+                {"data": adicionar_meses_data(self.data, indice), "valor": self.valor_parcela, "parcela": indice + 1}
+                for indice in range(self.parcelas)
+                if inicio <= adicionar_meses_data(self.data, indice) <= fim
+            ]
+        if inicio <= self.data <= fim:
+            return [{"data": self.data, "valor": arredondar(self.valor), "parcela": None}]
+        return []
+
+
+class Reserva(models.Model):
+    nome = models.CharField(max_length=160)
+    valor_atual = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"), validators=[MinValueValidator(Decimal("0.00"))])
+    valor_alvo = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"), validators=[MinValueValidator(Decimal("0.00"))])
+    observacoes = models.TextField(blank=True)
+    empresa = models.ForeignKey("auth.Group", on_delete=models.PROTECT, related_name="reservas", null=True, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["nome"]
+
+    def __str__(self):
+        return self.nome
+
+    @property
+    def percentual_concluido(self):
+        if not self.valor_alvo:
+            return Decimal("0.00")
+        return min(arredondar((self.valor_atual / self.valor_alvo) * Decimal("100")), Decimal("100.00"))
+
+    def save(self, *args, **kwargs):
+        if self.empresa_id is None:
+            self.empresa = obter_grupo_empresa_padrao()
+        super().save(*args, **kwargs)
 
 
 class Conta(models.Model):
