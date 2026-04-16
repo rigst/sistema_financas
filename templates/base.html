@@ -71,6 +71,10 @@
                                 <li><a href="{% url 'financeiro:categoria_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'categoria' in request.resolver_match.url_name %}class="active"{% endif %}>Categorias</a></li>
                                 <li><a href="{% url 'financeiro:cartao_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'cartao' in request.resolver_match.url_name %}class="active"{% endif %}>Cartões</a></li>
                                 <li><a href="{% url 'financeiro:fatura_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'fatura' in request.resolver_match.url_name %}class="active"{% endif %}>Faturas</a></li>
+                                <li><a href="{% url 'financeiro:planejamento_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'planejamento' in request.resolver_match.url_name %}class="active"{% endif %}>Planejamento</a></li>
+                                <li><a href="{% url 'financeiro:meta_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'meta' in request.resolver_match.url_name %}class="active"{% endif %}>Metas</a></li>
+                                <li><a href="{% url 'financeiro:recorrencia_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'recorrencia' in request.resolver_match.url_name %}class="active"{% endif %}>Recorrências</a></li>
+                                <li><a href="{% url 'financeiro:relatorio_fluxo_caixa' %}" {% if request.resolver_match.namespace == 'financeiro' and 'relatorio' in request.resolver_match.url_name %}class="active"{% endif %}>Relatórios</a></li>
                             {% endif %}
                             {% if user.pode_visualizar_relatorios %}
                                 <li><a href="{% url 'relatorios:configuracao_lista' %}" {% if request.resolver_match.namespace == 'relatorios' %}class="active"{% endif %}>Configurações</a></li>

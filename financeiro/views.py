@@ -1,6 +1,13 @@
+import calendar
 import uuid
+from datetime import timedelta
+from decimal import Decimal
 
 from django.contrib import messages
+from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.db.models import Sum, Value, DecimalField
+from django.db.models.functions import Coalesce
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -17,14 +24,41 @@ from .forms import (
     ContaForm,
     FaturaCartaoForm,
     FaturaPagamentoForm,
+    MetaFinanceiraForm,
+    OrcamentoMensalForm,
+    RecorrenciaFinanceiraForm,
     TransacaoForm,
 )
-from .models import CategoriaFinanceira, CartaoCredito, Conta, FaturaCartao, LancamentoCartao, Transacao
+from .models import (
+    CategoriaFinanceira,
+    CartaoCredito,
+    Conta,
+    FaturaCartao,
+    LancamentoCartao,
+    MetaFinanceira,
+    OrcamentoMensal,
+    RecorrenciaFinanceira,
+    Transacao,
+    arredondar,
+)
 
 
 def adicionar_meses(mes, ano, incremento):
     total = (ano * 12) + (mes - 1) + incremento
     return (total % 12) + 1, total // 12
+
+
+def data_recorrencia(base, frequencia, indice, dia_vencimento):
+    if frequencia == "semanal":
+        return base + timedelta(days=7 * indice)
+    if frequencia == "quinzenal":
+        return base + timedelta(days=14 * indice)
+    if frequencia == "anual":
+        mes, ano = base.month, base.year + indice
+    else:
+        mes, ano = adicionar_meses(base.month, base.year, indice)
+    dia = min(dia_vencimento, calendar.monthrange(ano, mes)[1])
+    return base.replace(year=ano, month=mes, day=dia)
 
 
 @require_capability("pode_visualizar_financeiro")
@@ -369,13 +403,16 @@ def fatura_pagar(request, pk):
     fatura = get_object_or_404(queryset_da_empresa(FaturaCartao.objects.select_related("cartao"), request.user), pk=pk)
     form = FaturaPagamentoForm(request.POST, user=request.user, fatura=fatura)
     if form.is_valid():
-        fatura.pagar(
-            conta=form.cleaned_data["conta_pagamento"],
-            categoria=form.cleaned_data["categoria_pagamento"],
-            data_pagamento=form.cleaned_data["data_pagamento"],
-            usuario=request.user,
-        )
-        messages.success(request, "Fatura paga e transação bancária criada.")
+        try:
+            fatura.pagar(
+                conta=form.cleaned_data["conta_pagamento"],
+                categoria=form.cleaned_data["categoria_pagamento"],
+                data_pagamento=form.cleaned_data["data_pagamento"],
+                usuario=request.user,
+            )
+            messages.success(request, "Fatura paga e transação bancária criada.")
+        except ValidationError as exc:
+            messages.error(request, "; ".join(exc.messages) if hasattr(exc, "messages") else str(exc))
     else:
         messages.error(request, "Não foi possível pagar a fatura. Revise conta, categoria e data.")
     return redirect("financeiro:fatura_visualizar", pk=fatura.pk)
@@ -395,33 +432,45 @@ def compra_cartao_criar(request):
             mes_inicial = form.cleaned_data["mes_primeira_fatura"]
             ano_inicial = form.cleaned_data["ano_primeira_fatura"]
             parcelas = form.cleaned_data["parcelas"]
+            periodos = [adicionar_meses(mes_inicial, ano_inicial, idx) for idx in range(parcelas)]
+            bloqueada = FaturaCartao.objects.filter(
+                empresa=empresa, cartao=cartao, status__in=["paga", "cancelada"],
+                mes__in=[periodo[0] for periodo in periodos], ano__in=[periodo[1] for periodo in periodos],
+            ).first()
+            if bloqueada:
+                form.add_error(None, f"A fatura {bloqueada} está {bloqueada.get_status_display().lower()} e não aceita novos lançamentos.")
+                return render(request, "financeiro/compra_cartao_form.html", {"form": form, "titulo": "Nova compra no cartão"})
+
             grupo = uuid.uuid4().hex
             primeira_fatura = None
-            for idx, valor in enumerate(form.valores_parcelas(), start=1):
-                mes, ano = adicionar_meses(mes_inicial, ano_inicial, idx - 1)
-                fatura, _ = FaturaCartao.objects.get_or_create(
-                    empresa=empresa,
-                    cartao=cartao,
-                    mes=mes,
-                    ano=ano,
-                    defaults={"conta_pagamento": cartao.conta_pagamento, "status": "aberta"},
-                )
-                if primeira_fatura is None:
-                    primeira_fatura = fatura
-                LancamentoCartao.objects.create(
-                    fatura=fatura,
-                    cartao=cartao,
-                    categoria=categoria,
-                    descricao=descricao,
-                    valor=valor,
-                    data_compra=data_compra,
-                    parcela_numero=idx,
-                    parcela_total=parcelas,
-                    grupo_parcelamento=grupo if parcelas > 1 else "",
-                    observacoes=observacoes,
-                    empresa=empresa,
-                    criado_por=request.user,
-                )
+            with transaction.atomic():
+                for idx, valor in enumerate(form.valores_parcelas(), start=1):
+                    mes, ano = adicionar_meses(mes_inicial, ano_inicial, idx - 1)
+                    fatura, _ = FaturaCartao.objects.get_or_create(
+                        empresa=empresa,
+                        cartao=cartao,
+                        mes=mes,
+                        ano=ano,
+                        defaults={"conta_pagamento": cartao.conta_pagamento, "status": "aberta"},
+                    )
+                    if fatura.status in {"paga", "cancelada"}:
+                        raise ValidationError(f"A fatura {fatura} não aceita novos lançamentos.")
+                    if primeira_fatura is None:
+                        primeira_fatura = fatura
+                    LancamentoCartao.objects.create(
+                        fatura=fatura,
+                        cartao=cartao,
+                        categoria=categoria,
+                        descricao=descricao,
+                        valor=valor,
+                        data_compra=data_compra,
+                        parcela_numero=idx,
+                        parcela_total=parcelas,
+                        grupo_parcelamento=grupo if parcelas > 1 else "",
+                        observacoes=observacoes,
+                        empresa=empresa,
+                        criado_por=request.user,
+                    )
             messages.success(request, "Compra lançada no cartão com sucesso.")
             if primeira_fatura is not None:
                 return redirect("financeiro:fatura_visualizar", pk=primeira_fatura.pk)
@@ -436,8 +485,169 @@ def compra_cartao_criar(request):
 def lancamento_cartao_cancelar(request, pk):
     lancamento = get_object_or_404(queryset_da_empresa(LancamentoCartao.objects.select_related("fatura"), request.user), pk=pk)
     if request.method == "POST":
+        if lancamento.fatura.status in {"paga", "cancelada"}:
+            messages.error(request, "Não é possível cancelar lançamentos de fatura paga ou cancelada.")
+            return redirect("financeiro:fatura_visualizar", pk=lancamento.fatura_id)
         lancamento.status = "cancelado"
         lancamento.save(update_fields=["status", "atualizado_em"])
         messages.success(request, "Lançamento cancelado com sucesso.")
         return redirect("financeiro:fatura_visualizar", pk=lancamento.fatura_id)
     return render(request, "financeiro/confirmar_status.html", {"objeto": lancamento, "tipo": "lançamento", "acao": "cancelar", "voltar_url": "financeiro:fatura_lista"})
+
+
+@require_capability("pode_visualizar_financeiro")
+def relatorio_fluxo_caixa(request):
+    hoje = timezone.localdate()
+    mes = int(request.GET.get("mes") or hoje.month)
+    ano = int(request.GET.get("ano") or hoje.year)
+    transacoes = queryset_da_empresa(Transacao.objects.select_related("conta", "categoria").exclude(status="cancelado"), request.user).filter(data_competencia__year=ano, data_competencia__month=mes)
+    soma_field = DecimalField(max_digits=14, decimal_places=2)
+    receitas = transacoes.filter(tipo="receita", status="pago").aggregate(total=Coalesce(Sum("valor"), Value(0), output_field=soma_field))["total"]
+    despesas = transacoes.filter(tipo="despesa", status="pago").aggregate(total=Coalesce(Sum("valor"), Value(0), output_field=soma_field))["total"]
+    por_categoria = transacoes.filter(status="pago", categoria__isnull=False).values("tipo", "categoria__nome", "categoria__cor").annotate(total=Coalesce(Sum("valor"), Value(0), output_field=soma_field)).order_by("tipo", "-total")
+    por_conta = transacoes.filter(status="pago").values("conta__nome").annotate(total=Coalesce(Sum("valor"), Value(0), output_field=soma_field)).order_by("conta__nome")
+    return render(request, "financeiro/relatorio_fluxo_caixa.html", {"mes": mes, "ano": ano, "receitas": receitas, "despesas": despesas, "resultado": arredondar(receitas - despesas), "por_categoria": por_categoria, "por_conta": por_conta, "transacoes": transacoes.order_by("-data_competencia")})
+
+
+@require_capability("pode_visualizar_financeiro")
+def planejamento_lista(request):
+    hoje = timezone.localdate()
+    mes = int(request.GET.get("mes") or hoje.month)
+    ano = int(request.GET.get("ano") or hoje.year)
+    planejamentos = queryset_da_empresa(OrcamentoMensal.objects.select_related("categoria"), request.user).filter(mes=mes, ano=ano)
+    transacoes = queryset_da_empresa(Transacao.objects.filter(tipo="despesa", status="pago", data_competencia__year=ano, data_competencia__month=mes), request.user)
+    realizados = {item["categoria_id"]: item["total"] for item in transacoes.values("categoria_id").annotate(total=Coalesce(Sum("valor"), Value(0), output_field=DecimalField(max_digits=14, decimal_places=2)))}
+    linhas = []
+    for planejamento in planejamentos:
+        realizado = arredondar(realizados.get(planejamento.categoria_id, Decimal("0.00")))
+        linhas.append({"planejamento": planejamento, "realizado": realizado, "saldo": arredondar(planejamento.valor_planejado - realizado)})
+    return render(request, "financeiro/planejamento_lista.html", {"linhas": linhas, "mes": mes, "ano": ano})
+
+
+@require_capability("pode_gerenciar_financeiro")
+def planejamento_criar(request):
+    if request.method == "POST":
+        form = OrcamentoMensalForm(request.POST, user=request.user)
+        if form.is_valid():
+            obj = form.save(commit=False)
+            obj.empresa = obter_grupo_empresa_ou_erro(request.user)
+            obj.save()
+            messages.success(request, "Planejamento salvo com sucesso.")
+            return redirect("financeiro:planejamento_lista")
+    else:
+        hoje = timezone.localdate()
+        form = OrcamentoMensalForm(user=request.user, initial={"mes": hoje.month, "ano": hoje.year})
+    return render(request, "financeiro/planejamento_form.html", {"form": form, "titulo": "Novo planejamento"})
+
+
+@require_capability("pode_gerenciar_financeiro")
+def planejamento_editar(request, pk):
+    obj = get_object_or_404(queryset_da_empresa(OrcamentoMensal.objects.select_related("categoria"), request.user), pk=pk)
+    if request.method == "POST":
+        form = OrcamentoMensalForm(request.POST, instance=obj, user=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Planejamento atualizado com sucesso.")
+            return redirect("financeiro:planejamento_lista")
+    else:
+        form = OrcamentoMensalForm(instance=obj, user=request.user)
+    return render(request, "financeiro/planejamento_form.html", {"form": form, "titulo": "Editar planejamento"})
+
+
+@require_capability("pode_visualizar_financeiro")
+def meta_lista(request):
+    metas = queryset_da_empresa(MetaFinanceira.objects.select_related("conta_vinculada"), request.user).order_by("status", "nome")
+    return render(request, "financeiro/meta_lista.html", {"metas": metas})
+
+
+@require_capability("pode_gerenciar_financeiro")
+def meta_criar(request):
+    if request.method == "POST":
+        form = MetaFinanceiraForm(request.POST, user=request.user)
+        if form.is_valid():
+            meta = form.save(commit=False)
+            meta.empresa = obter_grupo_empresa_ou_erro(request.user)
+            meta.save()
+            messages.success(request, "Meta criada com sucesso.")
+            return redirect("financeiro:meta_lista")
+    else:
+        form = MetaFinanceiraForm(user=request.user)
+    return render(request, "financeiro/meta_form.html", {"form": form, "titulo": "Nova meta"})
+
+
+@require_capability("pode_gerenciar_financeiro")
+def meta_editar(request, pk):
+    meta = get_object_or_404(queryset_da_empresa(MetaFinanceira.objects.all(), request.user), pk=pk)
+    if request.method == "POST":
+        form = MetaFinanceiraForm(request.POST, instance=meta, user=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Meta atualizada com sucesso.")
+            return redirect("financeiro:meta_lista")
+    else:
+        form = MetaFinanceiraForm(instance=meta, user=request.user)
+    return render(request, "financeiro/meta_form.html", {"form": form, "titulo": "Editar meta"})
+
+
+@require_capability("pode_visualizar_financeiro")
+def recorrencia_lista(request):
+    recorrencias = queryset_da_empresa(RecorrenciaFinanceira.objects.select_related("conta", "categoria"), request.user).order_by("descricao")
+    return render(request, "financeiro/recorrencia_lista.html", {"recorrencias": recorrencias})
+
+
+@require_capability("pode_gerenciar_financeiro")
+def recorrencia_criar(request):
+    if request.method == "POST":
+        form = RecorrenciaFinanceiraForm(request.POST, user=request.user)
+        if form.is_valid():
+            obj = form.save(commit=False)
+            obj.empresa = obter_grupo_empresa_ou_erro(request.user)
+            obj.criado_por = request.user
+            obj.save()
+            messages.success(request, "Recorrência criada com sucesso.")
+            return redirect("financeiro:recorrencia_lista")
+    else:
+        form = RecorrenciaFinanceiraForm(user=request.user, initial={"data_inicio": timezone.localdate(), "dia_vencimento": timezone.localdate().day})
+    return render(request, "financeiro/recorrencia_form.html", {"form": form, "titulo": "Nova recorrência"})
+
+
+@require_capability("pode_gerenciar_financeiro")
+def recorrencia_editar(request, pk):
+    obj = get_object_or_404(queryset_da_empresa(RecorrenciaFinanceira.objects.all(), request.user), pk=pk)
+    if request.method == "POST":
+        form = RecorrenciaFinanceiraForm(request.POST, instance=obj, user=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Recorrência atualizada com sucesso.")
+            return redirect("financeiro:recorrencia_lista")
+    else:
+        form = RecorrenciaFinanceiraForm(instance=obj, user=request.user)
+    return render(request, "financeiro/recorrencia_form.html", {"form": form, "titulo": "Editar recorrência"})
+
+
+@require_capability("pode_gerenciar_financeiro")
+@require_POST
+def recorrencia_gerar(request, pk):
+    obj = get_object_or_404(queryset_da_empresa(RecorrenciaFinanceira.objects.select_related("conta", "categoria"), request.user), pk=pk)
+    if not obj.ativa:
+        messages.error(request, "Recorrência inativa não gera lançamentos.")
+        return redirect("financeiro:recorrencia_lista")
+    quantidade = 12
+    criadas = 0
+    for idx in range(quantidade):
+        data = data_recorrencia(obj.data_inicio, obj.frequencia, idx, obj.dia_vencimento)
+        if obj.data_fim and data > obj.data_fim:
+            break
+        _, created = Transacao.objects.get_or_create(
+            empresa=obj.empresa,
+            tipo=obj.tipo,
+            descricao=obj.descricao,
+            valor=obj.valor,
+            data_competencia=data,
+            conta=obj.conta,
+            categoria=obj.categoria,
+            defaults={"status": "pendente", "criado_por": request.user, "observacoes": obj.observacoes},
+        )
+        criadas += 1 if created else 0
+    messages.success(request, f"{criadas} lançamento(s) recorrente(s) gerado(s).")
+    return redirect("financeiro:recorrencia_lista")

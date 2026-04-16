@@ -8,6 +8,7 @@ from .models import (
     LancamentoCartao,
     MetaFinanceira,
     OrcamentoMensal,
+    RecorrenciaFinanceira,
     Transacao,
 )
 
@@ -67,3 +68,10 @@ class MetaFinanceiraAdmin(admin.ModelAdmin):
     list_display = ("nome", "valor_alvo", "valor_atual_manual", "status", "empresa")
     list_filter = ("status", "empresa")
     search_fields = ("nome",)
+
+
+@admin.register(RecorrenciaFinanceira)
+class RecorrenciaFinanceiraAdmin(admin.ModelAdmin):
+    list_display = ("descricao", "tipo", "valor", "frequencia", "dia_vencimento", "ativa", "empresa")
+    list_filter = ("tipo", "frequencia", "ativa", "empresa")
+    search_fields = ("descricao", "observacoes")

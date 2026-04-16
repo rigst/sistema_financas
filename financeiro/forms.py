@@ -5,7 +5,7 @@ from django import forms
 from core.concurrency import OptimisticLockModelFormMixin
 from core.form_fields import substituir_por_decimal_br
 from core.tenancy import queryset_da_empresa
-from .models import CategoriaFinanceira, Conta, CartaoCredito, FaturaCartao, Transacao
+from .models import CategoriaFinanceira, Conta, CartaoCredito, FaturaCartao, MetaFinanceira, OrcamentoMensal, RecorrenciaFinanceira, Transacao
 
 
 class ContaForm(OptimisticLockModelFormMixin, forms.ModelForm):
@@ -126,6 +126,7 @@ class FaturaCartaoForm(OptimisticLockModelFormMixin, forms.ModelForm):
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["status"].choices = [choice for choice in self.fields["status"].choices if choice[0] != "paga"]
         if user is not None:
             self.fields["cartao"].queryset = queryset_da_empresa(CartaoCredito.objects.filter(ativo=True).order_by("nome"), user)
             self.fields["conta_pagamento"].queryset = queryset_da_empresa(Conta.objects.filter(ativa=True).order_by("nome"), user)
@@ -173,3 +174,53 @@ class CompraCartaoForm(forms.Form):
         diferenca = valor_total - sum(valores, Decimal("0.00"))
         valores[-1] = (valores[-1] + diferenca).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         return valores
+
+
+class OrcamentoMensalForm(OptimisticLockModelFormMixin, forms.ModelForm):
+    class Meta:
+        model = OrcamentoMensal
+        fields = ["mes", "ano", "categoria", "valor_planejado"]
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        substituir_por_decimal_br(self, "valor_planejado", currency=True)
+        if user is not None:
+            self.fields["categoria"].queryset = queryset_da_empresa(CategoriaFinanceira.objects.filter(ativa=True, tipo="despesa").order_by("nome"), user)
+
+
+class MetaFinanceiraForm(OptimisticLockModelFormMixin, forms.ModelForm):
+    class Meta:
+        model = MetaFinanceira
+        fields = ["nome", "valor_alvo", "valor_atual_manual", "data_inicio", "data_limite", "conta_vinculada", "status", "cor", "observacoes"]
+        widgets = {
+            "data_inicio": forms.DateInput(attrs={"type": "date"}),
+            "data_limite": forms.DateInput(attrs={"type": "date"}),
+        }
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        substituir_por_decimal_br(self, "valor_alvo", currency=True)
+        substituir_por_decimal_br(self, "valor_atual_manual", currency=True)
+        self.fields["observacoes"].widget.attrs["rows"] = 3
+        if user is not None:
+            self.fields["conta_vinculada"].queryset = queryset_da_empresa(Conta.objects.filter(ativa=True).order_by("nome"), user)
+
+
+class RecorrenciaFinanceiraForm(OptimisticLockModelFormMixin, forms.ModelForm):
+    class Meta:
+        model = RecorrenciaFinanceira
+        fields = ["tipo", "descricao", "valor", "categoria", "conta", "frequencia", "dia_vencimento", "data_inicio", "data_fim", "ativa", "observacoes"]
+        widgets = {
+            "data_inicio": forms.DateInput(attrs={"type": "date"}),
+            "data_fim": forms.DateInput(attrs={"type": "date"}),
+        }
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["ativa"].widget = forms.HiddenInput()
+        self.fields["ativa"].initial = True if not getattr(self.instance, "pk", None) else self.instance.ativa
+        substituir_por_decimal_br(self, "valor", currency=True)
+        self.fields["observacoes"].widget.attrs["rows"] = 3
+        if user is not None:
+            self.fields["categoria"].queryset = queryset_da_empresa(CategoriaFinanceira.objects.filter(ativa=True).order_by("tipo", "nome"), user)
+            self.fields["conta"].queryset = queryset_da_empresa(Conta.objects.filter(ativa=True).order_by("nome"), user)

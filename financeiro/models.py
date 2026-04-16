@@ -346,6 +346,8 @@ class FaturaCartao(models.Model):
                 raise ValidationError({"categoria_pagamento": "Informe a categoria de pagamento."})
             if not self.data_pagamento:
                 raise ValidationError({"data_pagamento": "Informe a data de pagamento."})
+            if not self.transacao_pagamento_id:
+                raise ValidationError({"status": "Use a ação Pagar fatura para criar a baixa bancária."})
 
     def save(self, *args, **kwargs):
         if self.empresa_id is None:
@@ -358,6 +360,10 @@ class FaturaCartao(models.Model):
     def pagar(self, *, conta, categoria, data_pagamento, usuario):
         if self.status == "paga":
             return self.transacao_pagamento
+        if self.status == "cancelada":
+            raise ValidationError("Faturas canceladas não podem ser pagas.")
+        if self.valor_total <= Decimal("0.00"):
+            raise ValidationError("Faturas sem valor não podem ser pagas.")
         transacao = Transacao.objects.create(
             tipo="despesa",
             descricao=f"Pagamento fatura {self.cartao.nome} {self.mes:02d}/{self.ano}",
@@ -428,6 +434,56 @@ class LancamentoCartao(models.Model):
     def save(self, *args, **kwargs):
         if self.empresa_id is None:
             self.empresa = self.cartao.empresa if self.cartao_id else obter_grupo_empresa_padrao()
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class RecorrenciaFinanceira(models.Model):
+    TIPO_CHOICES = Transacao.TIPO_CHOICES[:2]
+    FREQUENCIA_CHOICES = [
+        ("mensal", "Mensal"),
+        ("semanal", "Semanal"),
+        ("quinzenal", "Quinzenal"),
+        ("anual", "Anual"),
+    ]
+
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    descricao = models.CharField(max_length=255)
+    valor = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
+    categoria = models.ForeignKey(CategoriaFinanceira, on_delete=models.PROTECT, related_name="recorrencias")
+    conta = models.ForeignKey(Conta, on_delete=models.PROTECT, related_name="recorrencias")
+    frequencia = models.CharField(max_length=20, choices=FREQUENCIA_CHOICES, default="mensal")
+    dia_vencimento = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(31)], default=1)
+    data_inicio = models.DateField()
+    data_fim = models.DateField(null=True, blank=True)
+    ativa = models.BooleanField(default=True)
+    observacoes = models.TextField(blank=True)
+    empresa = models.ForeignKey("auth.Group", on_delete=models.PROTECT, related_name="recorrencias_financeiras", null=True, blank=True)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="recorrencias_financeiras_criadas")
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["descricao"]
+
+    def __str__(self):
+        return self.descricao
+
+    def clean(self):
+        if self.categoria_id and self.categoria.tipo != self.tipo:
+            raise ValidationError({"categoria": "A categoria deve ter o mesmo tipo da recorrência."})
+        if self.data_fim and self.data_fim < self.data_inicio:
+            raise ValidationError({"data_fim": "A data final não pode ser anterior à data inicial."})
+        empresa_id = self.empresa_id or getattr(self.conta, "empresa_id", None)
+        if empresa_id:
+            if self.conta_id and self.conta.empresa_id != empresa_id:
+                raise ValidationError({"conta": "Selecione uma conta do mesmo espaço financeiro."})
+            if self.categoria_id and self.categoria.empresa_id != empresa_id:
+                raise ValidationError({"categoria": "Selecione uma categoria do mesmo espaço financeiro."})
+
+    def save(self, *args, **kwargs):
+        if self.empresa_id is None:
+            self.empresa = self.conta.empresa if self.conta_id else obter_grupo_empresa_padrao()
         self.full_clean()
         super().save(*args, **kwargs)
 
