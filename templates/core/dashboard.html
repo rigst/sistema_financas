@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% load br_format %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<section>
+    <div class="section-heading">
+        <div>
+            <h2>Dashboard</h2>
+            <p>{{ saudacao_dashboard }} Você está no perfil {{ user.get_perfil_display|lower }}.</p>
+        </div>
+        <div class="inline-actions">
+            <form method="get" class="filters-form compact-filters">
+                <select name="periodo">
+                    <option value="7" {% if periodo == "7" %}selected{% endif %}>Últimos 7 dias</option>
+                    <option value="30" {% if periodo == "30" %}selected{% endif %}>Últimos 30 dias</option>
+                    <option value="90" {% if periodo == "90" %}selected{% endif %}>Últimos 90 dias</option>
+                    <option value="todos" {% if periodo == "todos" %}selected{% endif %}>Todo o período</option>
+                </select>
+                <button class="btn btn-secondary btn-icon-action" type="submit" title="Aplicar período" aria-label="Aplicar período">
+                    <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M4 6h16"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>
+                    <span class="visually-hidden">Aplicar período</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span class="label">Orçamentos no período</span>
+            <span class="value">{{ indicadores.total_orcamentos }}</span>
+        </div>
+        <div class="stat-card">
+            <span class="label">Valor total</span>
+            <span class="value">{{ indicadores.valor_total|brl }}</span>
+        </div>
+        <div class="stat-card">
+            <span class="label">Valor aprovado</span>
+            <span class="value">{{ indicadores.valor_aprovado|brl }}</span>
+        </div>
+        <div class="stat-card">
+            <span class="label">Pendentes</span>
+            <span class="value">{{ indicadores.pendentes }}</span>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span class="label">Rascunhos</span>
+            <span class="value">{{ status_map.rascunho }}</span>
+        </div>
+        <div class="stat-card">
+            <span class="label">Em elaboração</span>
+            <span class="value">{{ status_map.em_elaboracao }}</span>
+        </div>
+        <div class="stat-card">
+            <span class="label">Enviados</span>
+            <span class="value">{{ status_map.enviado }}</span>
+        </div>
+        <div class="stat-card">
+            <span class="label">Aprovados</span>
+            <span class="value">{{ status_map.aprovado }}</span>
+        </div>
+    </div>
+
+    <div class="section-heading" style="margin-bottom: 1rem;">
+        <div>
+            <h3>Últimos orçamentos</h3>
+            <p>Os 5 mais recentes criados no sistema.</p>
+        </div>
+        <div>
+            <a class="btn btn-secondary btn-icon-action" href="{% url 'orcamentos:lista' %}" title="Ver todos os orçamentos">
+                <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="3"/></svg>
+                <span class="visually-hidden">Ver todos os orçamentos</span>
+            </a>
+        </div>
+    </div>
+
+    {% if ultimos_orcamentos %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Número</th>
+                        <th>Cliente</th>
+                        <th>Status</th>
+                        <th>Data</th>
+                        <th>Total</th>
+                        <th class="actions-col">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for orcamento in ultimos_orcamentos %}
+                        <tr>
+                            <td>{{ orcamento.numero }}</td>
+                            <td>{{ orcamento.cliente }}</td>
+                            <td>
+                                <span class="badge status-{{ orcamento.status }}">
+                                    {{ orcamento.get_status_display }}
+                                </span>
+                            </td>
+                            <td>{{ orcamento.data_emissao }}</td>
+                            <td class="money">{{ orcamento.total_final|brl }}</td>
+                            <td class="actions-col">
+                                <div class="actions-stack actions-stack-inline">
+                                    <a class="btn btn-secondary btn-icon-action" href="{% if user.pode_gerenciar_orcamentos and orcamento.status == 'rascunho' %}{% url 'orcamentos:editar' orcamento.pk %}{% else %}{% url 'orcamentos:visualizar' orcamento.pk %}{% endif %}" title="{% if user.pode_gerenciar_orcamentos and orcamento.status == 'rascunho' %}Editar orçamento{% else %}Visualizar orçamento{% endif %}">
+                                        {% if user.pode_gerenciar_orcamentos and orcamento.status == 'rascunho' %}
+                                            <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M4 20l4.5-1 9.2-9.2a1.8 1.8 0 0 0 0-2.6l-.9-.9a1.8 1.8 0 0 0-2.6 0L5 15.5 4 20Z"/><path d="M13.5 7.5l3 3"/></svg>
+                                        {% else %}
+                                            <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="3"/></svg>
+                                        {% endif %}
+                                        <span class="visually-hidden">{% if user.pode_gerenciar_orcamentos and orcamento.status == 'rascunho' %}Editar orçamento{% else %}Visualizar orçamento{% endif %}</span>
+                                    </a>
+                                    <a class="btn btn-secondary btn-icon-action" href="{% url 'relatorios:orcamento_central' orcamento.pk %}" title="Relatórios">
+                                        <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M7 3.5h7l4 4V20a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 20V5A1.5 1.5 0 0 1 7.5 3.5Z"/><path d="M14 3.5V8h4"/><path d="M9 12h6M9 16h6"/></svg>
+                                        <span class="visually-hidden">Relatórios</span>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="empty-state">Ainda não há orçamentos cadastrados.</p>
+    {% endif %}
+</section>
+{% endblock %}

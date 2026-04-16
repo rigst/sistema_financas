@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}{% if categoria.ativo %}Inativar categoria{% else %}Reativar categoria{% endif %}{% endblock %}
+
+{% block content %}
+<section>
+    <div class="section-heading">
+        <div>
+            <h2>{% if categoria.ativo %}Inativar categoria{% else %}Reativar categoria{% endif %}</h2>
+            <p>Revise a operação antes de confirmar a alteração do status.</p>
+        </div>
+        <div class="inline-actions">
+            <a class="btn btn-secondary btn-icon-action" href="{% url 'catalogo:categoria_lista' %}" title="Voltar" aria-label="Voltar">
+                <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m15 18-6-6 6-6"/><path d="M9 12h10"/></svg>
+                <span class="visually-hidden">Voltar</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="panel">
+        <p>Tem certeza que deseja {{ acao }} a categoria <strong>{{ categoria.nome }}</strong>?</p>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="inline-actions" style="margin-top: 1rem;">
+                <button class="btn btn-primary btn-icon-action" type="submit" title="Confirmar {{ acao }}" aria-label="Confirmar {{ acao }}">
+                    <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M20 7 9 18l-5-5"/></svg>
+                    <span class="visually-hidden">Confirmar {{ acao }}</span>
+                </button>
+                <a class="btn btn-secondary btn-icon-action" href="{% url 'catalogo:categoria_lista' %}" title="Cancelar" aria-label="Cancelar">
+                    <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    <span class="visually-hidden">Cancelar</span>
+                </a>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

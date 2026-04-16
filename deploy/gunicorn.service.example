@@ -1,0 +1,18 @@
+[Unit]
+Description=Sistema de Orcamentos (Gunicorn)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/sistema_financas/current
+EnvironmentFile=/var/www/sistema_financas/shared/.env
+ExecStart=/var/www/sistema_financas/venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8010 --workers 3 --timeout 60 --access-logfile - --error-logfile -
+Restart=always
+RestartSec=5
+KillSignal=SIGQUIT
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

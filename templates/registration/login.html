@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<section class="auth-shell">
+    <div class="panel auth-card">
+        <div class="auth-header">
+            <h2>Entrar</h2>
+            <p>Acesse o sistema com seu usuário e senha.</p>
+        </div>
+
+        {% if form.errors %}
+            <p class="auth-error-text">Usuário ou senha inválidos.</p>
+        {% endif %}
+
+        <form method="post" class="auth-form">
+            {% csrf_token %}
+            <div>
+                <label for="{{ form.username.id_for_label }}">Usuário</label>
+                {{ form.username }}
+            </div>
+            <div>
+                <label for="{{ form.password.id_for_label }}">Senha</label>
+                {{ form.password }}
+            </div>
+            <button class="btn btn-primary auth-submit" type="submit">Entrar</button>
+        </form>
+
+        <div class="auth-visitor-section">
+            <p>Quer apenas conhecer a interface? O acesso visitante cria um perfil temporário automaticamente.</p>
+            <form method="post">
+                {% csrf_token %}
+                <button class="btn btn-secondary auth-submit" type="submit" name="entrar_visitante" value="1">Entrar como visitante</button>
+            </form>
+        </div>
+
+        <div class="auth-disclaimer">
+            <p>Este sistema é um projeto com foco em aprendizado e portfólio. Não se trata de um produto comercial ou versão final, e pode passar por ajustes durante o desenvolvimento.</p>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,614 @@
+{% extends "base.html" %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<section>
+    <div class="section-heading">
+        <div>
+            <h2>{{ titulo }}</h2>
+            {% if somente_visualizacao %}
+                <p>Consulte os dados gerais e os itens do orçamento em modo estritamente visual.</p>
+            {% else %}
+                <p>Edite os dados do orçamento e gerencie os itens diretamente nesta página.</p>
+            {% endif %}
+        </div>
+        <div class="inline-actions">
+            <a class="btn btn-secondary" href="{% url 'orcamentos:lista' %}" title="Voltar para orçamentos" aria-label="Voltar para orçamentos">
+                <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m15 18-6-6 6-6"/><path d="M9 12h10"/></svg>
+                <span>Voltar</span>
+            </a>
+            {% if orcamento %}
+                <a class="btn btn-secondary" href="{% url 'relatorios:orcamento_central' orcamento.pk %}" title="Relatórios" aria-label="Relatórios">
+                    <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M7 3.5h7l4 4V20a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 20V5A1.5 1.5 0 0 1 7.5 3.5Z"/><path d="M14 3.5V8h4"/><path d="M9 12h6M9 16h6"/></svg>
+                    <span>Relatórios</span>
+                </a>
+            {% endif %}
+            {% if not modo_somente_leitura %}
+                <button class="btn btn-primary" type="submit" form="orcamento-main-form" title="Salvar orçamento" aria-label="Salvar orçamento">
+                    <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M5 4.5h11l3 3V19.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.5Z"/><path d="M8 4.5v5h8v-5"/><path d="M9 15h6"/></svg>
+                    <span>Salvar orçamento</span>
+                </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="editor-shell">
+        <div class="form-panel">
+            <div class="section-heading section-heading-compact">
+                <div>
+                    <div class="section-heading-title-row">
+                        <h3>Dados do orçamento</h3>
+                        <div id="orcamento-draft-status" class="inline-feedback inline-feedback-inline"></div>
+                    </div>
+                    {% if somente_visualizacao %}
+                        <p class="muted">Esta tela é exclusiva para consulta e não permite alterações.</p>
+                    {% elif bloqueio_status %}
+                        <p class="muted">Somente orçamentos em rascunho podem ser editados nesta página.</p>
+                    {% elif modo_somente_leitura %}
+                        <p class="muted">Este orçamento está em modo somente leitura para o seu perfil.</p>
+                    {% endif %}
+                </div>
+            </div>
+            <form method="post" id="orcamento-main-form" novalidate data-unsaved-warning="1" data-draft-key="orcamento:{% if orcamento %}{{ orcamento.pk }}{% else %}novo{% endif %}:principal" data-draft-status-target="#orcamento-draft-status" data-clear-draft-on-submit="1">
+                {% csrf_token %}
+                {{ form.concorrencia_atualizado_em }}
+                {% if not orcamento %}
+                    {{ form.status.as_hidden }}
+                {% endif %}
+                {% if form.non_field_errors %}
+                    <div class="form-errors">
+                        {% for error in form.non_field_errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                <fieldset {% if modo_somente_leitura %}disabled{% endif %}>
+                    <div class="form-grid">
+                        {% if orcamento %}
+                            <div>
+                                <label for="{{ form.numero.id_for_label }}">Número</label>
+                                {% if form.numero.field.required %}<span class="required-mark">*</span>{% endif %}
+                                {{ form.numero }}
+                                {{ form.numero.errors }}
+                            </div>
+                        {% endif %}
+                        <div>
+                            <label for="{{ form.configuracao_empresa.id_for_label }}">Empresa do orçamento{% if form.configuracao_empresa.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.configuracao_empresa }}
+                            {{ form.configuracao_empresa.errors }}
+                        </div>
+                        <div>
+                            <label for="{{ form.cliente.id_for_label }}">Cliente{% if form.cliente.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.cliente }}
+                            {{ form.cliente.errors }}
+                        </div>
+
+                        <div class="full">
+                            <p class="muted">A empresa selecionada define automaticamente logo, cabeçalho, rodapé, dados bancários, validade padrão e assinatura usados nos relatórios. Você pode trocar essa seleção depois, se necessário.</p>
+                        </div>
+
+                        <div class="full">
+                            <label for="{{ form.titulo.id_for_label }}">Título{% if form.titulo.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.titulo }}
+                            {{ form.titulo.errors }}
+                        </div>
+
+                        <div class="full">
+                            <label for="{{ form.descricao_inicial.id_for_label }}">Descrição inicial{% if form.descricao_inicial.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.descricao_inicial }}
+                            {{ form.descricao_inicial.errors }}
+                        </div>
+
+                        <div class="full">
+                            <label for="{{ form.observacoes_gerais.id_for_label }}">Observações gerais{% if form.observacoes_gerais.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.observacoes_gerais }}
+                            {{ form.observacoes_gerais.errors }}
+                        </div>
+                    </div>
+
+                    <details class="form-submenu">
+                        <summary>Dados do evento/projeto</summary>
+                        <div class="form-submenu-body form-grid">
+
+                        <div>
+                            <label for="{{ form.evento_nome.id_for_label }}">Evento ou projeto{% if form.evento_nome.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.evento_nome }}
+                            {{ form.evento_nome.errors }}
+                        </div>
+                        <div>
+                            <label for="{{ form.evento_periodo.id_for_label }}">Período{% if form.evento_periodo.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.evento_periodo }}
+                            {{ form.evento_periodo.errors }}
+                        </div>
+
+                        <div>
+                            <label for="{{ form.evento_local.id_for_label }}">Local{% if form.evento_local.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.evento_local }}
+                            {{ form.evento_local.errors }}
+                        </div>
+                        <div>
+                            <label for="{{ form.evento_estande.id_for_label }}">Estande{% if form.evento_estande.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.evento_estande }}
+                            {{ form.evento_estande.errors }}
+                        </div>
+
+                        <div>
+                            <label for="{{ form.evento_area.id_for_label }}">Área{% if form.evento_area.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.evento_area }}
+                            {{ form.evento_area.errors }}
+                        </div>
+                        <div>
+                            <label for="{{ form.evento_contato.id_for_label }}">Contato{% if form.evento_contato.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.evento_contato }}
+                            {{ form.evento_contato.errors }}
+                        </div>
+
+                        <div>
+                            <label for="{{ form.evento_telefone.id_for_label }}">Telefone do contato{% if form.evento_telefone.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.evento_telefone }}
+                            {{ form.evento_telefone.errors }}
+                        </div>
+                        <div>
+                            <label for="{{ form.evento_email.id_for_label }}">E-mail do contato{% if form.evento_email.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.evento_email }}
+                            {{ form.evento_email.errors }}
+                        </div>
+                        </div>
+                    </details>
+
+                    <details class="form-submenu">
+                        <summary>Dados principais e ajustes globais</summary>
+                        <div class="form-submenu-body form-grid">
+                        {% if orcamento %}
+                            <div>
+                                <label for="{{ form.status.id_for_label }}">Status</label>
+                                {{ form.status }}
+                                {{ form.status.errors }}
+                            </div>
+                        {% endif %}
+                        <div>
+                            <label for="{{ form.data_emissao.id_for_label }}">Data de emissão</label>
+                            {{ form.data_emissao }}
+                            {{ form.data_emissao.errors }}
+                        </div>
+
+                        <div>
+                            <label for="{{ form.validade_em.id_for_label }}">Validade{% if form.validade_em.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.validade_em }}
+                            {{ form.validade_em.errors }}
+                        </div>
+                        {% if orcamento %}
+                            <div></div>
+                        {% endif %}
+
+                        <div>
+                            <label for="{{ form.desconto_global_valor.id_for_label }}">Desconto global em valor{% if form.desconto_global_valor.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.desconto_global_valor }}
+                            {{ form.desconto_global_valor.errors }}
+                        </div>
+                        <div>
+                            <label for="{{ form.desconto_global_percentual.id_for_label }}">Desconto global em %{% if form.desconto_global_percentual.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.desconto_global_percentual }}
+                            {{ form.desconto_global_percentual.errors }}
+                        </div>
+
+                        <div>
+                            <label for="{{ form.acrescimo_global_valor.id_for_label }}">Acréscimo global em valor{% if form.acrescimo_global_valor.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.acrescimo_global_valor }}
+                            {{ form.acrescimo_global_valor.errors }}
+                        </div>
+                        <div>
+                            <label for="{{ form.acrescimo_global_percentual.id_for_label }}">Acréscimo global em %{% if form.acrescimo_global_percentual.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.acrescimo_global_percentual }}
+                            {{ form.acrescimo_global_percentual.errors }}
+                        </div>
+                        </div>
+                    </details>
+
+                    <details class="form-submenu">
+                        <summary>Condições comerciais</summary>
+                        <div class="form-submenu-body form-grid">
+                            <div class="full">
+                                <label for="{{ form.condicoes_pagamento.id_for_label }}">Condições de pagamento{% if form.condicoes_pagamento.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                                {{ form.condicoes_pagamento }}
+                                {{ form.condicoes_pagamento.errors }}
+                            </div>
+
+                            <div>
+                                <label for="{{ form.valor_locacao.id_for_label }}">Valor de locação{% if form.valor_locacao.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                                {{ form.valor_locacao }}
+                                {{ form.valor_locacao.errors }}
+                            </div>
+                            <div>
+                                <label for="{{ form.valor_servico.id_for_label }}">Valor de serviço{% if form.valor_servico.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                                {{ form.valor_servico }}
+                                {{ form.valor_servico.errors }}
+                            </div>
+
+                            <div class="full">
+                                <label for="{{ form.servicos_taxas_inclusos.id_for_label }}">Serviços e taxas inclusos{% if form.servicos_taxas_inclusos.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                                {{ form.servicos_taxas_inclusos }}
+                                {{ form.servicos_taxas_inclusos.errors }}
+                            </div>
+                        </div>
+                    </details>
+
+                    <details class="form-submenu">
+                        <summary>Dados contratuais</summary>
+                        <div class="form-submenu-body form-grid">
+
+                        <div>
+                            <label for="{{ form.contrato_razao_social.id_for_label }}">Razão social{% if form.contrato_razao_social.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.contrato_razao_social }}
+                            {{ form.contrato_razao_social.errors }}
+                        </div>
+                        <div>
+                            <label for="{{ form.contrato_cnpj.id_for_label }}">CNPJ{% if form.contrato_cnpj.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.contrato_cnpj }}
+                            {{ form.contrato_cnpj.errors }}
+                        </div>
+
+                        <div class="full">
+                            <label for="{{ form.contrato_endereco.id_for_label }}">Endereço{% if form.contrato_endereco.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.contrato_endereco }}
+                            {{ form.contrato_endereco.errors }}
+                        </div>
+
+                        <div>
+                            <label for="{{ form.contrato_cidade.id_for_label }}">Cidade{% if form.contrato_cidade.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.contrato_cidade }}
+                            {{ form.contrato_cidade.errors }}
+                        </div>
+                        <div>
+                            <label for="{{ form.contrato_cep.id_for_label }}">CEP{% if form.contrato_cep.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.contrato_cep }}
+                            {{ form.contrato_cep.errors }}
+                        </div>
+
+                        <div>
+                            <label for="{{ form.contrato_responsavel_nome.id_for_label }}">Responsável{% if form.contrato_responsavel_nome.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.contrato_responsavel_nome }}
+                            {{ form.contrato_responsavel_nome.errors }}
+                        </div>
+                        <div>
+                            <label for="{{ form.contrato_responsavel_documento.id_for_label }}">Documento do responsável{% if form.contrato_responsavel_documento.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.contrato_responsavel_documento }}
+                            {{ form.contrato_responsavel_documento.errors }}
+                        </div>
+
+                        <div>
+                            <label for="{{ form.contrato_cargo_funcao.id_for_label }}">Cargo ou função{% if form.contrato_cargo_funcao.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.contrato_cargo_funcao }}
+                            {{ form.contrato_cargo_funcao.errors }}
+                        </div>
+                        <div>
+                            <label for="{{ form.contrato_inscricao_estadual.id_for_label }}">Inscrição estadual{% if form.contrato_inscricao_estadual.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.contrato_inscricao_estadual }}
+                            {{ form.contrato_inscricao_estadual.errors }}
+                        </div>
+
+                        <div>
+                            <label for="{{ form.contrato_telefone.id_for_label }}">Telefone contratual{% if form.contrato_telefone.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.contrato_telefone }}
+                            {{ form.contrato_telefone.errors }}
+                        </div>
+                        <div>
+                            <label for="{{ form.contrato_email.id_for_label }}">E-mail contratual{% if form.contrato_email.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                            {{ form.contrato_email }}
+                            {{ form.contrato_email.errors }}
+                        </div>
+                        </div>
+                    </details>
+
+                </fieldset>
+
+                {% if not modo_somente_leitura %}
+                    <div class="inline-actions inline-actions-end" style="margin-top: 1rem;">
+                        <button class="btn btn-primary" type="submit" title="Salvar orçamento" aria-label="Salvar orçamento">
+                            <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M5 4.5h11l3 3V19.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.5Z"/><path d="M8 4.5v5h8v-5"/><path d="M9 15h6"/></svg>
+                            <span>Salvar orçamento</span>
+                        </button>
+                    </div>
+                {% endif %}
+            </form>
+        </div>
+
+        {% if orcamento %}
+            <div id="item-feedback-region" aria-live="polite"></div>
+
+            {% if not modo_somente_leitura %}
+                <div class="inline-actions" style="margin-bottom: 1rem;">
+                    <button class="btn btn-primary" type="button" data-open-item-modal="1" data-modal-url="{% url 'orcamentos:item_criar' orcamento.pk %}">
+                        <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                        <span>Adicionar item</span>
+                    </button>
+                </div>
+            {% endif %}
+
+            <div class="table-section">
+                <div class="section-heading section-heading-compact">
+                    <div>
+                        <h3>Itens do orçamento</h3>
+                        {% if modo_somente_leitura %}
+                            <p>Visualização dos itens do orçamento.</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <form method="get" class="filters-form compact-filters">
+                    <input type="text" name="item_q" placeholder="Buscar por nome, código ou descrição" value="{{ item_q }}">
+                    <select name="item_categoria">
+                        <option value="">Todas as categorias</option>
+                        {% for categoria_obj in categorias_item %}
+                            <option value="{{ categoria_obj.pk }}" {% if item_categoria == categoria_obj.pk|stringformat:'s' %}selected{% endif %}>{{ categoria_obj.nome }}</option>
+                        {% endfor %}
+                    </select>
+                    <select name="item_sort">
+                        <option value="ordem" {% if item_sort == "ordem" %}selected{% endif %}>Ordem manual</option>
+                        <option value="categoria" {% if item_sort == "categoria" %}selected{% endif %}>Categoria</option>
+                        <option value="nome" {% if item_sort == "nome" %}selected{% endif %}>Nome</option>
+                        <option value="preco_maior" {% if item_sort == "preco_maior" %}selected{% endif %}>Maior preço</option>
+                        <option value="preco_menor" {% if item_sort == "preco_menor" %}selected{% endif %}>Menor preço</option>
+                        <option value="subtotal_maior" {% if item_sort == "subtotal_maior" %}selected{% endif %}>Maior subtotal</option>
+                        <option value="subtotal_menor" {% if item_sort == "subtotal_menor" %}selected{% endif %}>Menor subtotal</option>
+                    </select>
+                    <button class="btn btn-secondary btn-icon-action" type="submit" title="Aplicar filtros" aria-label="Aplicar filtros">
+                        <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M4 6h16"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>
+                        <span class="visually-hidden">Aplicar filtros</span>
+                    </button>
+                </form>
+
+                <div id="itens-tabela-region">
+                    {% include "orcamentos/partials/itens_tabela.html" %}
+                </div>
+            </div>
+
+            <div id="totais-card-region">
+                {% include "orcamentos/partials/totais_card.html" %}
+            </div>
+
+            {% if not modo_somente_leitura %}
+                <div class="item-modal" id="item-modal" hidden>
+                    <div class="item-modal-backdrop" data-close-item-modal="1"></div>
+                    <div class="item-modal-dialog" role="dialog" aria-modal="true" aria-label="Editar item do orçamento">
+                        <div class="item-modal-content" id="item-modal-content"></div>
+                    </div>
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+</section>
+
+<script nonce="{{ request.csp_nonce }}">
+(() => {
+  const openSectionsWithErrors = () => {
+    const hasErrors = document.querySelector(".form-errors, .errorlist");
+    if (!hasErrors) return;
+    document.querySelectorAll(".form-submenu").forEach((details) => {
+      if (details.querySelector(".errorlist")) {
+        details.open = true;
+      }
+    });
+  };
+
+  openSectionsWithErrors();
+
+  const initItemBuilders = (scope = document) => {
+    scope.querySelectorAll("[data-item-builder]").forEach((root) => {
+      if (root.dataset.bound === "1") return;
+      root.dataset.bound = "1";
+
+      const form = root.querySelector("[data-item-form]");
+      const select = root.querySelector("[data-catalog-select]");
+      const searchInput = root.querySelector("[data-catalog-search]");
+      const searchButton = root.querySelector("[data-catalog-search-button]");
+      const catalogTitle = root.querySelector("[data-catalog-title]");
+      const catalogMeta = root.querySelector("[data-catalog-meta]");
+      const catalogSummary = root.querySelector("[data-catalog-summary]");
+
+      const parseNumber = (value) => {
+        const normalized = String(value || "")
+          .replace(/[^\d,.-]/g, "")
+          .replace(/\.(?=.*[,])/g, "")
+          .replace(",", ".")
+          .trim();
+        const parsed = Number(normalized);
+        return Number.isFinite(parsed) ? parsed : 0;
+      };
+
+      const formatMoney = (value) =>
+        new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+
+      const updateCatalogSummary = () => {
+        if (!select) return;
+        const option = select.options[select.selectedIndex];
+        if (!option || !option.value) {
+          if (catalogTitle) catalogTitle.textContent = "";
+          if (catalogMeta) catalogMeta.textContent = "";
+          if (catalogSummary) {
+            catalogSummary.dataset.categoryActive = "0";
+            catalogSummary.style.removeProperty("--category-color");
+          }
+          return;
+        }
+
+        if (catalogTitle) catalogTitle.textContent = `${option.dataset.codigo} - ${option.dataset.nome}`;
+        if (catalogMeta) {
+          const categoria = option.dataset.categoria ? ` • Categoria ${option.dataset.categoria}` : "";
+          catalogMeta.textContent = `Unidade ${option.dataset.unidade || "-"} • Valor padrão ${formatMoney(parseNumber(option.dataset.valor))}${categoria}`;
+        }
+        if (catalogSummary) {
+          const categoriaCor = option.dataset.categoriaCor || "";
+          catalogSummary.dataset.categoryActive = categoriaCor ? "1" : "0";
+          if (categoriaCor) {
+            catalogSummary.style.setProperty("--category-color", categoriaCor);
+          } else {
+            catalogSummary.style.removeProperty("--category-color");
+          }
+        }
+      };
+
+      const filterCatalogOptions = () => {
+        if (!select || !searchInput) return;
+        const term = String(searchInput.value || "").trim().toLowerCase();
+        let visibleCount = 0;
+        Array.from(select.options).forEach((option, index) => {
+          if (index === 0) {
+            option.hidden = false;
+            return;
+          }
+          const haystack = `${option.dataset.codigo || ""} ${option.dataset.nome || ""}`.toLowerCase();
+          option.hidden = term ? !haystack.includes(term) : false;
+          if (!option.hidden) visibleCount += 1;
+        });
+        if (term && visibleCount === 1) {
+          const onlyVisible = Array.from(select.options).find((option, index) => index > 0 && !option.hidden);
+          if (onlyVisible) {
+            select.value = onlyVisible.value;
+            applyCatalogData();
+            updateCatalogSummary();
+          }
+        } else if (term && visibleCount === 0) {
+          select.value = "";
+          updateCatalogSummary();
+        }
+      };
+
+      const applyCatalogData = () => {
+        if (!select) return;
+        const option = select.options[select.selectedIndex];
+        if (!option || !option.value) return;
+        const byId = (id) => form.querySelector(id);
+
+        const descricao = byId("#id_descricao");
+        const valor = byId("#id_valor_unitario");
+
+        if (descricao) descricao.value = option.dataset.descricao || "";
+        if (valor) valor.value = option.dataset.valor || "0.00";
+        document.dispatchEvent(new CustomEvent("codex:refresh-decimals", { detail: { scope: form } }));
+      };
+
+      if (select) {
+        select.addEventListener("change", () => {
+          applyCatalogData();
+          updateCatalogSummary();
+        });
+      }
+
+      if (searchButton) {
+        searchButton.addEventListener("click", () => {
+          filterCatalogOptions();
+        });
+      }
+
+      if (searchInput) {
+        searchInput.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          filterCatalogOptions();
+        });
+      }
+
+      updateCatalogSummary();
+      document.dispatchEvent(new CustomEvent("codex:refresh-decimals", { detail: { scope: root } }));
+    });
+  };
+
+  initItemBuilders();
+  const itemModal = document.getElementById("item-modal");
+  const itemModalContent = document.getElementById("item-modal-content");
+
+  const openItemModal = (html) => {
+    if (!itemModal || !itemModalContent) return;
+    itemModalContent.innerHTML = html;
+    itemModal.hidden = false;
+    document.body.classList.add("modal-open");
+    initItemBuilders(itemModalContent);
+    document.dispatchEvent(new CustomEvent("codex:refresh-decimals", { detail: { scope: itemModalContent } }));
+  };
+
+  const closeItemModal = () => {
+    if (!itemModal || !itemModalContent) return;
+    itemModal.hidden = true;
+    itemModalContent.innerHTML = "";
+    document.body.classList.remove("modal-open");
+  };
+
+  document.addEventListener("click", async (event) => {
+    const closeModalTrigger = event.target.closest("[data-close-item-modal='1']");
+    if (closeModalTrigger) {
+      closeItemModal();
+      return;
+    }
+
+    const openTrigger = event.target.closest("[data-open-item-modal='1']");
+    if (!openTrigger) return;
+
+    event.preventDefault();
+    const requestUrl = openTrigger.dataset.modalUrl || openTrigger.getAttribute("href");
+    if (!requestUrl) return;
+
+    const response = await fetch(requestUrl, {
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+      },
+    });
+    if (!response.ok) return;
+    const data = await response.json();
+    if (data.modal_html !== undefined) {
+      openItemModal(data.modal_html);
+    }
+  });
+
+  document.addEventListener("submit", async (event) => {
+    const form = event.target;
+      if (!form.matches(".item-builder-form, [data-async-item-action='1']")) return;
+
+    event.preventDefault();
+    form.classList.add("is-loading");
+    const submitButton = form.querySelector("button[type='submit']");
+    if (submitButton) {
+      submitButton.disabled = true;
+    }
+
+    try {
+      const response = await fetch(form.action, {
+        method: "POST",
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+        },
+        body: new FormData(form),
+      });
+
+      if (!response.ok) {
+        throw new Error("Falha ao salvar item.");
+      }
+
+      const data = await response.json();
+      const tabela = document.getElementById("itens-tabela-region");
+      const totais = document.getElementById("totais-card-region");
+      const feedback = document.getElementById("item-feedback-region");
+
+      if (tabela && data.itens_html !== undefined) tabela.innerHTML = data.itens_html;
+      if (totais && data.totais_html !== undefined) totais.innerHTML = data.totais_html;
+      if (feedback && data.flash_html !== undefined) feedback.innerHTML = data.flash_html;
+      if (data.modal_html !== undefined) {
+        openItemModal(data.modal_html);
+      } else {
+        closeItemModal();
+      }
+      form.dispatchEvent(new CustomEvent("codex:mark-clean"));
+      document.dispatchEvent(new CustomEvent("codex:refresh-decimals", { detail: { scope: document } }));
+      initItemBuilders(document);
+    } finally {
+      form.dataset.isSubmitting = "0";
+      form.classList.remove("is-loading");
+      if (submitButton) {
+        submitButton.disabled = false;
+      }
+    }
+  });
+})();
+</script>
+{% endblock %}

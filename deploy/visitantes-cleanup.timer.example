@@ -1,0 +1,9 @@
+[Unit]
+Description=Agenda limpeza de visitantes expirados (a cada 1 hora)
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+
+[Install]
+WantedBy=timers.target

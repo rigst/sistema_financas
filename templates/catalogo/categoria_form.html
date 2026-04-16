@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<section>
+    <div class="section-heading">
+        <div>
+            <h2>{{ titulo }}</h2>
+        </div>
+        <div class="inline-actions">
+            <a class="btn btn-secondary" href="{% url 'catalogo:categoria_lista' %}" title="Voltar" aria-label="Voltar">
+                <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m15 18-6-6 6-6"/><path d="M9 12h10"/></svg>
+                <span>Voltar</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="form-panel form-panel-compact">
+        <form method="post" data-unsaved-warning="{% if not somente_leitura %}1{% else %}0{% endif %}">
+            {% csrf_token %}
+            {{ form.ativo }}
+            {{ form.concorrencia_atualizado_em }}
+            {% if form.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% if categoria and not somente_leitura %}
+                <div class="form-note">
+                    <strong>Aviso:</strong> alterações nesta categoria atualizam os itens do catálogo vinculados e a apresentação dos itens em orçamentos ainda não enviados.
+                </div>
+            {% endif %}
+
+            <fieldset {% if somente_leitura %}disabled{% endif %}>
+                <div class="form-grid">
+                    <div>
+                        <label for="{{ form.nome.id_for_label }}">Nome{% if form.nome.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.nome }}
+                        {{ form.nome.errors }}
+                    </div>
+
+                    <div class="full">
+                        <label for="{{ form.descricao.id_for_label }}">Descrição{% if form.descricao.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.descricao }}
+                        {{ form.descricao.errors }}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.cor.id_for_label }}">Cor{% if form.cor.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.cor }}
+                        {{ form.cor.errors }}
+                    </div>
+                </div>
+            </fieldset>
+
+            {% if not somente_leitura %}
+                <div class="inline-actions inline-actions-end">
+                    <button class="btn btn-primary" type="submit" title="Salvar categoria" aria-label="Salvar categoria">
+                        <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M5 4.5h11l3 3V19.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.5Z"/><path d="M8 4.5v5h8v-5"/><path d="M9 15h6"/></svg>
+                        <span>Salvar categoria</span>
+                    </button>
+                </div>
+            {% endif %}
+        </form>
+    </div>
+</section>
+{% endblock %}

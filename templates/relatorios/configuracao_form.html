@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<section>
+    <div class="section-heading">
+        <div>
+            <h2>{{ titulo }}</h2>
+        </div>
+        <div class="inline-actions">
+            {% if configuracao and not somente_leitura and user.pode_gerenciar_relatorios %}
+                <a class="btn btn-secondary btn-icon-action" href="{% url 'relatorios:configuracao_visualizar' configuracao.pk %}" title="Ver empresa" aria-label="Ver empresa">
+                    <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <span class="visually-hidden">Ver empresa</span>
+                </a>
+            {% endif %}
+            <a class="btn btn-secondary" href="{% url 'relatorios:configuracao_lista' %}" title="Voltar" aria-label="Voltar">
+                <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m15 18-6-6 6-6"/><path d="M9 12h10"/></svg>
+                <span>Voltar</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="form-panel">
+        <form method="post" enctype="multipart/form-data" data-unsaved-warning="{% if not somente_leitura %}1{% else %}0{% endif %}">
+            {% csrf_token %}
+            {{ form.ativo }}
+            {{ form.concorrencia_atualizado_em }}
+            {% if form.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% if configuracao and not somente_leitura %}
+                <div class="form-note">
+                    <strong>Aviso:</strong> alterações nos dados da empresa passam a valer nos relatórios e nos orçamentos ainda não enviados.
+                </div>
+            {% endif %}
+
+            <fieldset {% if somente_leitura %}disabled{% endif %}>
+                <div class="form-grid">
+                    <div>
+                        <label for="{{ form.nome_empresa.id_for_label }}">Nome da empresa{% if form.nome_empresa.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.nome_empresa }}
+                        {{ form.nome_empresa.errors }}
+                    </div>
+                    <div>
+                        <label for="{{ form.nome_fantasia.id_for_label }}">Nome fantasia{% if form.nome_fantasia.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.nome_fantasia }}
+                        {{ form.nome_fantasia.errors }}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.cpf_cnpj.id_for_label }}">CPF/CNPJ{% if form.cpf_cnpj.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.cpf_cnpj }}
+                        {{ form.cpf_cnpj.errors }}
+                    </div>
+                    <div>
+                        <label for="{{ form.email.id_for_label }}">E-mail{% if form.email.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.email }}
+                        {{ form.email.errors }}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.telefone.id_for_label }}">Telefone{% if form.telefone.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.telefone }}
+                        {{ form.telefone.errors }}
+                    </div>
+                    <div>
+                        <label for="{{ form.site.id_for_label }}">Site{% if form.site.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.site }}
+                        {{ form.site.errors }}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.cep.id_for_label }}">CEP{% if form.cep.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.cep }}
+                        {{ form.cep.errors }}
+                    </div>
+                    <div>
+                        <label for="{{ form.logradouro.id_for_label }}">Logradouro{% if form.logradouro.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.logradouro }}
+                        {{ form.logradouro.errors }}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.numero.id_for_label }}">Número{% if form.numero.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.numero }}
+                        {{ form.numero.errors }}
+                    </div>
+                    <div>
+                        <label for="{{ form.complemento.id_for_label }}">Complemento{% if form.complemento.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.complemento }}
+                        {{ form.complemento.errors }}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.bairro.id_for_label }}">Bairro{% if form.bairro.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.bairro }}
+                        {{ form.bairro.errors }}
+                    </div>
+                    <div>
+                        <label for="{{ form.cidade.id_for_label }}">Cidade{% if form.cidade.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.cidade }}
+                        {{ form.cidade.errors }}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.estado.id_for_label }}">UF{% if form.estado.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.estado }}
+                        {{ form.estado.errors }}
+                    </div>
+                    <div>
+                        <label for="{{ form.logo.id_for_label }}">Logo{% if form.logo.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.logo }}
+                        {{ form.logo.errors }}
+                    </div>
+
+                    <div class="full">
+                        <label for="{{ form.rodape_relatorio.id_for_label }}">Rodapé do relatório{% if form.rodape_relatorio.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.rodape_relatorio }}
+                        {{ form.rodape_relatorio.errors }}
+                    </div>
+
+                    <div class="full">
+                        <h3>Configurações institucionais</h3>
+                    </div>
+
+                    <div class="full">
+                        <label for="{{ form.dados_bancarios.id_for_label }}">Dados bancários{% if form.dados_bancarios.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.dados_bancarios }}
+                        {{ form.dados_bancarios.errors }}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.chave_pix.id_for_label }}">Chave PIX{% if form.chave_pix.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.chave_pix }}
+                        {{ form.chave_pix.errors }}
+                    </div>
+                    <div>
+                        <label for="{{ form.validade_padrao_proposta.id_for_label }}">Validade padrão da proposta (dias){% if form.validade_padrao_proposta.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.validade_padrao_proposta }}
+                        {{ form.validade_padrao_proposta.errors }}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.assinatura_nome.id_for_label }}">Nome da assinatura{% if form.assinatura_nome.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.assinatura_nome }}
+                        {{ form.assinatura_nome.errors }}
+                    </div>
+                    <div>
+                        <label for="{{ form.assinatura_cargo.id_for_label }}">Cargo da assinatura{% if form.assinatura_cargo.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.assinatura_cargo }}
+                        {{ form.assinatura_cargo.errors }}
+                    </div>
+
+                    <div class="full">
+                        <label for="{{ form.assinatura_contato.id_for_label }}">Contato da assinatura{% if form.assinatura_contato.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.assinatura_contato }}
+                        {{ form.assinatura_contato.errors }}
+                    </div>
+
+                    <div class="full">
+                        <label for="{{ form.texto_institucional_memorial.id_for_label }}">Texto institucional do memorial{% if form.texto_institucional_memorial.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+                        {{ form.texto_institucional_memorial }}
+                        {{ form.texto_institucional_memorial.errors }}
+                    </div>
+                </div>
+            </fieldset>
+
+            {% if not somente_leitura %}
+                <div class="inline-actions inline-actions-end">
+                    <button class="btn btn-primary" type="submit" title="Salvar empresa" aria-label="Salvar empresa">
+                        <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M5 4.5h11l3 3V19.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.5Z"/><path d="M8 4.5v5h8v-5"/><path d="M9 15h6"/></svg>
+                        <span>Salvar empresa</span>
+                    </button>
+                </div>
+            {% endif %}
+        </form>
+    </div>
+</section>
+{% endblock %}

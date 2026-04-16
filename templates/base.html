@@ -1,0 +1,574 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}StölbenFinanças{% endblock %}</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <link rel="apple-touch-icon" href="{% static 'favicon.png' %}">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20260412-mobilefix5">
+</head>
+<body>
+    <header class="site-header">
+        <div class="container">
+            <nav class="nav">
+                <div class="nav-top">
+                    <a href="{% url 'dashboard' %}" class="brand">Stölben<span>Finanças</span></a>
+
+                    {% if user.is_authenticated %}
+                        <button class="nav-toggle js-nav-toggle" type="button" aria-expanded="false" aria-controls="header-user-meta header-main-links">
+                            <span class="visually-hidden">Abrir menu</span>
+                            <span class="nav-toggle-bar" aria-hidden="true"></span>
+                            <span class="nav-toggle-bar" aria-hidden="true"></span>
+                            <span class="nav-toggle-bar" aria-hidden="true"></span>
+                        </button>
+
+                        <div id="header-user-meta" class="header-user-meta">
+                            <div class="header-user-info">
+                                <span class="header-user-greeting">Olá, {{ user }}</span>
+                                <div class="header-user-company">
+                                    {% if empresas_usuario|length > 1 %}
+                                        <form action="{% url 'alternar_empresa' %}" method="post" class="header-company-switch">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            <label for="empresa-ativa-select" style="display:none;">Empresa ativa</label>
+                                            <select id="empresa-ativa-select" name="empresa_id" class="header-company-select js-auto-submit">
+                                                {% for empresa_item in empresas_usuario %}
+                                                    <option value="{{ empresa_item.pk }}" {% if empresa_ativa and empresa_item.pk == empresa_ativa.pk %}selected{% endif %}>
+                                                        {{ empresa_item.nome }}
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
+                                        </form>
+                                    {% elif user.eh_visitante %}
+                                        <span>Empresa Visitante</span>
+                                    {% elif empresa_ativa %}
+                                        <span>{{ empresa_ativa.nome }}</span>
+                                    {% else %}
+                                        <span>{{ user.nome_empresa }}</span>
+                                    {% endif %}
+                                </div>
+                                <span class="user-role">{{ user.get_perfil_display }}</span>
+                            </div>
+                            <div class="header-user-actions">
+                                <form action="{% url 'logout' %}" method="post">
+                                    {% csrf_token %}
+                                    <button class="nav-logout" type="submit">Sair</button>
+                                </form>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+
+                {% if user.is_authenticated %}
+                    <div id="header-main-links" class="nav-bottom">
+                        <ul class="nav-links">
+                            <li><a href="{% url 'dashboard' %}" {% if request.resolver_match.url_name == 'dashboard' %}class="active"{% endif %}>Dashboard</a></li>
+                            {% if user.pode_visualizar_orcamentos %}
+                                <li><a href="{% url 'orcamentos:lista' %}" {% if request.resolver_match.namespace == 'orcamentos' %}class="active"{% endif %}>Finanças</a></li>
+                            {% endif %}
+                            {% if user.pode_visualizar_catalogo %}
+                                <li><a href="{% url 'catalogo:categoria_lista' %}" {% if request.resolver_match.namespace == 'catalogo' and request.resolver_match.url_name == 'categoria_lista' %}class="active"{% endif %}>Categorias</a></li>
+                                <li><a href="{% url 'catalogo:item_lista' %}" {% if request.resolver_match.namespace == 'catalogo' and request.resolver_match.url_name == 'item_lista' %}class="active"{% endif %}>Itens</a></li>
+                            {% endif %}
+                            {% if user.pode_visualizar_clientes %}
+                                <li><a href="{% url 'clientes:lista' %}" {% if request.resolver_match.namespace == 'clientes' %}class="active"{% endif %}>Clientes</a></li>
+                            {% endif %}
+                            {% if user.pode_visualizar_relatorios %}
+                                <li><a href="{% url 'relatorios:configuracao_lista' %}" {% if request.resolver_match.namespace == 'relatorios' %}class="active"{% endif %}>Empresa</a></li>
+                            {% endif %}
+                            <li><a href="{% url 'manual' %}" {% if request.resolver_match.url_name == 'manual' %}class="active"{% endif %}>Manual</a></li>
+                        </ul>
+                    </div>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        {% if messages %}
+            <div class="flash-stack" role="status" aria-live="polite">
+                <ul class="flash-list">
+                    {% for message in messages %}
+                        <li class="flash-message {% if message.tags %}flash-{{ message.tags }}{% endif %}">{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <script nonce="{{ request.csp_nonce }}">
+    (() => {
+      const DRAFT_STORAGE_PREFIX = "codex-draft:";
+      const DRAFT_CONTEXT_KEY = "codex-draft-context-v1";
+      const CURRENT_DRAFT_CONTEXT = {
+        authenticated: {% if user.is_authenticated %}true{% else %}false{% endif %},
+        userId: "{% if user.is_authenticated %}{{ user.pk }}{% endif %}",
+        companyId: "{% if user.is_authenticated and empresa_ativa %}{{ empresa_ativa.pk }}{% endif %}",
+      };
+
+      const clearDraftStorage = () => {
+        for (let idx = localStorage.length - 1; idx >= 0; idx -= 1) {
+          const key = localStorage.key(idx);
+          if (key && key.startsWith(DRAFT_STORAGE_PREFIX)) {
+            localStorage.removeItem(key);
+          }
+        }
+      };
+
+      const syncDraftContext = () => {
+        try {
+          const serializedCurrent = JSON.stringify(CURRENT_DRAFT_CONTEXT);
+          const serializedPrevious = localStorage.getItem(DRAFT_CONTEXT_KEY);
+          if (serializedPrevious && serializedPrevious !== serializedCurrent) {
+            clearDraftStorage();
+          }
+          localStorage.setItem(DRAFT_CONTEXT_KEY, serializedCurrent);
+        } catch (error) {
+          // Ignore storage access errors and keep app usable.
+        }
+      };
+
+      const normalizeDecimal = (value) => {
+        const raw = String(value || "").replace(/[^\d,.-]/g, "").trim();
+        if (!raw) return "";
+
+        const negative = raw.startsWith("-") ? "-" : "";
+        const cleaned = raw.replace(/-/g, "");
+        const lastComma = cleaned.lastIndexOf(",");
+        const lastDot = cleaned.lastIndexOf(".");
+        const decimalSeparatorIndex = Math.max(lastComma, lastDot);
+
+        if (decimalSeparatorIndex === -1) {
+          return negative + cleaned.replace(/[.,]/g, "");
+        }
+
+        const integerPart = cleaned.slice(0, decimalSeparatorIndex).replace(/[.,]/g, "");
+        const decimalPart = cleaned.slice(decimalSeparatorIndex + 1).replace(/[.,]/g, "");
+        return `${negative}${integerPart || "0"},${decimalPart}`;
+      };
+
+      const formatDecimal = (value, places = 2) => {
+        const normalized = normalizeDecimal(value);
+        if (!normalized) return "";
+        const numeric = Number(normalized.replace(/\./g, "").replace(",", "."));
+        if (!Number.isFinite(numeric)) return value;
+        return new Intl.NumberFormat("pt-BR", {
+          minimumFractionDigits: places,
+          maximumFractionDigits: places,
+        }).format(numeric);
+      };
+
+      const formatCurrency = (value, places = 2) => {
+        const normalized = normalizeDecimal(value);
+        if (!normalized) return "";
+        const numeric = Number(normalized.replace(/\./g, "").replace(",", "."));
+        if (!Number.isFinite(numeric)) return value;
+        return new Intl.NumberFormat("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+          minimumFractionDigits: places,
+          maximumFractionDigits: places,
+        }).format(numeric);
+      };
+
+      const bindDecimalInput = (input) => {
+        if (!input || input.dataset.brBound === "1") return;
+        input.dataset.brBound = "1";
+
+        const isCurrency = input.dataset.brCurrency === "1";
+        const places = Number.parseInt(input.dataset.decimalPlaces || "2", 10);
+
+        const applyDisplayFormat = () => {
+          if (!input.value && input.dataset.zeroCleared === "1") {
+            input.value = isCurrency ? formatCurrency("0", places) : formatDecimal("0", places);
+            input.dataset.zeroCleared = "0";
+            return;
+          }
+          if (!input.value) return;
+          input.value = isCurrency ? formatCurrency(input.value, places) : formatDecimal(input.value, places);
+          input.dataset.zeroCleared = "0";
+        };
+
+        const applyEditFormat = () => {
+          if (!input.value) return;
+          const normalized = normalizeDecimal(input.value);
+          if (normalized === `0,${"0".repeat(places)}`) {
+            input.value = "";
+            input.dataset.zeroCleared = "1";
+            return;
+          }
+          input.value = normalized;
+          input.dataset.zeroCleared = "0";
+        };
+
+        input.addEventListener("focus", applyEditFormat);
+        input.addEventListener("blur", applyDisplayFormat);
+
+        applyDisplayFormat();
+      };
+
+      const maskCpfCnpj = (value) => {
+        const digits = String(value || "").replace(/\D/g, "").slice(0, 14);
+        if (digits.length <= 11) {
+          if (digits.length <= 3) return digits;
+          if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+          if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+          return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+        }
+        if (digits.length <= 2) return digits;
+        if (digits.length <= 5) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+        if (digits.length <= 8) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`;
+        if (digits.length <= 12) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`;
+        return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+      };
+
+      const maskPhone = (value) => {
+        const digits = String(value || "").replace(/\D/g, "").slice(0, 11);
+        if (digits.length <= 2) return digits;
+        if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+        if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+        return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+      };
+
+      const maskCep = (value) => {
+        const digits = String(value || "").replace(/\D/g, "").slice(0, 8);
+        if (digits.length <= 5) return digits;
+        return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+      };
+
+      const bindMaskedInput = (input) => {
+        if (!input || input.dataset.brMaskBound === "1") return;
+        input.dataset.brMaskBound = "1";
+
+        const applyMask = () => {
+          if (input.dataset.brMask === "cpf_cnpj") {
+            input.value = maskCpfCnpj(input.value);
+            return;
+          }
+          if (input.dataset.brMask === "phone") {
+            input.value = maskPhone(input.value);
+            return;
+          }
+          if (input.dataset.brMask === "cep") {
+            input.value = maskCep(input.value);
+          }
+        };
+
+        input.addEventListener("input", applyMask);
+        input.addEventListener("blur", applyMask);
+        applyMask();
+      };
+
+      const bindUppercaseInput = (input) => {
+        if (!input || input.dataset.upperBound === "1") return;
+        input.dataset.upperBound = "1";
+
+        const applyUpper = () => {
+          input.value = String(input.value || "").toUpperCase();
+        };
+
+        input.addEventListener("input", applyUpper);
+        input.addEventListener("blur", applyUpper);
+        applyUpper();
+      };
+
+      const initDecimalInputs = (scope = document) => {
+        scope.querySelectorAll("input[data-br-decimal='1']").forEach(bindDecimalInput);
+        scope.querySelectorAll("input[data-br-mask]").forEach(bindMaskedInput);
+        scope.querySelectorAll("input[data-force-uppercase='1']").forEach(bindUppercaseInput);
+      };
+
+      const serializeForm = (form) => {
+        const formData = new FormData(form);
+        const pairs = [];
+        for (const [key, value] of formData.entries()) {
+          if (value instanceof File) {
+            pairs.push([key, `file:${value.name}:${value.size}:${value.lastModified}`]);
+          } else {
+            pairs.push([key, String(value)]);
+          }
+        }
+        pairs.sort((a, b) => {
+          const keyCompare = a[0].localeCompare(b[0]);
+          if (keyCompare !== 0) return keyCompare;
+          return a[1].localeCompare(b[1]);
+        });
+        return JSON.stringify(pairs);
+      };
+
+      const bindUnsavedWarning = (form) => {
+        if (!form || form.dataset.unsavedBound === "1") return;
+        form.dataset.unsavedBound = "1";
+
+        const refreshSnapshot = () => {
+          form.dataset.initialState = serializeForm(form);
+          form.dataset.isDirty = "0";
+        };
+
+        const evaluateDirty = () => {
+          form.dataset.isDirty = serializeForm(form) === form.dataset.initialState ? "0" : "1";
+        };
+
+        form.addEventListener("input", evaluateDirty);
+        form.addEventListener("change", evaluateDirty);
+        form.addEventListener("submit", () => {
+          form.dataset.isSubmitting = "1";
+        });
+        form.addEventListener("codex:mark-clean", refreshSnapshot);
+
+        refreshSnapshot();
+      };
+
+      const initUnsavedWarnings = (scope = document) => {
+        scope.querySelectorAll("form[data-unsaved-warning='1']").forEach(bindUnsavedWarning);
+      };
+
+      const bindDraftPersistence = (form) => {
+        if (!form || form.dataset.draftBound === "1" || !form.dataset.draftKey) return;
+        form.dataset.draftBound = "1";
+        const storageKey = `codex-draft:${form.dataset.draftKey}`;
+        const statusTarget = form.dataset.draftStatusTarget
+          ? document.querySelector(form.dataset.draftStatusTarget)
+          : null;
+        let saveTimer = null;
+
+        const setStatus = (message) => {
+          if (!statusTarget) return;
+          statusTarget.textContent = message;
+        };
+
+        const capture = () => {
+          const payload = {};
+          form.querySelectorAll("input, select, textarea").forEach((field) => {
+            if (!field.name || field.type === "password" || field.type === "hidden" || field.disabled) return;
+            if (field.type === "checkbox") {
+              payload[field.name] = field.checked;
+              return;
+            }
+            if (field.type === "radio") {
+              if (field.checked) payload[field.name] = field.value;
+              return;
+            }
+            payload[field.name] = field.value;
+          });
+          return payload;
+        };
+
+        const restore = () => {
+          try {
+            const raw = localStorage.getItem(storageKey);
+            if (!raw) return;
+            const payload = JSON.parse(raw);
+            Object.entries(payload).forEach(([name, value]) => {
+              const field = form.querySelector(`[name="${CSS.escape(name)}"]`);
+              if (!field) return;
+              if (field.type === "checkbox") {
+                field.checked = Boolean(value);
+              } else if (field.type === "radio") {
+                const selected = form.querySelector(`[name="${CSS.escape(name)}"][value="${CSS.escape(String(value))}"]`);
+                if (selected) selected.checked = true;
+              } else {
+                field.value = value;
+              }
+            });
+            setStatus("Rascunho restaurado automaticamente.");
+            form.dispatchEvent(new Event("change", { bubbles: true }));
+            document.dispatchEvent(new CustomEvent("codex:refresh-decimals", { detail: { scope: form } }));
+          } catch (error) {
+            localStorage.removeItem(storageKey);
+          }
+        };
+
+        const persist = () => {
+          localStorage.setItem(storageKey, JSON.stringify(capture()));
+          setStatus("Rascunho salvo neste navegador.");
+        };
+
+        const schedulePersist = () => {
+          clearTimeout(saveTimer);
+          saveTimer = setTimeout(persist, 350);
+        };
+
+        const clearDraft = () => {
+          localStorage.removeItem(storageKey);
+          if (statusTarget && form.dataset.keepDraftMessage !== "1") {
+            statusTarget.textContent = "";
+          }
+        };
+
+        restore();
+        form.addEventListener("input", schedulePersist);
+        form.addEventListener("change", schedulePersist);
+        form.addEventListener("submit", () => {
+          form.dataset.isSubmitting = "1";
+        });
+        form.addEventListener("codex:mark-clean", () => {
+          if (form.dataset.clearDraftOnSubmit === "1") {
+            clearDraft();
+          } else {
+            persist();
+          }
+          form.dataset.isSubmitting = "0";
+        });
+      };
+
+      const initDraftPersistence = (scope = document) => {
+        scope.querySelectorAll("form[data-draft-key]").forEach(bindDraftPersistence);
+      };
+
+      const bindAutoSubmitControls = (scope = document) => {
+        scope.querySelectorAll(".js-auto-submit").forEach((field) => {
+          if (field.dataset.autoSubmitBound === "1") return;
+          field.dataset.autoSubmitBound = "1";
+          field.addEventListener("change", () => {
+            const form = field.form;
+            if (form) form.submit();
+          });
+        });
+      };
+
+      const bindConfirmForms = (scope = document) => {
+        scope.querySelectorAll("form[data-confirm]").forEach((form) => {
+          if (form.dataset.confirmBound === "1") return;
+          form.dataset.confirmBound = "1";
+          form.addEventListener("submit", (event) => {
+            const msg = form.dataset.confirm || "";
+            if (msg && !window.confirm(msg)) {
+              event.preventDefault();
+            }
+          });
+        });
+      };
+
+      const showGlobalSaveErrorNotice = () => {
+        const hasFormErrors = document.querySelector(".errorlist, .form-errors");
+        if (!hasFormErrors) return;
+
+        const hasPostForm = Array.from(document.querySelectorAll("form")).some(
+          (form) => (form.getAttribute("method") || "get").toLowerCase() === "post"
+        );
+        if (!hasPostForm) return;
+
+        let flashStack = document.querySelector("main.container > .flash-stack");
+        if (!flashStack) {
+          const main = document.querySelector("main.container");
+          if (!main) return;
+          flashStack = document.createElement("div");
+          flashStack.className = "flash-stack";
+          flashStack.setAttribute("role", "status");
+          flashStack.setAttribute("aria-live", "polite");
+          flashStack.innerHTML = '<ul class="flash-list"></ul>';
+          main.insertBefore(flashStack, main.firstChild);
+        }
+
+        const flashList = flashStack.querySelector(".flash-list");
+        if (!flashList) return;
+        if (flashList.querySelector("[data-global-save-error='1']")) return;
+
+        const item = document.createElement("li");
+        item.className = "flash-message flash-error";
+        item.dataset.globalSaveError = "1";
+        item.textContent = "Não foi possível salvar. Revise os campos obrigatórios e os dados destacados.";
+        flashList.prepend(item);
+      };
+
+      const bindMobileHeaderToggle = () => {
+        const nav = document.querySelector(".nav");
+        const toggle = document.querySelector(".js-nav-toggle");
+        const userMeta = document.getElementById("header-user-meta");
+        const navBottom = document.getElementById("header-main-links");
+        if (!nav || !toggle || !userMeta || !navBottom) return;
+
+        const media = window.matchMedia("(max-width: 900px)");
+
+        const sync = () => {
+          if (!media.matches) {
+            nav.classList.remove("nav-open");
+            toggle.setAttribute("aria-expanded", "false");
+            userMeta.hidden = false;
+            navBottom.hidden = false;
+            return;
+          }
+
+          const expanded = nav.classList.contains("nav-open");
+          toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+          userMeta.hidden = !expanded;
+          navBottom.hidden = !expanded;
+        };
+
+        if (toggle.dataset.toggleBound !== "1") {
+          toggle.dataset.toggleBound = "1";
+          toggle.addEventListener("click", () => {
+            nav.classList.toggle("nav-open");
+            sync();
+          });
+        }
+
+        if (media.addEventListener) {
+          media.addEventListener("change", sync);
+        } else if (media.addListener) {
+          media.addListener(sync);
+        }
+
+        sync();
+      };
+
+      const setTableCardLabels = (scope = document) => {
+        scope.querySelectorAll(".table-wrap > table").forEach((table) => {
+          if (table.dataset.cardReady === "1") return;
+          table.dataset.cardReady = "1";
+
+          const headers = Array.from(table.querySelectorAll("thead th")).map((th) => th.textContent.trim());
+          table.querySelectorAll("tbody tr").forEach((row) => {
+            const cells = Array.from(row.children).filter((el) => el.tagName === "TD");
+            cells.forEach((cell, index) => {
+              if (cell.hasAttribute("data-label")) return;
+              cell.setAttribute("data-label", headers[index] || "");
+            });
+          });
+        });
+      };
+
+      document.addEventListener("submit", (event) => {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement)) return;
+        form.querySelectorAll("input[data-br-decimal='1']").forEach((input) => {
+          input.value = normalizeDecimal(input.value);
+        });
+      });
+
+      window.addEventListener("beforeunload", (event) => {
+        const dirtyForm = Array.from(document.querySelectorAll("form[data-unsaved-warning='1']")).find(
+          (form) => form.dataset.isDirty === "1" && form.dataset.isSubmitting !== "1"
+        );
+        if (!dirtyForm) return;
+        event.preventDefault();
+        event.returnValue = "";
+      });
+
+      syncDraftContext();
+      showGlobalSaveErrorNotice();
+      initDecimalInputs();
+      initUnsavedWarnings();
+      initDraftPersistence();
+      bindAutoSubmitControls();
+      bindConfirmForms();
+      bindMobileHeaderToggle();
+      setTableCardLabels();
+      document.addEventListener("codex:refresh-decimals", (event) => {
+        initDecimalInputs(event.detail?.scope || document);
+        initUnsavedWarnings(event.detail?.scope || document);
+        initDraftPersistence(event.detail?.scope || document);
+        bindAutoSubmitControls(event.detail?.scope || document);
+        bindConfirmForms(event.detail?.scope || document);
+        bindMobileHeaderToggle();
+        setTableCardLabels(event.detail?.scope || document);
+      });
+    })();
+    </script>
+</body>
+</html>

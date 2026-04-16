@@ -1,0 +1,11 @@
+[Unit]
+Description=Limpeza de visitantes expirados (Sistema de Orcamentos)
+After=network.target
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/sistema_financas/current
+EnvironmentFile=/var/www/sistema_financas/shared/.env
+ExecStart=/var/www/sistema_financas/venv/bin/python manage.py limpar_visitantes_expirados
