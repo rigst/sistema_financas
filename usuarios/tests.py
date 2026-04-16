@@ -5,7 +5,7 @@ from django.contrib.auth.models import Group
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory
 from django.test import TestCase
-from django.urls import NoReverseMatch, reverse
+from django.urls import reverse
 
 from financeiro.models import CategoriaFinanceira, Conta, Transacao
 from .views import UsuarioLoginView
@@ -43,16 +43,6 @@ class AdminPermissaoPerfilTests(TestCase):
         response = self.client.get(reverse("admin:financeiro_conta_add"))
 
         self.assertEqual(response.status_code, 200)
-
-    def test_apps_legados_nao_tem_rotas_no_admin(self):
-        with self.assertRaises(NoReverseMatch):
-            reverse("admin:clientes_cliente_add")
-        with self.assertRaises(NoReverseMatch):
-            reverse("admin:catalogo_itemcatalogo_add")
-        with self.assertRaises(NoReverseMatch):
-            reverse("admin:orcamentos_orcamento_add")
-        with self.assertRaises(NoReverseMatch):
-            reverse("admin:relatorios_configuracaoempresa_add")
 
     def test_visualizador_pode_ver_financeiro_no_admin_mas_nao_criar(self):
         user = self.criar_usuario("visualizador", "visualizador")
@@ -124,10 +114,6 @@ class UsuarioPermissaoPropriedadesTests(TestCase):
 
         self.assertTrue(user.pode_visualizar_financeiro)
         self.assertTrue(user.pode_gerenciar_financeiro)
-        self.assertFalse(user.pode_gerenciar_clientes)
-        self.assertFalse(user.pode_gerenciar_catalogo)
-        self.assertFalse(user.pode_gerenciar_relatorios)
-        self.assertFalse(user.pode_gerenciar_orcamentos)
 
     def test_visualizador_fica_apenas_com_visualizacao(self):
         user = get_user_model().objects.create_user(
@@ -138,14 +124,6 @@ class UsuarioPermissaoPropriedadesTests(TestCase):
 
         self.assertTrue(user.pode_visualizar_financeiro)
         self.assertFalse(user.pode_gerenciar_financeiro)
-        self.assertFalse(user.pode_visualizar_clientes)
-        self.assertFalse(user.pode_visualizar_catalogo)
-        self.assertFalse(user.pode_visualizar_relatorios)
-        self.assertFalse(user.pode_visualizar_orcamentos)
-        self.assertFalse(user.pode_gerenciar_clientes)
-        self.assertFalse(user.pode_gerenciar_catalogo)
-        self.assertFalse(user.pode_gerenciar_relatorios)
-        self.assertFalse(user.pode_gerenciar_orcamentos)
 
     def test_superusuario_com_perfil_padrao_tem_capacidades_de_admin(self):
         user = get_user_model().objects.create_superuser(
@@ -157,10 +135,6 @@ class UsuarioPermissaoPropriedadesTests(TestCase):
         self.assertTrue(user.eh_admin_perfil)
         self.assertTrue(user.pode_visualizar_financeiro)
         self.assertTrue(user.pode_gerenciar_financeiro)
-        self.assertFalse(user.pode_gerenciar_clientes)
-        self.assertFalse(user.pode_gerenciar_catalogo)
-        self.assertFalse(user.pode_gerenciar_relatorios)
-        self.assertFalse(user.pode_gerenciar_orcamentos)
 
 
 class UsuarioVisitanteTests(TestCase):

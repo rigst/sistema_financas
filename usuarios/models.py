@@ -52,38 +52,6 @@ class Usuario(AbstractUser):
         return self.eh_admin_perfil or self.eh_orcamentista or self.eh_visitante
 
     @property
-    def pode_visualizar_clientes(self):
-        return False
-
-    @property
-    def pode_gerenciar_clientes(self):
-        return False
-
-    @property
-    def pode_visualizar_catalogo(self):
-        return False
-
-    @property
-    def pode_gerenciar_catalogo(self):
-        return False
-
-    @property
-    def pode_visualizar_relatorios(self):
-        return False
-
-    @property
-    def pode_gerenciar_relatorios(self):
-        return False
-
-    @property
-    def pode_visualizar_orcamentos(self):
-        return False
-
-    @property
-    def pode_gerenciar_orcamentos(self):
-        return False
-
-    @property
     def nome_empresa(self):
         empresa = obter_empresa_ativa_usuario(self)
         grupo = empresa.grupo if empresa else self.groups.order_by("name", "id").first()

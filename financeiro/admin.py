@@ -9,7 +9,7 @@ from .models import (
     FaturaCartao,
     LancamentoCartao,
     MetaFinanceira,
-    OrcamentoMensal,
+    PlanejamentoMensal,
     RecorrenciaFinanceira,
     Transacao,
 )
@@ -66,8 +66,8 @@ class LancamentoCartaoAdmin(FinanceiroAdminMixin, admin.ModelAdmin):
     date_hierarchy = "data_compra"
 
 
-@admin.register(OrcamentoMensal)
-class OrcamentoMensalAdmin(FinanceiroAdminMixin, admin.ModelAdmin):
+@admin.register(PlanejamentoMensal)
+class PlanejamentoMensalAdmin(FinanceiroAdminMixin, admin.ModelAdmin):
     list_display = ("categoria", "mes", "ano", "valor_planejado", "empresa")
     list_filter = ("ano", "mes", "empresa")
 

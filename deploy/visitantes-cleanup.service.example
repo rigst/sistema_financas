@@ -1,5 +1,5 @@
 [Unit]
-Description=Limpeza de visitantes expirados (Sistema de Orcamentos)
+Description=Limpeza de visitantes expirados (Sistema de Financas)
 After=network.target
 
 [Service]

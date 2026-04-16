@@ -1,12 +1,8 @@
 # Sistema de Finanças
 
-Aplicação Django para controle pessoal de finanças, derivada do `sistema_orcamentos` para reaproveitar autenticação, layout, componentes visuais, segurança e padrões de CRUD.
+Aplicação Django para controle pessoal de finanças, com autenticação, multiempresa, controle de acesso, dashboard e CRUDs financeiros.
 
-## Estado atual
-
-O domínio financeiro principal já está implementado.
-
-Funcionalidades disponíveis:
+## Funcionalidades disponíveis
 
 - dashboard financeiro
 - contas e saldos
@@ -19,8 +15,6 @@ Funcionalidades disponíveis:
 - metas financeiras
 - recorrências financeiras com geração de lançamentos futuros
 - relatório mensal de fluxo de caixa
-
-Apps antigos (`clientes`, `catalogo`, `orcamentos` e parte de `relatorios`) permanecem instalados apenas por compatibilidade técnica com a base original e migrations antigas. Eles não têm rotas públicas, itens de menu ou registros no admin do sistema financeiro.
 
 ## Requisitos
 
@@ -77,9 +71,10 @@ Recorrências geram transações pendentes futuras, evitando automação silenci
 
 - `financeiro`: domínio financeiro principal.
 - `core`: dashboard, permissões, contexto, helpers e segurança.
-- `usuarios`: autenticação, perfis e controle de acesso.
+- `usuarios`: autenticação, perfis, visitantes e controle de acesso.
+- `auditoria`: estrutura reservada para auditoria.
 - `templates/base.html`: layout principal.
-- `static/css/style.css`: design visual herdado.
+- `static/css/style.css`: design visual.
 - `config`: configurações Django e rotas.
 - `deploy`: exemplos de produção.
 

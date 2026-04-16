@@ -96,7 +96,7 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
-            name='OrcamentoMensal',
+            name='PlanejamentoMensal',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('mes', models.PositiveSmallIntegerField(validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(12)])),
@@ -104,8 +104,8 @@ class Migration(migrations.Migration):
                 ('valor_planejado', models.DecimalField(decimal_places=2, max_digits=14, validators=[django.core.validators.MinValueValidator(Decimal('0.00'))])),
                 ('criado_em', models.DateTimeField(auto_now_add=True)),
                 ('atualizado_em', models.DateTimeField(auto_now=True)),
-                ('categoria', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='orcamentos_mensais', to='financeiro.categoriafinanceira')),
-                ('empresa', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='orcamentos_mensais', to='auth.group')),
+                ('categoria', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='planejamentos_mensais', to='financeiro.categoriafinanceira')),
+                ('empresa', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='planejamentos_mensais', to='auth.group')),
             ],
             options={
                 'ordering': ['-ano', '-mes', 'categoria__nome'],
@@ -147,7 +147,7 @@ class Migration(migrations.Migration):
             constraint=models.UniqueConstraint(fields=('empresa', 'nome'), name='cartaocredito_empresa_nome_uniq'),
         ),
         migrations.AddConstraint(
-            model_name='orcamentomensal',
-            constraint=models.UniqueConstraint(fields=('empresa', 'ano', 'mes', 'categoria'), name='orcamentomensal_empresa_periodo_categoria_uniq'),
+            model_name='planejamentomensal',
+            constraint=models.UniqueConstraint(fields=('empresa', 'ano', 'mes', 'categoria'), name='planejamentomensal_empresa_periodo_categoria_uniq'),
         ),
     ]

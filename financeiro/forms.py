@@ -5,7 +5,7 @@ from django import forms
 from core.concurrency import OptimisticLockModelFormMixin
 from core.form_fields import substituir_por_decimal_br
 from core.tenancy import queryset_da_empresa
-from .models import CategoriaFinanceira, Conta, CartaoCredito, FaturaCartao, MetaFinanceira, OrcamentoMensal, RecorrenciaFinanceira, Transacao
+from .models import CategoriaFinanceira, Conta, CartaoCredito, FaturaCartao, MetaFinanceira, PlanejamentoMensal, RecorrenciaFinanceira, Transacao
 
 
 class ContaForm(OptimisticLockModelFormMixin, forms.ModelForm):
@@ -176,9 +176,9 @@ class CompraCartaoForm(forms.Form):
         return valores
 
 
-class OrcamentoMensalForm(OptimisticLockModelFormMixin, forms.ModelForm):
+class PlanejamentoMensalForm(OptimisticLockModelFormMixin, forms.ModelForm):
     class Meta:
-        model = OrcamentoMensal
+        model = PlanejamentoMensal
         fields = ["mes", "ano", "categoria", "valor_planejado"]
 
     def __init__(self, *args, user=None, **kwargs):

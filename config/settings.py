@@ -61,10 +61,6 @@ INSTALLED_APPS = [
     "core",
     "usuarios",
     "financeiro",
-    "clientes",
-    "catalogo",
-    "orcamentos",
-    "relatorios",
     "auditoria",
 ]
 

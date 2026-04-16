@@ -9,11 +9,6 @@ DEFAULT_EMPRESA_GROUP_NAME = "Empresa padrão"
 def bootstrap_empresas(apps, schema_editor):
     Group = apps.get_model("auth", "Group")
     Usuario = apps.get_model("usuarios", "Usuario")
-    Cliente = apps.get_model("clientes", "Cliente")
-    CategoriaItem = apps.get_model("catalogo", "CategoriaItem")
-    ItemCatalogo = apps.get_model("catalogo", "ItemCatalogo")
-    Orcamento = apps.get_model("orcamentos", "Orcamento")
-    ConfiguracaoEmpresa = apps.get_model("relatorios", "ConfiguracaoEmpresa")
 
     grupo_padrao, _ = Group.objects.get_or_create(name=DEFAULT_EMPRESA_GROUP_NAME)
 
@@ -21,21 +16,11 @@ def bootstrap_empresas(apps, schema_editor):
         if not usuario.groups.exists() and usuario.perfil != "visitante":
             usuario.groups.add(grupo_padrao)
 
-    Cliente.objects.filter(empresa__isnull=True).update(empresa=grupo_padrao)
-    CategoriaItem.objects.filter(empresa__isnull=True).update(empresa=grupo_padrao)
-    ItemCatalogo.objects.filter(empresa__isnull=True).update(empresa=grupo_padrao)
-    Orcamento.objects.filter(empresa__isnull=True).update(empresa=grupo_padrao)
-    ConfiguracaoEmpresa.objects.filter(empresa__isnull=True).update(empresa=grupo_padrao)
-
 
 class Migration(migrations.Migration):
 
     dependencies = [
         ("usuarios", "0002_alter_usuario_perfil"),
-        ("clientes", "0002_cliente_empresa"),
-        ("catalogo", "0003_categoriaitem_empresa_itemcatalogo_empresa_and_more"),
-        ("orcamentos", "0004_orcamento_empresa_alter_orcamento_numero_and_more"),
-        ("relatorios", "0003_configuracaoempresa_empresa"),
     ]
 
     operations = [

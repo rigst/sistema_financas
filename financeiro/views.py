@@ -25,7 +25,7 @@ from .forms import (
     FaturaCartaoForm,
     FaturaPagamentoForm,
     MetaFinanceiraForm,
-    OrcamentoMensalForm,
+    PlanejamentoMensalForm,
     RecorrenciaFinanceiraForm,
     TransacaoForm,
 )
@@ -36,7 +36,7 @@ from .models import (
     FaturaCartao,
     LancamentoCartao,
     MetaFinanceira,
-    OrcamentoMensal,
+    PlanejamentoMensal,
     RecorrenciaFinanceira,
     Transacao,
     arredondar,
@@ -514,7 +514,7 @@ def planejamento_lista(request):
     hoje = timezone.localdate()
     mes = int(request.GET.get("mes") or hoje.month)
     ano = int(request.GET.get("ano") or hoje.year)
-    planejamentos = queryset_da_empresa(OrcamentoMensal.objects.select_related("categoria"), request.user).filter(mes=mes, ano=ano)
+    planejamentos = queryset_da_empresa(PlanejamentoMensal.objects.select_related("categoria"), request.user).filter(mes=mes, ano=ano)
     transacoes = queryset_da_empresa(Transacao.objects.filter(tipo="despesa", status="pago", data_competencia__year=ano, data_competencia__month=mes), request.user)
     realizados = {item["categoria_id"]: item["total"] for item in transacoes.values("categoria_id").annotate(total=Coalesce(Sum("valor"), Value(0), output_field=DecimalField(max_digits=14, decimal_places=2)))}
     linhas = []
@@ -527,7 +527,7 @@ def planejamento_lista(request):
 @require_capability("pode_gerenciar_financeiro")
 def planejamento_criar(request):
     if request.method == "POST":
-        form = OrcamentoMensalForm(request.POST, user=request.user)
+        form = PlanejamentoMensalForm(request.POST, user=request.user)
         if form.is_valid():
             obj = form.save(commit=False)
             obj.empresa = obter_grupo_empresa_ou_erro(request.user)
@@ -536,21 +536,21 @@ def planejamento_criar(request):
             return redirect("financeiro:planejamento_lista")
     else:
         hoje = timezone.localdate()
-        form = OrcamentoMensalForm(user=request.user, initial={"mes": hoje.month, "ano": hoje.year})
+        form = PlanejamentoMensalForm(user=request.user, initial={"mes": hoje.month, "ano": hoje.year})
     return render(request, "financeiro/planejamento_form.html", {"form": form, "titulo": "Novo planejamento"})
 
 
 @require_capability("pode_gerenciar_financeiro")
 def planejamento_editar(request, pk):
-    obj = get_object_or_404(queryset_da_empresa(OrcamentoMensal.objects.select_related("categoria"), request.user), pk=pk)
+    obj = get_object_or_404(queryset_da_empresa(PlanejamentoMensal.objects.select_related("categoria"), request.user), pk=pk)
     if request.method == "POST":
-        form = OrcamentoMensalForm(request.POST, instance=obj, user=request.user)
+        form = PlanejamentoMensalForm(request.POST, instance=obj, user=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, "Planejamento atualizado com sucesso.")
             return redirect("financeiro:planejamento_lista")
     else:
-        form = OrcamentoMensalForm(instance=obj, user=request.user)
+        form = PlanejamentoMensalForm(instance=obj, user=request.user)
     return render(request, "financeiro/planejamento_form.html", {"form": form, "titulo": "Editar planejamento"})
 
 

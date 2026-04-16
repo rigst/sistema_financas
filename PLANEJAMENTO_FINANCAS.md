@@ -2,7 +2,7 @@
 
 ## Implementado
 
-- App `financeiro`.
+- App `financeiro` como domínio principal e único do produto.
 - Contas financeiras.
 - Categorias de receita e despesa.
 - Transações de receita, despesa e transferência.
@@ -16,7 +16,7 @@
 - Recorrências financeiras.
 - Relatório mensal de fluxo de caixa.
 - Testes de regras principais.
-- Isolamento dos apps legados `clientes`, `catalogo`, `orcamentos` e relatórios comerciais antigos das URLs públicas, menu e admin.
+- Remoção dos módulos comerciais herdados do projeto anterior.
 
 ## Regras centrais
 
@@ -38,7 +38,3 @@
 4. Adicionar anexos de comprovantes.
 5. Melhorar gráficos do dashboard.
 6. Criar página de configuração financeira para conta/categoria padrão.
-
-## Observação sobre apps legados
-
-Os apps antigos foram preservados porque fazem parte do histórico de migrations herdado do projeto original. No sistema financeiro eles ficam isolados: sem URLs públicas, sem links no menu, sem registros no admin e com testes comerciais antigos desativados. A remoção física limpa ainda exigiria squash/migração planejada ou criação de uma base nova sem esses apps.

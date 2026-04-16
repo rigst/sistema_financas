@@ -6,12 +6,19 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.utils import timezone
 
-from catalogo.models import CategoriaItem, ItemCatalogo
-from clientes.models import Cliente
 from core.models import Empresa
 from core.tenancy import VISITOR_GROUP_PREFIX, obter_grupo_empresa_usuario
-from orcamentos.models import Orcamento
-from relatorios.models import ConfiguracaoEmpresa
+from financeiro.models import (
+    CartaoCredito,
+    CategoriaFinanceira,
+    Conta,
+    FaturaCartao,
+    LancamentoCartao,
+    MetaFinanceira,
+    PlanejamentoMensal,
+    RecorrenciaFinanceira,
+    Transacao,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -55,11 +62,16 @@ def limpar_dados_visitante(user):
 
     grupo = obter_grupo_empresa_usuario(user)
     if grupo:
-        Orcamento.objects.filter(empresa=grupo).delete()
-        Cliente.objects.filter(empresa=grupo).delete()
-        ItemCatalogo.objects.filter(empresa=grupo).delete()
-        CategoriaItem.objects.filter(empresa=grupo).delete()
-        ConfiguracaoEmpresa.objects.filter(empresa=grupo).delete()
+        RecorrenciaFinanceira.objects.filter(empresa=grupo).delete()
+        MetaFinanceira.objects.filter(empresa=grupo).delete()
+        PlanejamentoMensal.objects.filter(empresa=grupo).delete()
+        LancamentoCartao.objects.filter(empresa=grupo).delete()
+        FaturaCartao.objects.filter(empresa=grupo).update(transacao_pagamento=None)
+        FaturaCartao.objects.filter(empresa=grupo).delete()
+        CartaoCredito.objects.filter(empresa=grupo).delete()
+        Transacao.objects.filter(empresa=grupo).delete()
+        CategoriaFinanceira.objects.filter(empresa=grupo).delete()
+        Conta.objects.filter(empresa=grupo).delete()
 
     user.delete()
 

@@ -488,18 +488,18 @@ class RecorrenciaFinanceira(models.Model):
         super().save(*args, **kwargs)
 
 
-class OrcamentoMensal(models.Model):
+class PlanejamentoMensal(models.Model):
     mes = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(12)])
     ano = models.PositiveSmallIntegerField(validators=[MinValueValidator(2000), MaxValueValidator(2100)])
-    categoria = models.ForeignKey(CategoriaFinanceira, on_delete=models.PROTECT, related_name="orcamentos_mensais")
+    categoria = models.ForeignKey(CategoriaFinanceira, on_delete=models.PROTECT, related_name="planejamentos_mensais")
     valor_planejado = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.00"))])
-    empresa = models.ForeignKey("auth.Group", on_delete=models.PROTECT, related_name="orcamentos_mensais", null=True, blank=True)
+    empresa = models.ForeignKey("auth.Group", on_delete=models.PROTECT, related_name="planejamentos_mensais", null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["-ano", "-mes", "categoria__nome"]
-        constraints = [models.UniqueConstraint(fields=["empresa", "ano", "mes", "categoria"], name="orcamentomensal_empresa_periodo_categoria_uniq")]
+        constraints = [models.UniqueConstraint(fields=["empresa", "ano", "mes", "categoria"], name="planejamentomensal_empresa_periodo_categoria_uniq")]
 
     def __str__(self):
         return f"{self.categoria} - {self.mes:02d}/{self.ano}"
