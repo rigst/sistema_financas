@@ -1,9 +1,12 @@
+from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Sum
+from django.db.models.functions import Coalesce
 
 from core.tenancy import obter_grupo_empresa_padrao
 
@@ -276,9 +279,156 @@ class CartaoCredito(models.Model):
     def __str__(self):
         return self.nome
 
+    def clean(self):
+        empresa_id = self.empresa_id or getattr(self.conta_pagamento, "empresa_id", None)
+        if empresa_id and self.conta_pagamento_id and self.conta_pagamento.empresa_id != empresa_id:
+            raise ValidationError({"conta_pagamento": "Selecione uma conta do mesmo espaço financeiro."})
+
     def save(self, *args, **kwargs):
         if self.empresa_id is None:
-            self.empresa = obter_grupo_empresa_padrao()
+            self.empresa = self.conta_pagamento.empresa if self.conta_pagamento_id else obter_grupo_empresa_padrao()
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class FaturaCartao(models.Model):
+    STATUS_CHOICES = [
+        ("aberta", "Aberta"),
+        ("fechada", "Fechada"),
+        ("paga", "Paga"),
+        ("cancelada", "Cancelada"),
+    ]
+
+    cartao = models.ForeignKey(CartaoCredito, on_delete=models.PROTECT, related_name="faturas")
+    mes = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(12)])
+    ano = models.PositiveSmallIntegerField(validators=[MinValueValidator(2000), MaxValueValidator(2100)])
+    data_fechamento = models.DateField(null=True, blank=True)
+    data_vencimento = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="aberta")
+    conta_pagamento = models.ForeignKey(Conta, on_delete=models.PROTECT, related_name="faturas_cartao", null=True, blank=True)
+    categoria_pagamento = models.ForeignKey(CategoriaFinanceira, on_delete=models.PROTECT, related_name="faturas_cartao", null=True, blank=True)
+    transacao_pagamento = models.ForeignKey(Transacao, on_delete=models.PROTECT, related_name="faturas_cartao_pagas", null=True, blank=True)
+    data_pagamento = models.DateField(null=True, blank=True)
+    empresa = models.ForeignKey("auth.Group", on_delete=models.PROTECT, related_name="faturas_cartao", null=True, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-ano", "-mes", "cartao__nome"]
+        constraints = [models.UniqueConstraint(fields=["empresa", "cartao", "ano", "mes"], name="faturacartao_empresa_cartao_periodo_uniq")]
+
+    def __str__(self):
+        return f"{self.cartao} - {self.mes:02d}/{self.ano}"
+
+    @property
+    def valor_total(self):
+        total = self.lancamentos.exclude(status="cancelado").aggregate(
+            total=Coalesce(Sum("valor"), Decimal("0.00"), output_field=models.DecimalField(max_digits=14, decimal_places=2))
+        )["total"]
+        return arredondar(total)
+
+    def clean(self):
+        empresa_id = self.empresa_id or getattr(self.cartao, "empresa_id", None)
+        if empresa_id:
+            if self.cartao_id and self.cartao.empresa_id != empresa_id:
+                raise ValidationError({"cartao": "Selecione um cartão do mesmo espaço financeiro."})
+            if self.conta_pagamento_id and self.conta_pagamento.empresa_id != empresa_id:
+                raise ValidationError({"conta_pagamento": "Selecione uma conta do mesmo espaço financeiro."})
+            if self.categoria_pagamento_id:
+                if self.categoria_pagamento.empresa_id != empresa_id:
+                    raise ValidationError({"categoria_pagamento": "Selecione uma categoria do mesmo espaço financeiro."})
+                if self.categoria_pagamento.tipo != "despesa":
+                    raise ValidationError({"categoria_pagamento": "A categoria de pagamento deve ser de despesa."})
+        if self.status == "paga":
+            if not self.conta_pagamento_id:
+                raise ValidationError({"conta_pagamento": "Informe a conta de pagamento."})
+            if not self.categoria_pagamento_id:
+                raise ValidationError({"categoria_pagamento": "Informe a categoria de pagamento."})
+            if not self.data_pagamento:
+                raise ValidationError({"data_pagamento": "Informe a data de pagamento."})
+
+    def save(self, *args, **kwargs):
+        if self.empresa_id is None:
+            self.empresa = self.cartao.empresa if self.cartao_id else obter_grupo_empresa_padrao()
+        if self.conta_pagamento_id is None and self.cartao_id and self.cartao.conta_pagamento_id:
+            self.conta_pagamento = self.cartao.conta_pagamento
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def pagar(self, *, conta, categoria, data_pagamento, usuario):
+        if self.status == "paga":
+            return self.transacao_pagamento
+        transacao = Transacao.objects.create(
+            tipo="despesa",
+            descricao=f"Pagamento fatura {self.cartao.nome} {self.mes:02d}/{self.ano}",
+            valor=self.valor_total,
+            data_competencia=data_pagamento,
+            data_pagamento=data_pagamento,
+            status="pago",
+            conta=conta,
+            categoria=categoria,
+            empresa=self.empresa,
+            criado_por=usuario,
+        )
+        self.status = "paga"
+        self.conta_pagamento = conta
+        self.categoria_pagamento = categoria
+        self.data_pagamento = data_pagamento
+        self.transacao_pagamento = transacao
+        self.save(update_fields=["status", "conta_pagamento", "categoria_pagamento", "data_pagamento", "transacao_pagamento", "atualizado_em"])
+        return transacao
+
+
+class LancamentoCartao(models.Model):
+    STATUS_CHOICES = [
+        ("ativo", "Ativo"),
+        ("cancelado", "Cancelado"),
+    ]
+
+    fatura = models.ForeignKey(FaturaCartao, on_delete=models.CASCADE, related_name="lancamentos")
+    cartao = models.ForeignKey(CartaoCredito, on_delete=models.PROTECT, related_name="lancamentos")
+    categoria = models.ForeignKey(CategoriaFinanceira, on_delete=models.PROTECT, related_name="lancamentos_cartao")
+    descricao = models.CharField(max_length=255)
+    valor = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
+    data_compra = models.DateField(default=date.today)
+    parcela_numero = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1)])
+    parcela_total = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1)])
+    grupo_parcelamento = models.CharField(max_length=40, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ativo")
+    observacoes = models.TextField(blank=True)
+    empresa = models.ForeignKey("auth.Group", on_delete=models.PROTECT, related_name="lancamentos_cartao", null=True, blank=True)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="lancamentos_cartao_criados")
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-data_compra", "-id"]
+
+    def __str__(self):
+        if self.parcela_total > 1:
+            return f"{self.descricao} ({self.parcela_numero}/{self.parcela_total})"
+        return self.descricao
+
+    def clean(self):
+        empresa_id = self.empresa_id or getattr(self.cartao, "empresa_id", None)
+        if self.parcela_numero > self.parcela_total:
+            raise ValidationError({"parcela_numero": "A parcela atual não pode ser maior que o total de parcelas."})
+        if self.categoria_id and self.categoria.tipo != "despesa":
+            raise ValidationError({"categoria": "Lançamentos de cartão exigem categoria de despesa."})
+        if empresa_id:
+            if self.fatura_id and self.fatura.empresa_id != empresa_id:
+                raise ValidationError({"fatura": "Selecione uma fatura do mesmo espaço financeiro."})
+            if self.cartao_id and self.cartao.empresa_id != empresa_id:
+                raise ValidationError({"cartao": "Selecione um cartão do mesmo espaço financeiro."})
+            if self.categoria_id and self.categoria.empresa_id != empresa_id:
+                raise ValidationError({"categoria": "Selecione uma categoria do mesmo espaço financeiro."})
+            if self.fatura_id and self.cartao_id and self.fatura.cartao_id != self.cartao_id:
+                raise ValidationError({"fatura": "A fatura deve pertencer ao cartão selecionado."})
+
+    def save(self, *args, **kwargs):
+        if self.empresa_id is None:
+            self.empresa = self.cartao.empresa if self.cartao_id else obter_grupo_empresa_padrao()
+        self.full_clean()
         super().save(*args, **kwargs)
 
 

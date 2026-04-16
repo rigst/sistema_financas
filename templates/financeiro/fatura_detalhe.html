@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load br_format %}
+{% block title %}Fatura {{ fatura }}{% endblock %}
+{% block content %}
+<section>
+    <div class="section-heading">
+        <div><h2>Fatura {{ fatura }}</h2><p>Status: <strong>{{ fatura.get_status_display }}</strong> · Total: <strong>{{ fatura.valor_total|brl }}</strong></p></div>
+        <div class="inline-actions"><a class="btn btn-secondary" href="{% url 'financeiro:fatura_lista' %}"><span>Voltar</span></a>{% if user.pode_gerenciar_financeiro %}<a class="btn btn-secondary" href="{% url 'financeiro:fatura_editar' fatura.pk %}"><span>Editar</span></a><a class="btn btn-primary-lite" href="{% url 'financeiro:compra_cartao_criar' %}"><span>Nova compra</span></a>{% endif %}</div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card"><span class="label">Cartão</span><span class="value">{{ fatura.cartao.nome }}</span></div>
+        <div class="stat-card"><span class="label">Vencimento</span><span class="value">{{ fatura.data_vencimento|date:"d/m/Y"|default:"-" }}</span></div>
+        <div class="stat-card"><span class="label">Conta pagamento</span><span class="value">{{ fatura.conta_pagamento|default:"-" }}</span></div>
+        <div class="stat-card"><span class="label">Valor total</span><span class="value">{{ fatura.valor_total|brl }}</span></div>
+    </div>
+
+    {% if user.pode_gerenciar_financeiro and fatura.status != "paga" and fatura.status != "cancelada" %}
+        <div class="form-panel form-panel-compact" style="margin-bottom: 1.5rem;">
+            <form method="post" action="{% url 'financeiro:fatura_pagar' fatura.pk %}">
+                {% csrf_token %}
+                <div class="form-grid">
+                    <div><label for="{{ pagamento_form.conta_pagamento.id_for_label }}">Conta pagamento</label>{{ pagamento_form.conta_pagamento }}{{ pagamento_form.conta_pagamento.errors }}</div>
+                    <div><label for="{{ pagamento_form.categoria_pagamento.id_for_label }}">Categoria</label>{{ pagamento_form.categoria_pagamento }}{{ pagamento_form.categoria_pagamento.errors }}</div>
+                    <div><label for="{{ pagamento_form.data_pagamento.id_for_label }}">Data pagamento</label>{{ pagamento_form.data_pagamento }}{{ pagamento_form.data_pagamento.errors }}</div>
+                </div>
+                <div class="inline-actions inline-actions-end"><button class="btn btn-primary" type="submit"><span>Pagar fatura</span></button></div>
+            </form>
+        </div>
+    {% endif %}
+
+    <div class="section-heading" style="margin-bottom: 1rem;"><div><h3>Lançamentos</h3><p>Compras vinculadas a esta fatura.</p></div></div>
+    {% if lancamentos %}
+        <div class="table-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Parcela</th><th>Status</th><th>Valor</th><th class="actions-col">Ações</th></tr></thead><tbody>{% for lancamento in lancamentos %}<tr><td>{{ lancamento.data_compra|date:"d/m/Y" }}</td><td>{{ lancamento.descricao }}</td><td>{{ lancamento.categoria.nome }}</td><td>{{ lancamento.parcela_numero }}/{{ lancamento.parcela_total }}</td><td><span class="badge status-{{ lancamento.status }}">{{ lancamento.get_status_display }}</span></td><td class="money">{{ lancamento.valor|brl }}</td><td class="actions-col"><div class="actions-stack actions-stack-inline">{% if user.pode_gerenciar_financeiro and lancamento.status != "cancelado" and fatura.status != "paga" %}<a class="btn btn-danger btn-icon-action" href="{% url 'financeiro:lancamento_cartao_cancelar' lancamento.pk %}" title="Cancelar"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg><span class="visually-hidden">Cancelar</span></a>{% endif %}</div></td></tr>{% endfor %}</tbody></table></div>
+    {% else %}<p class="empty-state">Nenhum lançamento nesta fatura.</p>{% endif %}
+</section>
+{% endblock %}

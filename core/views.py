@@ -15,7 +15,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from core.tenancy import definir_empresa_ativa, queryset_da_empresa
-from financeiro.models import Conta, Transacao, arredondar
+from financeiro.models import Conta, FaturaCartao, Transacao, arredondar
 
 
 def healthz(request):
@@ -80,11 +80,16 @@ def dashboard(request):
         .order_by("-total")[:5]
     )
     ultimas_transacoes = transacoes.order_by("-data_competencia", "-id")[:8]
+    faturas_abertas = queryset_da_empresa(
+        FaturaCartao.objects.select_related("cartao").filter(status__in=["aberta", "fechada"]),
+        request.user,
+    ).order_by("data_vencimento", "ano", "mes")[:6]
 
     context = {
         "contas": contas_lista,
         "categorias_despesa": categorias_despesa,
         "ultimas_transacoes": ultimas_transacoes,
+        "faturas_abertas": faturas_abertas,
         "indicadores": indicadores,
         "periodo": periodo,
         "saudacao_dashboard": f"Bom ter você por aqui, {request.user}.",

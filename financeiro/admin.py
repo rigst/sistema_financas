@@ -1,6 +1,15 @@
 from django.contrib import admin
 
-from .models import CategoriaFinanceira, Conta, CartaoCredito, MetaFinanceira, OrcamentoMensal, Transacao
+from .models import (
+    CategoriaFinanceira,
+    Conta,
+    CartaoCredito,
+    FaturaCartao,
+    LancamentoCartao,
+    MetaFinanceira,
+    OrcamentoMensal,
+    Transacao,
+)
 
 
 @admin.register(Conta)
@@ -30,6 +39,21 @@ class CartaoCreditoAdmin(admin.ModelAdmin):
     list_display = ("nome", "bandeira", "limite", "dia_fechamento", "dia_vencimento", "ativo", "empresa")
     list_filter = ("bandeira", "ativo", "empresa")
     search_fields = ("nome",)
+
+
+@admin.register(FaturaCartao)
+class FaturaCartaoAdmin(admin.ModelAdmin):
+    list_display = ("cartao", "mes", "ano", "status", "data_vencimento", "conta_pagamento", "empresa")
+    list_filter = ("status", "ano", "mes", "empresa")
+    search_fields = ("cartao__nome",)
+
+
+@admin.register(LancamentoCartao)
+class LancamentoCartaoAdmin(admin.ModelAdmin):
+    list_display = ("descricao", "cartao", "fatura", "categoria", "valor", "data_compra", "status", "empresa")
+    list_filter = ("status", "cartao", "categoria", "empresa")
+    search_fields = ("descricao", "observacoes")
+    date_hierarchy = "data_compra"
 
 
 @admin.register(OrcamentoMensal)

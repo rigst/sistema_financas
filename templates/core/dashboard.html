@@ -44,6 +44,14 @@
         <p class="empty-state">Cadastre uma conta para começar o controle financeiro.</p>
     {% endif %}
 
+
+    <div class="section-heading" style="margin: 2rem 0 1rem;"><div><h3>Faturas abertas</h3><p>Cartões com pagamento pendente.</p></div><div><a class="btn btn-secondary btn-icon-action" href="{% url 'financeiro:fatura_lista' %}" title="Ver faturas"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="3"/></svg><span class="visually-hidden">Ver faturas</span></a></div></div>
+    {% if faturas_abertas %}
+        <div class="table-wrap"><table><thead><tr><th>Fatura</th><th>Status</th><th>Vencimento</th><th>Total</th></tr></thead><tbody>{% for fatura in faturas_abertas %}<tr><td>{{ fatura.cartao.nome }} - {{ fatura.mes }}/{{ fatura.ano }}</td><td><span class="badge status-{{ fatura.status }}">{{ fatura.get_status_display }}</span></td><td>{{ fatura.data_vencimento|date:"d/m/Y"|default:"-" }}</td><td class="money">{{ fatura.valor_total|brl }}</td></tr>{% endfor %}</tbody></table></div>
+    {% else %}
+        <p class="empty-state">Nenhuma fatura aberta.</p>
+    {% endif %}
+
     <div class="section-heading" style="margin: 2rem 0 1rem;"><div><h3>Últimas transações</h3><p>Movimentações mais recentes do seu espaço financeiro.</p></div><div><a class="btn btn-secondary btn-icon-action" href="{% url 'financeiro:transacao_lista' %}" title="Ver transações"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="3"/></svg><span class="visually-hidden">Ver transações</span></a></div></div>
     {% if ultimas_transacoes %}
         <div class="table-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Conta</th><th>Status</th><th>Total</th></tr></thead><tbody>{% for transacao in ultimas_transacoes %}<tr><td>{{ transacao.data_competencia|date:"d/m/Y" }}</td><td>{{ transacao.descricao }}</td><td>{{ transacao.get_tipo_display }}</td><td>{{ transacao.conta }}</td><td><span class="badge status-{{ transacao.status }}">{{ transacao.get_status_display }}</span></td><td class="money">{{ transacao.valor|brl }}</td></tr>{% endfor %}</tbody></table></div>

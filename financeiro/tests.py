@@ -6,7 +6,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import CategoriaFinanceira, Conta, Transacao
+from .models import CategoriaFinanceira, CartaoCredito, Conta, FaturaCartao, LancamentoCartao, Transacao
 
 
 class FinanceiroModelTests(TestCase):
@@ -96,3 +96,63 @@ class FinanceiroViewTests(TestCase):
         )
         self.assertEqual(response_transacao.status_code, 302)
         self.assertEqual(conta.saldo_atual(), Decimal("2600.00"))
+
+
+class CartaoFaturaTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="card_user", password="senha-forte-123")
+        self.client.force_login(self.user)
+        self.conta = Conta.objects.create(nome="Conta pagamento", saldo_inicial=Decimal("1000.00"))
+        self.categoria = CategoriaFinanceira.objects.create(nome="Cartão de crédito", tipo="despesa")
+
+    def test_compra_parcelada_cria_faturas_e_pagamento_baixa_conta(self):
+        response_cartao = self.client.post(
+            reverse("financeiro:cartao_criar"),
+            {
+                "nome": "Nubank Crédito",
+                "bandeira": "mastercard",
+                "limite": "5000,00",
+                "dia_fechamento": "5",
+                "dia_vencimento": "12",
+                "conta_pagamento": str(self.conta.pk),
+                "cor": "#111827",
+                "ativo": "True",
+            },
+        )
+        self.assertEqual(response_cartao.status_code, 302)
+        cartao = CartaoCredito.objects.get(nome="Nubank Crédito")
+
+        response_compra = self.client.post(
+            reverse("financeiro:compra_cartao_criar"),
+            {
+                "cartao": str(cartao.pk),
+                "categoria": str(self.categoria.pk),
+                "descricao": "Notebook",
+                "valor_total": "1200,00",
+                "data_compra": "2026-04-16",
+                "parcelas": "3",
+                "mes_primeira_fatura": "5",
+                "ano_primeira_fatura": "2026",
+                "observacoes": "",
+            },
+        )
+        self.assertEqual(response_compra.status_code, 302)
+        self.assertEqual(FaturaCartao.objects.filter(cartao=cartao).count(), 3)
+        self.assertEqual(LancamentoCartao.objects.filter(cartao=cartao).count(), 3)
+        primeira_fatura = FaturaCartao.objects.get(cartao=cartao, mes=5, ano=2026)
+        self.assertEqual(primeira_fatura.valor_total, Decimal("400.00"))
+        self.assertEqual(self.conta.saldo_atual(), Decimal("1000.00"))
+
+        response_pagamento = self.client.post(
+            reverse("financeiro:fatura_pagar", args=[primeira_fatura.pk]),
+            {
+                "conta_pagamento": str(self.conta.pk),
+                "categoria_pagamento": str(self.categoria.pk),
+                "data_pagamento": "2026-05-12",
+            },
+        )
+        self.assertEqual(response_pagamento.status_code, 302)
+        primeira_fatura.refresh_from_db()
+        self.assertEqual(primeira_fatura.status, "paga")
+        self.assertIsNotNone(primeira_fatura.transacao_pagamento)
+        self.assertEqual(self.conta.saldo_atual(), Decimal("600.00"))
