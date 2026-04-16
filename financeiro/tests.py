@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -197,3 +198,97 @@ class FinanceiroCompletoTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "não aceita novos lançamentos")
         self.assertEqual(LancamentoCartao.objects.filter(fatura=fatura).count(), 1)
+
+    def test_relatorio_ignora_parametros_invalidos_de_periodo(self):
+        response = self.client.get(reverse("financeiro:relatorio_fluxo_caixa"), {"mes": "abc", "ano": "99999"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["mes"], timezone.localdate().month)
+        self.assertEqual(response.context["ano"], timezone.localdate().year)
+
+    def test_exporta_e_importa_transacoes_csv(self):
+        response_export = self.client.get(reverse("financeiro:transacao_exportar_csv"))
+
+        self.assertEqual(response_export.status_code, 200)
+        self.assertIn("text/csv", response_export["Content-Type"])
+        self.assertIn("tipo,descricao,valor,data_competencia,status,conta,categoria", response_export.content.decode("utf-8-sig"))
+
+        conteudo = (
+            "tipo,descricao,valor,data_competencia,status,conta,categoria,conta_destino,data_pagamento,observacoes\n"
+            "despesa,Padaria,25.50,2026-04-20,pago,Conta completa,Despesa completa,,2026-04-20,Café\n"
+        ).encode("utf-8")
+        arquivo = SimpleUploadedFile("transacoes.csv", conteudo, content_type="text/csv")
+
+        response_import = self.client.post(reverse("financeiro:transacao_importar_csv"), {"arquivo": arquivo})
+
+        self.assertEqual(response_import.status_code, 302)
+        self.assertTrue(Transacao.objects.filter(descricao="Padaria", valor=Decimal("25.50")).exists())
+
+    def test_importacao_csv_invalida_nao_cria_lancamentos_parciais(self):
+        conteudo = (
+            "tipo,descricao,valor,data_competencia,status,conta,categoria,conta_destino,data_pagamento,observacoes\n"
+            "despesa,Compra válida,25.50,2026-04-20,pago,Conta completa,Despesa completa,,2026-04-20,\n"
+            "despesa,,abc,2026-04-20,pago,Conta completa,Despesa completa,,2026-04-20,\n"
+        ).encode("utf-8")
+        arquivo = SimpleUploadedFile("transacoes.csv", conteudo, content_type="text/csv")
+
+        response = self.client.post(reverse("financeiro:transacao_importar_csv"), {"arquivo": arquivo})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Transacao.objects.filter(descricao="Compra válida").exists())
+
+    def test_pagamento_de_fatura_e_idempotente(self):
+        fatura = FaturaCartao.objects.create(cartao=self.cartao, mes=6, ano=2026, conta_pagamento=self.conta)
+        LancamentoCartao.objects.create(
+            fatura=fatura,
+            cartao=self.cartao,
+            categoria=self.despesa,
+            descricao="Compra única",
+            valor=Decimal("90.00"),
+            data_compra="2026-06-01",
+            empresa=fatura.empresa,
+            criado_por=self.user,
+        )
+        url = reverse("financeiro:fatura_pagar", args=[fatura.pk])
+        dados = {
+            "conta_pagamento": str(self.conta.pk),
+            "categoria_pagamento": str(self.despesa.pk),
+            "data_pagamento": "2026-06-10",
+        }
+
+        self.assertEqual(self.client.post(url, dados).status_code, 302)
+        self.assertEqual(self.client.post(url, dados).status_code, 302)
+
+        self.assertEqual(Transacao.objects.filter(descricao="Pagamento fatura Cartão completo 06/2026").count(), 1)
+
+    def test_compra_parcelada_bloqueia_apenas_periodos_exatos(self):
+        fatura_antiga = FaturaCartao.objects.create(cartao=self.cartao, mes=1, ano=2026, conta_pagamento=self.conta)
+        LancamentoCartao.objects.create(
+            fatura=fatura_antiga,
+            cartao=self.cartao,
+            categoria=self.despesa,
+            descricao="Compra antiga",
+            valor=Decimal("10.00"),
+            data_compra="2026-01-01",
+            empresa=fatura_antiga.empresa,
+            criado_por=self.user,
+        )
+        fatura_antiga.pagar(conta=self.conta, categoria=self.despesa, data_pagamento=timezone.localdate(), usuario=self.user)
+
+        response = self.client.post(
+            reverse("financeiro:compra_cartao_criar"),
+            {
+                "cartao": str(self.cartao.pk),
+                "categoria": str(self.despesa.pk),
+                "descricao": "Compra futura",
+                "valor_total": "300,00",
+                "data_compra": "2026-12-01",
+                "parcelas": "3",
+                "mes_primeira_fatura": "12",
+                "ano_primeira_fatura": "2026",
+                "observacoes": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(FaturaCartao.objects.filter(cartao=self.cartao, mes=1, ano=2027).exists())

@@ -95,6 +95,24 @@ class TransacaoForm(OptimisticLockModelFormMixin, forms.ModelForm):
         return valor
 
 
+class TransacaoImportCSVForm(forms.Form):
+    arquivo = forms.FileField(
+        label="Arquivo CSV",
+        help_text=(
+            "Colunas: tipo, descricao, valor, data_competencia, status, conta, "
+            "categoria, conta_destino, data_pagamento, observacoes."
+        ),
+    )
+
+    def clean_arquivo(self):
+        arquivo = self.cleaned_data["arquivo"]
+        if not arquivo.name.lower().endswith(".csv"):
+            raise forms.ValidationError("Envie um arquivo CSV.")
+        if arquivo.size > 2 * 1024 * 1024:
+            raise forms.ValidationError("O arquivo CSV deve ter até 2 MB.")
+        return arquivo
+
+
 class CartaoCreditoForm(OptimisticLockModelFormMixin, forms.ModelForm):
     class Meta:
         model = CartaoCredito

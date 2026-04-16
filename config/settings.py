@@ -61,7 +61,6 @@ INSTALLED_APPS = [
     "core",
     "usuarios",
     "financeiro",
-    "auditoria",
 ]
 
 MIDDLEWARE = [

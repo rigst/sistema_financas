@@ -7,7 +7,13 @@
 <section>
     <div class="section-heading">
         <div><h2>Transações</h2><p>Registre receitas, despesas e transferências.</p></div>
-        <div class="inline-actions">{% if user.pode_gerenciar_financeiro %}<a class="btn btn-primary-lite" href="{% url 'financeiro:transacao_criar' %}"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span>Nova transação</span></a>{% endif %}</div>
+        <div class="inline-actions">
+            <a class="btn btn-secondary" href="{% url 'financeiro:transacao_exportar_csv' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}">Exportar CSV</a>
+            {% if user.pode_gerenciar_financeiro %}
+                <a class="btn btn-secondary" href="{% url 'financeiro:transacao_importar_csv' %}">Importar CSV</a>
+                <a class="btn btn-primary-lite" href="{% url 'financeiro:transacao_criar' %}"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span>Nova transação</span></a>
+            {% endif %}
+        </div>
     </div>
     <form method="get" class="filters-form">
         <input type="text" name="q" placeholder="Buscar descrição, categoria ou conta" value="{{ busca }}">

@@ -5,7 +5,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models import Sum
+from django.db.models import Case, DecimalField, Q, Sum, Value, When
 from django.db.models.functions import Coalesce
 
 from core.tenancy import obter_grupo_empresa_padrao
@@ -63,14 +63,26 @@ class Conta(models.Model):
         super().save(*args, **kwargs)
 
     def saldo_atual(self):
-        total = self.saldo_inicial
-        transacoes = self.transacoes.filter(status="pago")
-        for transacao in transacoes:
-            total += transacao.impacto_na_conta(self)
-        transferencias_recebidas = self.transferencias_recebidas.filter(status="pago")
-        for transacao in transferencias_recebidas:
-            total += transacao.impacto_na_conta(self)
-        return arredondar(total)
+        saldo_movimentacoes = Transacao.objects.filter(
+            Q(conta=self) | Q(conta_destino=self),
+            status="pago",
+        ).aggregate(
+            total=Coalesce(
+                Sum(
+                    Case(
+                        When(tipo="receita", conta=self, then="valor"),
+                        When(tipo="despesa", conta=self, then=-models.F("valor")),
+                        When(tipo="transferencia", conta=self, then=-models.F("valor")),
+                        When(tipo="transferencia", conta_destino=self, then="valor"),
+                        default=Value(Decimal("0.00")),
+                        output_field=DecimalField(max_digits=14, decimal_places=2),
+                    )
+                ),
+                Decimal("0.00"),
+                output_field=DecimalField(max_digits=14, decimal_places=2),
+            )
+        )["total"]
+        return arredondar(self.saldo_inicial + saldo_movimentacoes)
 
 
 class CategoriaFinanceira(models.Model):
@@ -196,6 +208,12 @@ class Transacao(models.Model):
 
     class Meta:
         ordering = ["-data_competencia", "-id"]
+        indexes = [
+            models.Index(fields=["empresa", "data_competencia"], name="trans_emp_data_idx"),
+            models.Index(fields=["empresa", "status", "tipo"], name="trans_emp_stat_tipo_idx"),
+            models.Index(fields=["conta", "status"], name="trans_conta_stat_idx"),
+            models.Index(fields=["conta_destino", "status"], name="trans_dest_stat_idx"),
+        ]
 
     def __str__(self):
         return f"{self.descricao} - {arredondar(self.valor)}"
@@ -315,6 +333,10 @@ class FaturaCartao(models.Model):
 
     class Meta:
         ordering = ["-ano", "-mes", "cartao__nome"]
+        indexes = [
+            models.Index(fields=["empresa", "status"], name="fatura_emp_status_idx"),
+            models.Index(fields=["empresa", "ano", "mes"], name="fatura_emp_periodo_idx"),
+        ]
         constraints = [models.UniqueConstraint(fields=["empresa", "cartao", "ano", "mes"], name="faturacartao_empresa_cartao_periodo_uniq")]
 
     def __str__(self):
@@ -409,6 +431,10 @@ class LancamentoCartao(models.Model):
 
     class Meta:
         ordering = ["-data_compra", "-id"]
+        indexes = [
+            models.Index(fields=["empresa", "data_compra"], name="lanc_card_emp_data_idx"),
+            models.Index(fields=["fatura", "status"], name="lanc_card_fat_stat_idx"),
+        ]
 
     def __str__(self):
         if self.parcela_total > 1:

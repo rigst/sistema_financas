@@ -1,4 +1,6 @@
 import calendar
+import csv
+import io
 import uuid
 from datetime import timedelta
 from decimal import Decimal
@@ -9,12 +11,15 @@ from django.db import transaction
 from django.db.models import Sum, Value, DecimalField
 from django.db.models.functions import Coalesce
 from django.db.models import Q
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
 
 from core.permissions import require_capability
-from core.query import paginate_queryset
+from core.formatting import parse_decimal_br
+from core.query import get_bounded_int_param, paginate_queryset
 from core.search import filter_ranked_search
 from core.tenancy import obter_grupo_empresa_ou_erro, queryset_da_empresa
 from .forms import (
@@ -27,6 +32,7 @@ from .forms import (
     MetaFinanceiraForm,
     PlanejamentoMensalForm,
     RecorrenciaFinanceiraForm,
+    TransacaoImportCSVForm,
     TransacaoForm,
 )
 from .models import (
@@ -59,6 +65,27 @@ def data_recorrencia(base, frequencia, indice, dia_vencimento):
         mes, ano = adicionar_meses(base.month, base.year, indice)
     dia = min(dia_vencimento, calendar.monthrange(ano, mes)[1])
     return base.replace(year=ano, month=mes, day=dia)
+
+
+def _normalizar_lookup(valor):
+    return (valor or "").strip().casefold()
+
+
+def _transacoes_filtradas(request):
+    busca = request.GET.get("q", "").strip()
+    tipo = request.GET.get("tipo", "").strip()
+    status = request.GET.get("status", "").strip()
+    conta_id = request.GET.get("conta", "").strip()
+    transacoes = queryset_da_empresa(Transacao.objects.select_related("conta", "conta_destino", "categoria"), request.user)
+    if tipo in {"receita", "despesa", "transferencia"}:
+        transacoes = transacoes.filter(tipo=tipo)
+    if status in {"pendente", "pago", "cancelado"}:
+        transacoes = transacoes.filter(status=status)
+    if conta_id:
+        transacoes = transacoes.filter(Q(conta_id=conta_id) | Q(conta_destino_id=conta_id))
+    if busca:
+        transacoes = filter_ranked_search(transacoes, busca, ("descricao", "observacoes", "categoria__nome", "conta__nome"))
+    return transacoes, busca, tipo, status, conta_id
 
 
 @require_capability("pode_visualizar_financeiro")
@@ -207,22 +234,146 @@ def categoria_excluir(request, pk):
 
 @require_capability("pode_visualizar_financeiro")
 def transacao_lista(request):
-    busca = request.GET.get("q", "").strip()
-    tipo = request.GET.get("tipo", "").strip()
-    status = request.GET.get("status", "").strip()
-    conta_id = request.GET.get("conta", "").strip()
-    transacoes = queryset_da_empresa(Transacao.objects.select_related("conta", "conta_destino", "categoria"), request.user)
-    if tipo in {"receita", "despesa", "transferencia"}:
-        transacoes = transacoes.filter(tipo=tipo)
-    if status in {"pendente", "pago", "cancelado"}:
-        transacoes = transacoes.filter(status=status)
-    if conta_id:
-        transacoes = transacoes.filter(Q(conta_id=conta_id) | Q(conta_destino_id=conta_id))
-    if busca:
-        transacoes = filter_ranked_search(transacoes, busca, ("descricao", "observacoes", "categoria__nome", "conta__nome"))
+    transacoes, busca, tipo, status, conta_id = _transacoes_filtradas(request)
     page_obj = paginate_queryset(request, transacoes, per_page=25)
     contas = queryset_da_empresa(Conta.objects.filter(ativa=True).order_by("nome"), request.user)
     return render(request, "financeiro/transacao_lista.html", {"transacoes": page_obj, "page_obj": page_obj, "busca": busca, "tipo": tipo, "status": status, "conta": conta_id, "contas": contas})
+
+
+@require_capability("pode_visualizar_financeiro")
+def transacao_exportar_csv(request):
+    transacoes, *_ = _transacoes_filtradas(request)
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="transacoes.csv"'
+    response.write("\ufeff")
+    writer = csv.writer(response)
+    writer.writerow([
+        "tipo",
+        "descricao",
+        "valor",
+        "data_competencia",
+        "status",
+        "conta",
+        "categoria",
+        "conta_destino",
+        "data_pagamento",
+        "observacoes",
+    ])
+    for item in transacoes.order_by("data_competencia", "id"):
+        writer.writerow([
+            item.tipo,
+            item.descricao,
+            item.valor,
+            item.data_competencia.isoformat(),
+            item.status,
+            item.conta.nome,
+            item.categoria.nome if item.categoria_id else "",
+            item.conta_destino.nome if item.conta_destino_id else "",
+            item.data_pagamento.isoformat() if item.data_pagamento else "",
+            item.observacoes,
+        ])
+    return response
+
+
+@require_capability("pode_gerenciar_financeiro")
+def transacao_importar_csv(request):
+    empresa = obter_grupo_empresa_ou_erro(request.user)
+    if request.method == "POST":
+        form = TransacaoImportCSVForm(request.POST, request.FILES)
+        if form.is_valid():
+            arquivo = form.cleaned_data["arquivo"]
+            try:
+                texto = arquivo.read().decode("utf-8-sig")
+            except UnicodeDecodeError:
+                form.add_error("arquivo", "O CSV deve estar em UTF-8.")
+            else:
+                reader = csv.DictReader(io.StringIO(texto))
+                obrigatorias = {"tipo", "descricao", "valor", "data_competencia", "conta"}
+                headers = set(reader.fieldnames or [])
+                if not obrigatorias.issubset(headers):
+                    form.add_error("arquivo", "CSV sem colunas obrigatórias: tipo, descricao, valor, data_competencia e conta.")
+                else:
+                    contas = {
+                        _normalizar_lookup(conta.nome): conta
+                        for conta in queryset_da_empresa(Conta.objects.filter(ativa=True), request.user)
+                    }
+                    categorias = {
+                        (categoria.tipo, _normalizar_lookup(categoria.nome)): categoria
+                        for categoria in queryset_da_empresa(CategoriaFinanceira.objects.filter(ativa=True), request.user)
+                    }
+                    criadas = 0
+                    erros = []
+                    linhas = list(reader)
+                    if len(linhas) > 1000:
+                        form.add_error("arquivo", "Importe no máximo 1000 transações por arquivo.")
+                    else:
+                        with transaction.atomic():
+                            for numero, linha in enumerate(linhas, start=2):
+                                erros_linha = []
+                                tipo = (linha.get("tipo") or "").strip()
+                                status = (linha.get("status") or "pendente").strip() or "pendente"
+                                conta = contas.get(_normalizar_lookup(linha.get("conta")))
+                                conta_destino = contas.get(_normalizar_lookup(linha.get("conta_destino")))
+                                categoria = categorias.get((tipo, _normalizar_lookup(linha.get("categoria"))))
+                                data_competencia = parse_date((linha.get("data_competencia") or "").strip())
+                                data_pagamento_raw = (linha.get("data_pagamento") or "").strip()
+                                data_pagamento = parse_date(data_pagamento_raw) if data_pagamento_raw else None
+                                descricao = (linha.get("descricao") or "").strip()
+                                try:
+                                    valor = parse_decimal_br(linha.get("valor"))
+                                except ValueError:
+                                    valor = None
+
+                                if not descricao:
+                                    erros_linha.append(f"Linha {numero}: descrição obrigatória.")
+                                if tipo not in {"receita", "despesa", "transferencia"}:
+                                    erros_linha.append(f"Linha {numero}: tipo inválido.")
+                                if status not in {"pendente", "pago", "cancelado"}:
+                                    erros_linha.append(f"Linha {numero}: status inválido.")
+                                if not conta:
+                                    erros_linha.append(f"Linha {numero}: conta não encontrada.")
+                                if tipo == "transferencia" and not conta_destino:
+                                    erros_linha.append(f"Linha {numero}: transferência exige conta_destino.")
+                                if tipo in {"receita", "despesa"} and not categoria:
+                                    erros_linha.append(f"Linha {numero}: categoria não encontrada para o tipo informado.")
+                                if not data_competencia:
+                                    erros_linha.append(f"Linha {numero}: data_competencia inválida.")
+                                if data_pagamento_raw and not data_pagamento:
+                                    erros_linha.append(f"Linha {numero}: data_pagamento inválida.")
+                                if not valor or valor <= 0:
+                                    erros_linha.append(f"Linha {numero}: valor inválido.")
+                                if erros_linha:
+                                    erros.extend(erros_linha)
+                                    continue
+
+                                try:
+                                    Transacao.objects.create(
+                                        tipo=tipo,
+                                        descricao=descricao,
+                                        valor=valor,
+                                        data_competencia=data_competencia,
+                                        data_pagamento=data_pagamento,
+                                        status=status,
+                                        conta=conta,
+                                        conta_destino=conta_destino if tipo == "transferencia" else None,
+                                        categoria=categoria if tipo != "transferencia" else None,
+                                        observacoes=(linha.get("observacoes") or "").strip(),
+                                        empresa=empresa,
+                                        criado_por=request.user,
+                                    )
+                                except ValidationError as exc:
+                                    erros.append(f"Linha {numero}: {'; '.join(exc.messages)}")
+                                    continue
+                                criadas += 1
+                            if erros:
+                                transaction.set_rollback(True)
+                                form.add_error(None, "Corrija o CSV antes de importar: " + " ".join(erros[:10]))
+                            else:
+                                messages.success(request, f"{criadas} transação(ões) importada(s) com sucesso.")
+                                return redirect("financeiro:transacao_lista")
+    else:
+        form = TransacaoImportCSVForm()
+    return render(request, "financeiro/transacao_importar.html", {"form": form})
 
 
 @require_capability("pode_gerenciar_financeiro")
@@ -400,16 +551,21 @@ def fatura_editar(request, pk):
 @require_capability("pode_gerenciar_financeiro")
 @require_POST
 def fatura_pagar(request, pk):
-    fatura = get_object_or_404(queryset_da_empresa(FaturaCartao.objects.select_related("cartao"), request.user), pk=pk)
-    form = FaturaPagamentoForm(request.POST, user=request.user, fatura=fatura)
+    fatura_base = get_object_or_404(queryset_da_empresa(FaturaCartao.objects.select_related("cartao"), request.user), pk=pk)
+    form = FaturaPagamentoForm(request.POST, user=request.user, fatura=fatura_base)
     if form.is_valid():
         try:
-            fatura.pagar(
-                conta=form.cleaned_data["conta_pagamento"],
-                categoria=form.cleaned_data["categoria_pagamento"],
-                data_pagamento=form.cleaned_data["data_pagamento"],
-                usuario=request.user,
-            )
+            with transaction.atomic():
+                fatura = queryset_da_empresa(
+                    FaturaCartao.objects.select_for_update().select_related("cartao"),
+                    request.user,
+                ).get(pk=pk)
+                fatura.pagar(
+                    conta=form.cleaned_data["conta_pagamento"],
+                    categoria=form.cleaned_data["categoria_pagamento"],
+                    data_pagamento=form.cleaned_data["data_pagamento"],
+                    usuario=request.user,
+                )
             messages.success(request, "Fatura paga e transação bancária criada.")
         except ValidationError as exc:
             messages.error(request, "; ".join(exc.messages) if hasattr(exc, "messages") else str(exc))
@@ -433,9 +589,14 @@ def compra_cartao_criar(request):
             ano_inicial = form.cleaned_data["ano_primeira_fatura"]
             parcelas = form.cleaned_data["parcelas"]
             periodos = [adicionar_meses(mes_inicial, ano_inicial, idx) for idx in range(parcelas)]
+            filtro_periodos = Q()
+            for mes, ano in periodos:
+                filtro_periodos |= Q(mes=mes, ano=ano)
             bloqueada = FaturaCartao.objects.filter(
-                empresa=empresa, cartao=cartao, status__in=["paga", "cancelada"],
-                mes__in=[periodo[0] for periodo in periodos], ano__in=[periodo[1] for periodo in periodos],
+                filtro_periodos,
+                empresa=empresa,
+                cartao=cartao,
+                status__in=["paga", "cancelada"],
             ).first()
             if bloqueada:
                 form.add_error(None, f"A fatura {bloqueada} está {bloqueada.get_status_display().lower()} e não aceita novos lançamentos.")
@@ -498,8 +659,8 @@ def lancamento_cartao_cancelar(request, pk):
 @require_capability("pode_visualizar_financeiro")
 def relatorio_fluxo_caixa(request):
     hoje = timezone.localdate()
-    mes = int(request.GET.get("mes") or hoje.month)
-    ano = int(request.GET.get("ano") or hoje.year)
+    mes = get_bounded_int_param(request, "mes", hoje.month, minimum=1, maximum=12)
+    ano = get_bounded_int_param(request, "ano", hoje.year, minimum=2000, maximum=2100)
     transacoes = queryset_da_empresa(Transacao.objects.select_related("conta", "categoria").exclude(status="cancelado"), request.user).filter(data_competencia__year=ano, data_competencia__month=mes)
     soma_field = DecimalField(max_digits=14, decimal_places=2)
     receitas = transacoes.filter(tipo="receita", status="pago").aggregate(total=Coalesce(Sum("valor"), Value(0), output_field=soma_field))["total"]
@@ -512,8 +673,8 @@ def relatorio_fluxo_caixa(request):
 @require_capability("pode_visualizar_financeiro")
 def planejamento_lista(request):
     hoje = timezone.localdate()
-    mes = int(request.GET.get("mes") or hoje.month)
-    ano = int(request.GET.get("ano") or hoje.year)
+    mes = get_bounded_int_param(request, "mes", hoje.month, minimum=1, maximum=12)
+    ano = get_bounded_int_param(request, "ano", hoje.year, minimum=2000, maximum=2100)
     planejamentos = queryset_da_empresa(PlanejamentoMensal.objects.select_related("categoria"), request.user).filter(mes=mes, ano=ano)
     transacoes = queryset_da_empresa(Transacao.objects.filter(tipo="despesa", status="pago", data_competencia__year=ano, data_competencia__month=mes), request.user)
     realizados = {item["categoria_id"]: item["total"] for item in transacoes.values("categoria_id").annotate(total=Coalesce(Sum("valor"), Value(0), output_field=DecimalField(max_digits=14, decimal_places=2)))}

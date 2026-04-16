@@ -10,11 +10,6 @@ server {
         expires 30d;
     }
 
-    # Keep media private. Logos are served by Django with authz per company/group.
-    location /media/ {
-        return 403;
-    }
-
     location / {
         proxy_pass http://127.0.0.1:8010;
         proxy_set_header Host $host;

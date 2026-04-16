@@ -15,6 +15,9 @@
 - Metas financeiras.
 - Recorrências financeiras.
 - Relatório mensal de fluxo de caixa.
+- Importação e exportação CSV de transações.
+- Índices de consulta para transações, faturas e lançamentos de cartão.
+- Pagamento de fatura protegido por transação atômica.
 - Testes de regras principais.
 - Remoção dos módulos comerciais herdados do projeto anterior.
 
@@ -32,9 +35,8 @@
 
 ## Próximas melhorias recomendadas
 
-1. Melhorar performance dos saldos com agregações SQL ou saldos materializados.
-2. Criar exportação CSV/XLSX para relatórios financeiros.
-3. Adicionar importação de extratos bancários e faturas.
-4. Adicionar anexos de comprovantes.
-5. Melhorar gráficos do dashboard.
-6. Criar página de configuração financeira para conta/categoria padrão.
+1. Criar importação específica de faturas de cartão.
+2. Adicionar anexos de comprovantes.
+3. Melhorar gráficos do dashboard.
+4. Criar página de configuração financeira para conta/categoria padrão.
+5. Evoluir saldos materializados se o volume de transações exigir.

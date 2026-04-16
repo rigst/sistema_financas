@@ -15,6 +15,7 @@ Aplicação Django para controle pessoal de finanças, com autenticação, multi
 - metas financeiras
 - recorrências financeiras com geração de lançamentos futuros
 - relatório mensal de fluxo de caixa
+- importação e exportação CSV de transações
 
 ## Requisitos
 
@@ -67,12 +68,13 @@ Compras de cartão usam `LancamentoCartao`, agrupadas por `FaturaCartao`. A comp
 
 Recorrências geram transações pendentes futuras, evitando automação silenciosa.
 
+Transações podem ser exportadas em CSV pela listagem. A importação CSV aceita as colunas `tipo`, `descricao`, `valor`, `data_competencia`, `status`, `conta`, `categoria`, `conta_destino`, `data_pagamento` e `observacoes`.
+
 ## Estrutura principal
 
 - `financeiro`: domínio financeiro principal.
 - `core`: dashboard, permissões, contexto, helpers e segurança.
 - `usuarios`: autenticação, perfis, visitantes e controle de acesso.
-- `auditoria`: estrutura reservada para auditoria.
 - `templates/base.html`: layout principal.
 - `static/css/style.css`: design visual.
 - `config`: configurações Django e rotas.
