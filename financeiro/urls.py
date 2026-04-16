@@ -1,0 +1,43 @@
+from django.urls import path
+
+from .views import (
+    categoria_criar,
+    categoria_editar,
+    categoria_excluir,
+    categoria_lista,
+    categoria_visualizar,
+    conta_criar,
+    conta_editar,
+    conta_excluir,
+    conta_extrato,
+    conta_lista,
+    conta_visualizar,
+    transacao_criar,
+    transacao_editar,
+    transacao_excluir,
+    transacao_lista,
+    transacao_marcar_pago,
+    transacao_visualizar,
+)
+
+app_name = "financeiro"
+
+urlpatterns = [
+    path("transacoes/", transacao_lista, name="transacao_lista"),
+    path("transacoes/nova/", transacao_criar, name="transacao_criar"),
+    path("transacoes/<int:pk>/", transacao_visualizar, name="transacao_visualizar"),
+    path("transacoes/<int:pk>/editar/", transacao_editar, name="transacao_editar"),
+    path("transacoes/<int:pk>/excluir/", transacao_excluir, name="transacao_excluir"),
+    path("transacoes/<int:pk>/pagar/", transacao_marcar_pago, name="transacao_marcar_pago"),
+    path("contas/", conta_lista, name="conta_lista"),
+    path("contas/nova/", conta_criar, name="conta_criar"),
+    path("contas/<int:pk>/", conta_visualizar, name="conta_visualizar"),
+    path("contas/<int:pk>/editar/", conta_editar, name="conta_editar"),
+    path("contas/<int:pk>/excluir/", conta_excluir, name="conta_excluir"),
+    path("contas/<int:pk>/extrato/", conta_extrato, name="conta_extrato"),
+    path("categorias/", categoria_lista, name="categoria_lista"),
+    path("categorias/nova/", categoria_criar, name="categoria_criar"),
+    path("categorias/<int:pk>/", categoria_visualizar, name="categoria_visualizar"),
+    path("categorias/<int:pk>/editar/", categoria_editar, name="categoria_editar"),
+    path("categorias/<int:pk>/excluir/", categoria_excluir, name="categoria_excluir"),
+]

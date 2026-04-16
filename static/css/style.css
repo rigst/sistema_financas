@@ -2193,3 +2193,6 @@ tr:hover td {
     max-width: 92vw !important;
   }
 }
+
+.status-pendente { color: #a16b18; }
+.status-pago { color: #3d8f56; }

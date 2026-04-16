@@ -7,7 +7,7 @@ from core.tenancy import VISITOR_GROUP_PREFIX, obter_empresa_ativa_usuario
 class Usuario(AbstractUser):
     PERFIL_CHOICES = [
         ("admin", "Administrador"),
-        ("orcamentista", "Orçamentista"),
+        ("orcamentista", "Editor"),
         ("visualizador", "Visualizador"),
         ("visitante", "Visitante"),
     ]
@@ -31,12 +31,25 @@ class Usuario(AbstractUser):
         return self.perfil == "orcamentista"
 
     @property
+    def eh_editor(self):
+        return self.perfil == "orcamentista"
+
+    @property
     def eh_visualizador(self):
         return self.perfil == "visualizador"
 
     @property
     def eh_visitante(self):
         return self.perfil == "visitante"
+
+
+    @property
+    def pode_visualizar_financeiro(self):
+        return self.is_authenticated
+
+    @property
+    def pode_gerenciar_financeiro(self):
+        return self.eh_admin_perfil or self.eh_orcamentista or self.eh_visitante
 
     @property
     def pode_visualizar_clientes(self):

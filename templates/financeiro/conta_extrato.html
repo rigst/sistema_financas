@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% load br_format %}
+
+{% block title %}Extrato - {{ conta.nome }}{% endblock %}
+
+{% block content %}
+<section>
+    <div class="section-heading">
+        <div><h2>Extrato: {{ conta.nome }}</h2><p>Saldo atual: <strong>{{ conta.saldo_atual|brl }}</strong></p></div>
+        <div class="inline-actions"><a class="btn btn-secondary" href="{% url 'financeiro:conta_lista' %}"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m15 18-6-6 6-6"/><path d="M9 12h10"/></svg><span>Voltar</span></a></div>
+    </div>
+    {% if transacoes %}
+        <div class="table-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Status</th><th>Valor</th></tr></thead><tbody>
+            {% for transacao in transacoes %}
+                <tr><td>{{ transacao.data_competencia|date:"d/m/Y" }}</td><td>{{ transacao.descricao }}</td><td>{{ transacao.get_tipo_display }}</td><td><span class="badge status-{{ transacao.status }}">{{ transacao.get_status_display }}</span></td><td class="money">{{ transacao.valor|brl }}</td></tr>
+            {% endfor %}
+        </tbody></table></div>
+    {% else %}<p class="empty-state">Nenhuma transação nesta conta.</p>{% endif %}
+    {% include "partials/pagination.html" with page_obj=page_obj %}
+</section>
+{% endblock %}

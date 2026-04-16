@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% load br_format %}
+
+{% block title %}Contas{% endblock %}
+
+{% block content %}
+<section>
+    <div class="section-heading">
+        <div>
+            <h2>Contas</h2>
+            <p>Cadastre contas bancárias, carteiras e espaços onde seu dinheiro fica.</p>
+        </div>
+        <div class="inline-actions">
+            {% if user.pode_gerenciar_financeiro %}
+                <a class="btn btn-primary-lite" href="{% url 'financeiro:conta_criar' %}">
+                    <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                    <span>Nova conta</span>
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <form method="get" class="filters-form">
+        <input type="text" name="q" placeholder="Buscar conta ou instituição" value="{{ busca }}">
+        <select name="sort">
+            <option value="nome" {% if sort == "nome" %}selected{% endif %}>Ordenar por nome</option>
+            <option value="tipo" {% if sort == "tipo" %}selected{% endif %}>Ordenar por tipo</option>
+            <option value="instituicao" {% if sort == "instituicao" %}selected{% endif %}>Ordenar por instituição</option>
+            <option value="recentes" {% if sort == "recentes" %}selected{% endif %}>Mais recentes</option>
+        </select>
+        <button class="btn btn-secondary btn-icon-action" type="submit" title="Buscar contas" aria-label="Buscar contas">
+            <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.2-4.2"/></svg>
+            <span class="visually-hidden">Buscar</span>
+        </button>
+    </form>
+
+    {% if contas %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Conta</th>
+                        <th>Tipo</th>
+                        <th>Instituição</th>
+                        <th>Saldo inicial</th>
+                        <th>Saldo atual</th>
+                        <th>Ativa</th>
+                        <th class="actions-col">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for conta in contas %}
+                        <tr>
+                            <td><span class="category-chip" style="--category-color: {{ conta.cor }};"><span class="category-chip-dot"></span>{{ conta.nome }}</span></td>
+                            <td>{{ conta.get_tipo_display }}</td>
+                            <td>{{ conta.instituicao|default:"-" }}</td>
+                            <td class="money">{{ conta.saldo_inicial|brl }}</td>
+                            <td class="money">{{ conta.saldo_atual|brl }}</td>
+                            <td>{% if conta.ativa %}Sim{% else %}Não{% endif %}</td>
+                            <td class="actions-col">
+                                <div class="actions-stack actions-stack-inline">
+                                    <a class="btn btn-secondary btn-icon-action" href="{% url 'financeiro:conta_extrato' conta.pk %}" title="Extrato"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M6 4h12v16H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg><span class="visually-hidden">Extrato</span></a>
+                                    <a class="btn btn-secondary btn-icon-action" href="{% url 'financeiro:conta_visualizar' conta.pk %}" title="Ver"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="3"/></svg><span class="visually-hidden">Ver</span></a>
+                                    {% if user.pode_gerenciar_financeiro %}
+                                        <a class="btn btn-secondary btn-icon-action" href="{% url 'financeiro:conta_editar' conta.pk %}" title="Editar"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M4 20l4.5-1 9.2-9.2a1.8 1.8 0 0 0 0-2.6l-.9-.9a1.8 1.8 0 0 0-2.6 0L5 15.5 4 20Z"/><path d="M13.5 7.5l3 3"/></svg><span class="visually-hidden">Editar</span></a>
+                                        <a class="btn {% if conta.ativa %}btn-danger{% else %}btn-soft{% endif %} btn-icon-action" href="{% url 'financeiro:conta_excluir' conta.pk %}" title="{% if conta.ativa %}Inativar{% else %}Reativar{% endif %}"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M5 7.5h14"/><path d="M8 7.5V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1.5"/><path d="M7.5 7.5v10A2 2 0 0 0 9.5 19.5h5A2 2 0 0 0 16.5 17.5v-10"/></svg><span class="visually-hidden">Alterar status</span></a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="empty-state">Nenhuma conta encontrada.</p>
+    {% endif %}
+
+    {% include "partials/pagination.html" with page_obj=page_obj %}
+    <div class="list-footer-toggle">
+        {% if ativo == "inativas" %}<a href="?q={{ busca|urlencode }}&sort={{ sort|urlencode }}">Exibir ativas</a>{% else %}<a href="?q={{ busca|urlencode }}&sort={{ sort|urlencode }}&ativo=inativas">Exibir inativas</a>{% endif %}
+    </div>
+</section>
+{% endblock %}

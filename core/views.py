@@ -1,19 +1,21 @@
 from datetime import timedelta
+from decimal import Decimal
 import secrets
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, DecimalField, Sum, Value
+from django.db.models import Sum, Value, DecimalField
 from django.db.models.functions import Coalesce
 from django.http import HttpResponseNotFound, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from core.tenancy import definir_empresa_ativa, queryset_da_empresa
-from orcamentos.models import Orcamento
+from financeiro.models import Conta, Transacao, arredondar
 
 
 def healthz(request):
@@ -28,55 +30,61 @@ def healthz(request):
 @login_required
 def dashboard(request):
     periodo = request.GET.get("periodo", "30")
-    ultimos_orcamentos = queryset_da_empresa(
-        Orcamento.objects.select_related("cliente")
-        .filter(ativo=True)
-        .exclude(status__in=["rejeitado", "cancelado"])
-        .order_by("-criado_em"),
+    contas = queryset_da_empresa(Conta.objects.filter(ativa=True).order_by("nome"), request.user)
+    transacoes = queryset_da_empresa(
+        Transacao.objects.select_related("conta", "conta_destino", "categoria").exclude(status="cancelado"),
         request.user,
     )
-    orcamentos = queryset_da_empresa(Orcamento.objects.filter(ativo=True), request.user)
 
     if periodo != "todos":
         try:
             dias = int(periodo)
         except (TypeError, ValueError):
             dias = 30
-        from django.utils import timezone
-
         inicio = timezone.localdate() - timedelta(days=dias)
-        orcamentos = orcamentos.filter(data_emissao__gte=inicio)
-        ultimos_orcamentos = ultimos_orcamentos.filter(data_emissao__gte=inicio)
+        transacoes_periodo = transacoes.filter(data_competencia__gte=inicio)
+    else:
+        transacoes_periodo = transacoes
 
-    resumo_status = (
-        orcamentos.values("status")
-        .annotate(total=Count("id"))
-    )
+    soma_field = DecimalField(max_digits=14, decimal_places=2)
+    receitas = transacoes_periodo.filter(tipo="receita", status="pago").aggregate(
+        total=Coalesce(Sum("valor"), Value(0), output_field=soma_field)
+    )["total"]
+    despesas = transacoes_periodo.filter(tipo="despesa", status="pago").aggregate(
+        total=Coalesce(Sum("valor"), Value(0), output_field=soma_field)
+    )["total"]
+    pendente_receber = transacoes.filter(tipo="receita", status="pendente").aggregate(
+        total=Coalesce(Sum("valor"), Value(0), output_field=soma_field)
+    )["total"]
+    pendente_pagar = transacoes.filter(tipo="despesa", status="pendente").aggregate(
+        total=Coalesce(Sum("valor"), Value(0), output_field=soma_field)
+    )["total"]
 
-    status_map = {
-        "rascunho": 0,
-        "em_elaboracao": 0,
-        "enviado": 0,
-        "aprovado": 0,
+    contas_lista = list(contas)
+    saldo_total = arredondar(sum((conta.saldo_atual() for conta in contas_lista), Decimal("0.00")))
+    indicadores = {
+        "saldo_total": saldo_total,
+        "receitas": arredondar(receitas),
+        "despesas": arredondar(despesas),
+        "resultado": arredondar(receitas - despesas),
+        "pendente_receber": arredondar(pendente_receber),
+        "pendente_pagar": arredondar(pendente_pagar),
+        "total_contas": len(contas_lista),
+        "total_transacoes": transacoes_periodo.count(),
     }
 
-    for item in resumo_status:
-        if item["status"] in status_map:
-            status_map[item["status"]] = item["total"]
-
-    indicadores = orcamentos.aggregate(
-        total_orcamentos=Count("id"),
-        valor_total=Coalesce(Sum("total_final"), Value(0), output_field=DecimalField(max_digits=14, decimal_places=2)),
+    categorias_despesa = (
+        transacoes_periodo.filter(tipo="despesa", status="pago", categoria__isnull=False)
+        .values("categoria__nome", "categoria__cor")
+        .annotate(total=Coalesce(Sum("valor"), Value(0), output_field=soma_field))
+        .order_by("-total")[:5]
     )
-    indicadores["valor_aprovado"] = orcamentos.filter(status="aprovado").aggregate(
-        total=Coalesce(Sum("total_final"), Value(0), output_field=DecimalField(max_digits=14, decimal_places=2))
-    )["total"]
-    indicadores["pendentes"] = orcamentos.filter(status__in=["rascunho", "em_elaboracao", "enviado"]).count()
-    ultimos_orcamentos = ultimos_orcamentos[:5]
+    ultimas_transacoes = transacoes.order_by("-data_competencia", "-id")[:8]
 
     context = {
-        "ultimos_orcamentos": ultimos_orcamentos,
-        "status_map": status_map,
+        "contas": contas_lista,
+        "categorias_despesa": categorias_despesa,
+        "ultimas_transacoes": ultimas_transacoes,
         "indicadores": indicadores,
         "periodo": periodo,
         "saudacao_dashboard": f"Bom ter você por aqui, {request.user}.",
@@ -89,24 +97,18 @@ def manual(request):
     perfis = [
         {
             "nome": "Administrador",
-            "descricao": "Acompanha o sistema inteiro e gerencia clientes, catálogo, empresa, orçamentos e usuários.",
+            "descricao": "Acompanha o sistema inteiro e gerencia finanças, configurações e usuários.",
         },
         {
-            "nome": "Orçamentista",
-            "descricao": "Trabalha com clientes e orçamentos, consulta catálogo e empresa, e acompanha relatórios.",
+            "nome": "Editor",
+            "descricao": "Registra contas, categorias e transações financeiras.",
         },
         {
             "nome": "Visualizador",
-            "descricao": "Consulta informações do sistema sem editar cadastros nem movimentar orçamentos.",
+            "descricao": "Consulta informações financeiras sem editar cadastros nem lançamentos.",
         },
     ]
-    return render(
-        request,
-        "core/manual.html",
-        {
-            "perfis_manual": perfis,
-        },
-    )
+    return render(request, "core/manual.html", {"perfis_manual": perfis})
 
 
 @login_required
@@ -116,9 +118,9 @@ def alternar_empresa(request):
     empresa = definir_empresa_ativa(request, request.user, empresa_id)
 
     if empresa is None:
-        messages.error(request, "Empresa inválida para este usuário.")
+        messages.error(request, "Espaço financeiro inválido para este usuário.")
     else:
-        messages.success(request, f"Empresa ativa alterada para {empresa.nome}.")
+        messages.success(request, f"Espaço financeiro ativo alterado para {empresa.nome}.")
 
     destino = request.POST.get("next") or request.META.get("HTTP_REFERER") or reverse("dashboard")
     if not url_has_allowed_host_and_scheme(destino, allowed_hosts={request.get_host()}):

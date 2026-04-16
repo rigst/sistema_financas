@@ -65,18 +65,13 @@
                     <div id="header-main-links" class="nav-bottom">
                         <ul class="nav-links">
                             <li><a href="{% url 'dashboard' %}" {% if request.resolver_match.url_name == 'dashboard' %}class="active"{% endif %}>Dashboard</a></li>
-                            {% if user.pode_visualizar_orcamentos %}
-                                <li><a href="{% url 'orcamentos:lista' %}" {% if request.resolver_match.namespace == 'orcamentos' %}class="active"{% endif %}>Finanças</a></li>
-                            {% endif %}
-                            {% if user.pode_visualizar_catalogo %}
-                                <li><a href="{% url 'catalogo:categoria_lista' %}" {% if request.resolver_match.namespace == 'catalogo' and request.resolver_match.url_name == 'categoria_lista' %}class="active"{% endif %}>Categorias</a></li>
-                                <li><a href="{% url 'catalogo:item_lista' %}" {% if request.resolver_match.namespace == 'catalogo' and request.resolver_match.url_name == 'item_lista' %}class="active"{% endif %}>Itens</a></li>
-                            {% endif %}
-                            {% if user.pode_visualizar_clientes %}
-                                <li><a href="{% url 'clientes:lista' %}" {% if request.resolver_match.namespace == 'clientes' %}class="active"{% endif %}>Clientes</a></li>
+                            {% if user.pode_visualizar_financeiro %}
+                                <li><a href="{% url 'financeiro:transacao_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'transacao' in request.resolver_match.url_name %}class="active"{% endif %}>Transações</a></li>
+                                <li><a href="{% url 'financeiro:conta_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'conta' in request.resolver_match.url_name %}class="active"{% endif %}>Contas</a></li>
+                                <li><a href="{% url 'financeiro:categoria_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'categoria' in request.resolver_match.url_name %}class="active"{% endif %}>Categorias</a></li>
                             {% endif %}
                             {% if user.pode_visualizar_relatorios %}
-                                <li><a href="{% url 'relatorios:configuracao_lista' %}" {% if request.resolver_match.namespace == 'relatorios' %}class="active"{% endif %}>Empresa</a></li>
+                                <li><a href="{% url 'relatorios:configuracao_lista' %}" {% if request.resolver_match.namespace == 'relatorios' %}class="active"{% endif %}>Configurações</a></li>
                             {% endif %}
                             <li><a href="{% url 'manual' %}" {% if request.resolver_match.url_name == 'manual' %}class="active"{% endif %}>Manual</a></li>
                         </ul>

@@ -20,27 +20,37 @@ class DashboardTests(TestCase):
             password="senha-forte-123",
         )
         self.client.force_login(self.user)
-        self.cliente = Cliente.objects.create(nome_razao_social="Cliente Dashboard")
+        from financeiro.models import CategoriaFinanceira, Conta, Transacao
 
-        Orcamento.objects.create(
-            numero="ORC-DASH-1",
-            cliente=self.cliente,
-            titulo="Aprovado recente",
-            status="aprovado",
-            data_emissao=timezone.localdate(),
-            total_final=Decimal("1200.00"),
-            criado_por=self.user,
-            atualizado_por=self.user,
+        self.conta = Conta.objects.create(
+            nome="Conta principal",
+            tipo="corrente",
+            instituicao="Banco Teste",
+            saldo_inicial=Decimal("100.00"),
         )
-        Orcamento.objects.create(
-            numero="ORC-DASH-2",
-            cliente=self.cliente,
-            titulo="Rascunho antigo",
-            status="rascunho",
-            data_emissao=timezone.localdate() - timedelta(days=45),
-            total_final=Decimal("800.00"),
+        self.categoria_receita = CategoriaFinanceira.objects.create(nome="Salário", tipo="receita")
+        self.categoria_despesa = CategoriaFinanceira.objects.create(nome="Mercado", tipo="despesa")
+        Transacao.objects.create(
+            tipo="receita",
+            descricao="Salário recente",
+            valor=Decimal("1200.00"),
+            data_competencia=timezone.localdate(),
+            data_pagamento=timezone.localdate(),
+            status="pago",
+            conta=self.conta,
+            categoria=self.categoria_receita,
             criado_por=self.user,
-            atualizado_por=self.user,
+        )
+        Transacao.objects.create(
+            tipo="despesa",
+            descricao="Despesa antiga",
+            valor=Decimal("800.00"),
+            data_competencia=timezone.localdate() - timedelta(days=45),
+            data_pagamento=timezone.localdate() - timedelta(days=45),
+            status="pago",
+            conta=self.conta,
+            categoria=self.categoria_despesa,
+            criado_por=self.user,
         )
 
     def test_dashboard_filtra_periodo_e_exibe_indicadores(self):
@@ -49,49 +59,31 @@ class DashboardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "R$ 1.200,00")
         self.assertContains(response, "Últimos 30 dias")
-        self.assertNotContains(response, "Rascunho antigo")
+        self.assertEqual(response.context["indicadores"]["total_transacoes"], 1)
 
-    def test_dashboard_oculta_cancelados_rejeitados_e_inativos_dos_ultimos_orcamentos(self):
-        Orcamento.objects.create(
-            numero="ORC-DASH-3",
-            cliente=self.cliente,
-            titulo="Rejeitado recente",
-            status="rejeitado",
-            data_emissao=timezone.localdate(),
-            total_final=Decimal("300.00"),
-            criado_por=self.user,
-            atualizado_por=self.user,
-        )
-        Orcamento.objects.create(
-            numero="ORC-DASH-4",
-            cliente=self.cliente,
-            titulo="Cancelado recente",
+    def test_dashboard_exibe_saldo_e_ultimas_transacoes_financeiras(self):
+        from financeiro.models import Transacao
+
+        Transacao.objects.create(
+            tipo="despesa",
+            descricao="Compra cancelada",
+            valor=Decimal("300.00"),
+            data_competencia=timezone.localdate(),
             status="cancelado",
-            data_emissao=timezone.localdate(),
-            total_final=Decimal("400.00"),
+            conta=self.conta,
+            categoria=self.categoria_despesa,
             criado_por=self.user,
-            atualizado_por=self.user,
-        )
-        Orcamento.objects.create(
-            numero="ORC-DASH-5",
-            cliente=self.cliente,
-            titulo="Inativo recente",
-            status="aprovado",
-            ativo=False,
-            data_emissao=timezone.localdate(),
-            total_final=Decimal("500.00"),
-            criado_por=self.user,
-            atualizado_por=self.user,
         )
 
         response = self.client.get(reverse("dashboard"), {"periodo": "todos"})
 
         self.assertEqual(response.status_code, 200)
-        titulos = [orcamento.titulo for orcamento in response.context["ultimos_orcamentos"]]
-        self.assertIn("Aprovado recente", titulos)
-        self.assertNotIn("Rejeitado recente", titulos)
-        self.assertNotIn("Cancelado recente", titulos)
-        self.assertNotIn("Inativo recente", titulos)
+        self.assertContains(response, "Conta principal")
+        self.assertContains(response, "Salário recente")
+        self.assertContains(response, "R$ 500,00")
+        transacoes = [transacao.descricao for transacao in response.context["ultimas_transacoes"]]
+        self.assertIn("Salário recente", transacoes)
+        self.assertNotIn("Compra cancelada", transacoes)
 
     def test_manual_do_sistema_esta_disponivel(self):
         response = self.client.get(reverse("manual"))

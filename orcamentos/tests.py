@@ -1199,10 +1199,10 @@ class DashboardTests(TestCase):
             atualizado_por=self.user,
         )
 
-    def test_dashboard_nao_lista_orcamentos_inativos(self):
+    def test_dashboard_financeiro_nao_lista_orcamentos_antigos(self):
         response = self.client.get(reverse("dashboard"))
 
         self.assertEqual(response.status_code, 200)
-        ultimos = list(response.context["ultimos_orcamentos"])
-        self.assertEqual(len(ultimos), 1)
-        self.assertEqual(ultimos[0].titulo, "Ativo")
+        self.assertContains(response, "Dashboard financeiro")
+        self.assertNotContains(response, "ORC-ATIVO-0001")
+        self.assertNotContains(response, "ORC-INATIVO-0001")
