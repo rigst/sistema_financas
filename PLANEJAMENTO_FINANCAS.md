@@ -16,6 +16,7 @@
 - Recorrências financeiras.
 - Relatório mensal de fluxo de caixa.
 - Testes de regras principais.
+- Isolamento dos apps legados `clientes`, `catalogo`, `orcamentos` e relatórios comerciais antigos das URLs públicas, menu e admin.
 
 ## Regras centrais
 
@@ -31,14 +32,13 @@
 
 ## Próximas melhorias recomendadas
 
-1. Remover ou isolar definitivamente os apps legados `clientes`, `catalogo`, `orcamentos` e relatórios comerciais antigos.
-2. Melhorar performance dos saldos com agregações SQL ou saldos materializados.
-3. Criar exportação CSV/XLSX para relatórios financeiros.
-4. Adicionar importação de extratos bancários e faturas.
-5. Adicionar anexos de comprovantes.
-6. Melhorar gráficos do dashboard.
-7. Criar página de configuração financeira para conta/categoria padrão.
+1. Melhorar performance dos saldos com agregações SQL ou saldos materializados.
+2. Criar exportação CSV/XLSX para relatórios financeiros.
+3. Adicionar importação de extratos bancários e faturas.
+4. Adicionar anexos de comprovantes.
+5. Melhorar gráficos do dashboard.
+6. Criar página de configuração financeira para conta/categoria padrão.
 
 ## Observação sobre apps legados
 
-Os apps antigos foram preservados porque fazem parte do histórico de migrations e testes herdados do projeto original. A remoção limpa exige uma etapa específica de migração/squash ou criação de uma base nova sem esses apps.
+Os apps antigos foram preservados porque fazem parte do histórico de migrations herdado do projeto original. No sistema financeiro eles ficam isolados: sem URLs públicas, sem links no menu, sem registros no admin e com testes comerciais antigos desativados. A remoção física limpa ainda exigiria squash/migração planejada ou criação de uma base nova sem esses apps.

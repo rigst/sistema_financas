@@ -53,35 +53,35 @@ class Usuario(AbstractUser):
 
     @property
     def pode_visualizar_clientes(self):
-        return self.is_authenticated
+        return False
 
     @property
     def pode_gerenciar_clientes(self):
-        return self.eh_admin_perfil or self.eh_orcamentista or self.eh_visitante
+        return False
 
     @property
     def pode_visualizar_catalogo(self):
-        return self.is_authenticated
+        return False
 
     @property
     def pode_gerenciar_catalogo(self):
-        return self.eh_admin_perfil or self.eh_visitante
+        return False
 
     @property
     def pode_visualizar_relatorios(self):
-        return self.is_authenticated
+        return False
 
     @property
     def pode_gerenciar_relatorios(self):
-        return self.eh_admin_perfil or self.eh_visitante
+        return False
 
     @property
     def pode_visualizar_orcamentos(self):
-        return self.is_authenticated
+        return False
 
     @property
     def pode_gerenciar_orcamentos(self):
-        return self.eh_admin_perfil or self.eh_orcamentista or self.eh_visitante
+        return False
 
     @property
     def nome_empresa(self):

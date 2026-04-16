@@ -20,7 +20,7 @@ Funcionalidades disponíveis:
 - recorrências financeiras com geração de lançamentos futuros
 - relatório mensal de fluxo de caixa
 
-Apps antigos (`clientes`, `catalogo`, `orcamentos` e parte de `relatorios`) ainda estão instalados por compatibilidade técnica com a base original e migrations antigas. Eles não são o foco do novo fluxo financeiro.
+Apps antigos (`clientes`, `catalogo`, `orcamentos` e parte de `relatorios`) permanecem instalados apenas por compatibilidade técnica com a base original e migrations antigas. Eles não têm rotas públicas, itens de menu ou registros no admin do sistema financeiro.
 
 ## Requisitos
 

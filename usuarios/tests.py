@@ -1,12 +1,13 @@
+from datetime import date
+from decimal import Decimal
+
 from django.contrib.auth.models import Group
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory
 from django.test import TestCase
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
 
-from clientes.models import Cliente
-from orcamentos.models import Orcamento
-from relatorios.models import ConfiguracaoEmpresa
+from financeiro.models import CategoriaFinanceira, Conta, Transacao
 from .views import UsuarioLoginView
 
 
@@ -35,31 +36,41 @@ class AdminPermissaoPerfilTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
 
-    def test_orcamentista_pode_gerenciar_clientes_no_admin(self):
-        user = self.criar_usuario("orc_clientes", "orcamentista")
+    def test_orcamentista_pode_gerenciar_financeiro_no_admin(self):
+        user = self.criar_usuario("orc_financeiro", "orcamentista")
         self.client.force_login(user)
 
-        response = self.client.get(reverse("admin:clientes_cliente_add"))
+        response = self.client.get(reverse("admin:financeiro_conta_add"))
 
         self.assertEqual(response.status_code, 200)
 
-    def test_orcamentista_nao_pode_gerenciar_catalogo_no_admin(self):
-        user = self.criar_usuario("orc_catalogo", "orcamentista")
-        self.client.force_login(user)
+    def test_apps_legados_nao_tem_rotas_no_admin(self):
+        with self.assertRaises(NoReverseMatch):
+            reverse("admin:clientes_cliente_add")
+        with self.assertRaises(NoReverseMatch):
+            reverse("admin:catalogo_itemcatalogo_add")
+        with self.assertRaises(NoReverseMatch):
+            reverse("admin:orcamentos_orcamento_add")
+        with self.assertRaises(NoReverseMatch):
+            reverse("admin:relatorios_configuracaoempresa_add")
 
-        response = self.client.get(reverse("admin:catalogo_itemcatalogo_add"))
-
-        self.assertEqual(response.status_code, 403)
-
-    def test_visualizador_pode_ver_orcamentos_no_admin_mas_nao_criar(self):
+    def test_visualizador_pode_ver_financeiro_no_admin_mas_nao_criar(self):
         user = self.criar_usuario("visualizador", "visualizador")
         self.client.force_login(user)
 
-        changelist_response = self.client.get(reverse("admin:orcamentos_orcamento_changelist"))
-        add_response = self.client.get(reverse("admin:orcamentos_orcamento_add"))
+        changelist_response = self.client.get(reverse("admin:financeiro_transacao_changelist"))
+        add_response = self.client.get(reverse("admin:financeiro_transacao_add"))
 
         self.assertEqual(changelist_response.status_code, 200)
         self.assertEqual(add_response.status_code, 403)
+
+    def test_visualizador_nao_pode_criar_conta_financeira_no_admin(self):
+        user = self.criar_usuario("visualizador_conta", "visualizador")
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("admin:financeiro_conta_add"))
+
+        self.assertEqual(response.status_code, 403)
 
     def test_admin_de_empresa_so_ve_o_proprio_grupo_no_admin(self):
         user = self.criar_usuario("admin_empresa", "admin")
@@ -93,14 +104,14 @@ class AdminPermissaoPerfilTests(TestCase):
         self.client.force_login(user)
 
         response_usuarios = self.client.get(reverse("admin:usuarios_usuario_add"))
-        response_categoria = self.client.get(reverse("admin:catalogo_categoriaitem_add"))
-        response_item = self.client.get(reverse("admin:catalogo_itemcatalogo_add"))
-        response_empresa = self.client.get(reverse("admin:relatorios_configuracaoempresa_add"))
+        response_conta = self.client.get(reverse("admin:financeiro_conta_add"))
+        response_categoria = self.client.get(reverse("admin:financeiro_categoriafinanceira_add"))
+        response_transacao = self.client.get(reverse("admin:financeiro_transacao_add"))
 
         self.assertEqual(response_usuarios.status_code, 200)
+        self.assertEqual(response_conta.status_code, 200)
         self.assertEqual(response_categoria.status_code, 200)
-        self.assertEqual(response_item.status_code, 200)
-        self.assertEqual(response_empresa.status_code, 200)
+        self.assertEqual(response_transacao.status_code, 200)
 
 
 class UsuarioPermissaoPropriedadesTests(TestCase):
@@ -111,10 +122,12 @@ class UsuarioPermissaoPropriedadesTests(TestCase):
             perfil="admin",
         )
 
-        self.assertTrue(user.pode_gerenciar_clientes)
-        self.assertTrue(user.pode_gerenciar_catalogo)
-        self.assertTrue(user.pode_gerenciar_relatorios)
-        self.assertTrue(user.pode_gerenciar_orcamentos)
+        self.assertTrue(user.pode_visualizar_financeiro)
+        self.assertTrue(user.pode_gerenciar_financeiro)
+        self.assertFalse(user.pode_gerenciar_clientes)
+        self.assertFalse(user.pode_gerenciar_catalogo)
+        self.assertFalse(user.pode_gerenciar_relatorios)
+        self.assertFalse(user.pode_gerenciar_orcamentos)
 
     def test_visualizador_fica_apenas_com_visualizacao(self):
         user = get_user_model().objects.create_user(
@@ -123,10 +136,12 @@ class UsuarioPermissaoPropriedadesTests(TestCase):
             perfil="visualizador",
         )
 
-        self.assertTrue(user.pode_visualizar_clientes)
-        self.assertTrue(user.pode_visualizar_catalogo)
-        self.assertTrue(user.pode_visualizar_relatorios)
-        self.assertTrue(user.pode_visualizar_orcamentos)
+        self.assertTrue(user.pode_visualizar_financeiro)
+        self.assertFalse(user.pode_gerenciar_financeiro)
+        self.assertFalse(user.pode_visualizar_clientes)
+        self.assertFalse(user.pode_visualizar_catalogo)
+        self.assertFalse(user.pode_visualizar_relatorios)
+        self.assertFalse(user.pode_visualizar_orcamentos)
         self.assertFalse(user.pode_gerenciar_clientes)
         self.assertFalse(user.pode_gerenciar_catalogo)
         self.assertFalse(user.pode_gerenciar_relatorios)
@@ -140,10 +155,12 @@ class UsuarioPermissaoPropriedadesTests(TestCase):
         )
 
         self.assertTrue(user.eh_admin_perfil)
-        self.assertTrue(user.pode_gerenciar_clientes)
-        self.assertTrue(user.pode_gerenciar_catalogo)
-        self.assertTrue(user.pode_gerenciar_relatorios)
-        self.assertTrue(user.pode_gerenciar_orcamentos)
+        self.assertTrue(user.pode_visualizar_financeiro)
+        self.assertTrue(user.pode_gerenciar_financeiro)
+        self.assertFalse(user.pode_gerenciar_clientes)
+        self.assertFalse(user.pode_gerenciar_catalogo)
+        self.assertFalse(user.pode_gerenciar_relatorios)
+        self.assertFalse(user.pode_gerenciar_orcamentos)
 
 
 class UsuarioVisitanteTests(TestCase):
@@ -184,33 +201,34 @@ class UsuarioVisitanteTests(TestCase):
             perfil="orcamentista",
         )
         usuario.groups.set([empresa])
-        cliente = Cliente.objects.create(nome_razao_social="Cliente Sigiloso", empresa=empresa)
-        Orcamento.objects.create(
-            numero="ORC-2026-0009",
-            cliente=cliente,
-            titulo="Orcamento Sigiloso",
-            data_emissao="2026-04-11",
+        conta = Conta.objects.create(nome="Conta Sigilosa", empresa=empresa)
+        categoria = CategoriaFinanceira.objects.create(nome="Despesa Sigilosa", tipo="despesa", empresa=empresa)
+        Transacao.objects.create(
+            tipo="despesa",
+            descricao="Pagamento Sigiloso",
+            valor=Decimal("120.00"),
+            data_competencia=date(2026, 4, 11),
+            conta=conta,
+            categoria=categoria,
             empresa=empresa,
             criado_por=usuario,
-            atualizado_por=usuario,
         )
-        ConfiguracaoEmpresa.objects.create(nome_empresa="Empresa Sigilosa", empresa=empresa)
 
         self.client.post(reverse("login"), {"entrar_visitante": "1"})
 
-        response_clientes = self.client.get(reverse("clientes:lista"))
+        response_contas = self.client.get(reverse("financeiro:conta_lista"))
+        response_transacoes = self.client.get(reverse("financeiro:transacao_lista"))
         response_dashboard = self.client.get(reverse("dashboard"))
-        response_relatorios = self.client.get(reverse("relatorios:configuracao_lista"))
-        response_cliente_direto = self.client.get(reverse("clientes:visualizar", args=[cliente.pk]))
+        response_conta_direta = self.client.get(reverse("financeiro:conta_visualizar", args=[conta.pk]))
 
-        self.assertEqual(response_clientes.status_code, 200)
-        self.assertNotContains(response_clientes, "Cliente Sigiloso")
+        self.assertEqual(response_contas.status_code, 200)
+        self.assertNotContains(response_contas, "Conta Sigilosa")
+        self.assertEqual(response_transacoes.status_code, 200)
+        self.assertNotContains(response_transacoes, "Pagamento Sigiloso")
         self.assertEqual(response_dashboard.status_code, 200)
-        self.assertNotContains(response_dashboard, "Orcamento Sigiloso")
-        self.assertNotContains(response_dashboard, "Cliente Sigiloso")
-        self.assertEqual(response_relatorios.status_code, 200)
-        self.assertNotContains(response_relatorios, "Empresa Sigilosa")
-        self.assertEqual(response_cliente_direto.status_code, 404)
+        self.assertNotContains(response_dashboard, "Pagamento Sigiloso")
+        self.assertNotContains(response_dashboard, "Conta Sigilosa")
+        self.assertEqual(response_conta_direta.status_code, 404)
 
 
 class UsuarioVisitanteIpTests(TestCase):

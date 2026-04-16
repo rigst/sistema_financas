@@ -76,9 +76,6 @@
                                 <li><a href="{% url 'financeiro:recorrencia_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'recorrencia' in request.resolver_match.url_name %}class="active"{% endif %}>Recorrências</a></li>
                                 <li><a href="{% url 'financeiro:relatorio_fluxo_caixa' %}" {% if request.resolver_match.namespace == 'financeiro' and 'relatorio' in request.resolver_match.url_name %}class="active"{% endif %}>Relatórios</a></li>
                             {% endif %}
-                            {% if user.pode_visualizar_relatorios %}
-                                <li><a href="{% url 'relatorios:configuracao_lista' %}" {% if request.resolver_match.namespace == 'relatorios' %}class="active"{% endif %}>Configurações</a></li>
-                            {% endif %}
                             <li><a href="{% url 'manual' %}" {% if request.resolver_match.url_name == 'manual' %}class="active"{% endif %}>Manual</a></li>
                         </ul>
                     </div>

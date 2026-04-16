@@ -12,10 +12,6 @@ urlpatterns = [
     path("logout/", UsuarioLogoutView.as_view(), name="logout"),
     path("", include("core.urls")),
     path("financeiro/", include("financeiro.urls")),
-    path("clientes/", include("clientes.urls")),
-    path("catalogo/", include("catalogo.urls")),
-    path("relatorios/", include("relatorios.urls")),
-    path("orcamentos/", include("orcamentos.urls")),
 ]
 
 if settings.DEBUG and settings.DEBUG_EXPOSE_MEDIA:
