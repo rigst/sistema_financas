@@ -28,7 +28,7 @@
         </form>
 
         <div class="auth-visitor-section">
-            <p>Quer apenas conhecer a interface? O acesso visitante cria um perfil temporário automaticamente.</p>
+            <p>Quer apenas conhecer a interface? O acesso visitante cria um usuário temporário automaticamente.</p>
             <form method="post">
                 {% csrf_token %}
                 <button class="btn btn-secondary auth-submit" type="submit" name="entrar_visitante" value="1">Entrar como visitante</button>

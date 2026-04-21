@@ -9,8 +9,6 @@ from django.db import models
 from django.db.models import Case, DecimalField, Q, Sum, Value, When
 from django.db.models.functions import Coalesce
 
-from core.tenancy import obter_grupo_empresa_padrao
-
 DUAS_CASAS = Decimal("0.01")
 
 
@@ -38,7 +36,6 @@ class Receita(models.Model):
     categoria = models.CharField(max_length=120, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="recebida")
     observacoes = models.TextField(blank=True)
-    empresa = models.ForeignKey("auth.Group", on_delete=models.PROTECT, related_name="receitas", null=True, blank=True)
     criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="receitas_criadas")
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
@@ -46,18 +43,12 @@ class Receita(models.Model):
     class Meta:
         ordering = ["-data", "-id"]
         indexes = [
-            models.Index(fields=["empresa", "data"], name="receita_emp_data_idx"),
-            models.Index(fields=["empresa", "status"], name="receita_emp_status_idx"),
+            models.Index(fields=["criado_por", "data"], name="receita_user_data_idx"),
+            models.Index(fields=["criado_por", "status"], name="receita_user_status_idx"),
         ]
 
     def __str__(self):
         return self.descricao
-
-    def save(self, *args, **kwargs):
-        if self.empresa_id is None:
-            self.empresa = obter_grupo_empresa_padrao()
-        super().save(*args, **kwargs)
-
 
 class Despesa(models.Model):
     TIPO_CHOICES = [
@@ -79,7 +70,6 @@ class Despesa(models.Model):
     parcelas = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(120)])
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pendente")
     observacoes = models.TextField(blank=True)
-    empresa = models.ForeignKey("auth.Group", on_delete=models.PROTECT, related_name="despesas", null=True, blank=True)
     criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="despesas_criadas")
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
@@ -87,8 +77,8 @@ class Despesa(models.Model):
     class Meta:
         ordering = ["-data", "-id"]
         indexes = [
-            models.Index(fields=["empresa", "data"], name="despesa_emp_data_idx"),
-            models.Index(fields=["empresa", "status", "tipo"], name="despesa_emp_stat_tipo_idx"),
+            models.Index(fields=["criado_por", "data"], name="despesa_user_data_idx"),
+            models.Index(fields=["criado_por", "status", "tipo"], name="despesa_user_stat_tipo_idx"),
         ]
 
     def __str__(self):
@@ -101,8 +91,6 @@ class Despesa(models.Model):
             raise ValidationError({"parcelas": "Despesa parcelada precisa ter pelo menos 2 parcelas."})
 
     def save(self, *args, **kwargs):
-        if self.empresa_id is None:
-            self.empresa = obter_grupo_empresa_padrao()
         self.full_clean()
         super().save(*args, **kwargs)
 
@@ -142,7 +130,7 @@ class Reserva(models.Model):
     valor_atual = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"), validators=[MinValueValidator(Decimal("0.00"))])
     valor_alvo = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"), validators=[MinValueValidator(Decimal("0.00"))])
     observacoes = models.TextField(blank=True)
-    empresa = models.ForeignKey("auth.Group", on_delete=models.PROTECT, related_name="reservas", null=True, blank=True)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="reservas_criadas", null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
@@ -158,11 +146,24 @@ class Reserva(models.Model):
             return Decimal("0.00")
         return min(arredondar((self.valor_atual / self.valor_alvo) * Decimal("100")), Decimal("100.00"))
 
-    def save(self, *args, **kwargs):
-        if self.empresa_id is None:
-            self.empresa = obter_grupo_empresa_padrao()
-        super().save(*args, **kwargs)
 
+class MentoriaFinanceiraIA(models.Model):
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="mentorias_financeiras_ia")
+    periodo_inicio = models.DateField()
+    periodo_fim = models.DateField()
+    conteudo = models.TextField()
+    dados_enviados = models.JSONField(default=dict, blank=True)
+    modelo = models.CharField(max_length=80, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-criado_em", "-id"]
+        indexes = [
+            models.Index(fields=["criado_por", "-criado_em"], name="mentoria_user_criado_idx"),
+        ]
+
+    def __str__(self):
+        return f"Mentoria IA de {self.periodo_inicio:%d/%m/%Y} a {self.periodo_fim:%d/%m/%Y}"
 
 class Conta(models.Model):
     TIPO_CHOICES = [
@@ -185,29 +186,17 @@ class Conta(models.Model):
     data_saldo_inicial = models.DateField(null=True, blank=True)
     cor = models.CharField(max_length=7, default="#2563EB")
     ativa = models.BooleanField(default=True)
-    empresa = models.ForeignKey(
-        "auth.Group",
-        on_delete=models.PROTECT,
-        related_name="contas_financeiras",
-        null=True,
-        blank=True,
-    )
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["nome"]
         constraints = [
-            models.UniqueConstraint(fields=["empresa", "nome"], name="conta_empresa_nome_uniq"),
+            models.UniqueConstraint(fields=["nome"], name="conta_nome_uniq"),
         ]
 
     def __str__(self):
         return self.nome
-
-    def save(self, *args, **kwargs):
-        if self.empresa_id is None:
-            self.empresa = obter_grupo_empresa_padrao()
-        super().save(*args, **kwargs)
 
     def saldo_atual(self):
         saldo_movimentacoes = Transacao.objects.filter(
@@ -262,20 +251,13 @@ class CategoriaFinanceira(models.Model):
     cor = models.CharField(max_length=7, choices=COLOR_CHOICES, default="#2563EB")
     icone = models.CharField(max_length=40, blank=True)
     ativa = models.BooleanField(default=True)
-    empresa = models.ForeignKey(
-        "auth.Group",
-        on_delete=models.PROTECT,
-        related_name="categorias_financeiras",
-        null=True,
-        blank=True,
-    )
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["tipo", "nome"]
         constraints = [
-            models.UniqueConstraint(fields=["empresa", "tipo", "nome"], name="categoriafinanceira_empresa_tipo_nome_uniq"),
+            models.UniqueConstraint(fields=["tipo", "nome"], name="categoriafinanceira_tipo_nome_uniq"),
         ]
 
     def __str__(self):
@@ -287,13 +269,6 @@ class CategoriaFinanceira(models.Model):
                 raise ValidationError({"categoria_pai": "A categoria não pode ser pai dela mesma."})
             if self.categoria_pai.tipo != self.tipo:
                 raise ValidationError({"categoria_pai": "A categoria pai deve ter o mesmo tipo."})
-            if self.empresa_id and self.categoria_pai.empresa_id != self.empresa_id:
-                raise ValidationError({"categoria_pai": "Selecione uma categoria pai do mesmo espaço financeiro."})
-
-    def save(self, *args, **kwargs):
-        if self.empresa_id is None:
-            self.empresa = obter_grupo_empresa_padrao()
-        super().save(*args, **kwargs)
 
 
 class Transacao(models.Model):
@@ -338,13 +313,6 @@ class Transacao(models.Model):
         blank=True,
     )
     observacoes = models.TextField(blank=True)
-    empresa = models.ForeignKey(
-        "auth.Group",
-        on_delete=models.PROTECT,
-        related_name="transacoes_financeiras",
-        null=True,
-        blank=True,
-    )
     criado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -356,8 +324,8 @@ class Transacao(models.Model):
     class Meta:
         ordering = ["-data_competencia", "-id"]
         indexes = [
-            models.Index(fields=["empresa", "data_competencia"], name="trans_emp_data_idx"),
-            models.Index(fields=["empresa", "status", "tipo"], name="trans_emp_stat_tipo_idx"),
+            models.Index(fields=["criado_por", "data_competencia"], name="trans_user_data_idx"),
+            models.Index(fields=["criado_por", "status", "tipo"], name="trans_user_stat_tipo_idx"),
             models.Index(fields=["conta", "status"], name="trans_conta_stat_idx"),
             models.Index(fields=["conta_destino", "status"], name="trans_dest_stat_idx"),
         ]
@@ -381,21 +349,10 @@ class Transacao(models.Model):
             if self.categoria.tipo != self.tipo:
                 raise ValidationError({"categoria": "A categoria deve ter o mesmo tipo da transação."})
 
-        empresa_id = self.empresa_id or getattr(self.conta, "empresa_id", None)
-        if empresa_id:
-            if self.conta_id and self.conta.empresa_id != empresa_id:
-                raise ValidationError({"conta": "Selecione uma conta do mesmo espaço financeiro."})
-            if self.conta_destino_id and self.conta_destino.empresa_id != empresa_id:
-                raise ValidationError({"conta_destino": "Selecione uma conta destino do mesmo espaço financeiro."})
-            if self.categoria_id and self.categoria.empresa_id != empresa_id:
-                raise ValidationError({"categoria": "Selecione uma categoria do mesmo espaço financeiro."})
-
         if self.status == "pago" and not self.data_pagamento:
             raise ValidationError({"data_pagamento": "Informe a data de pagamento/recebimento."})
 
     def save(self, *args, **kwargs):
-        if self.empresa_id is None:
-            self.empresa = self.conta.empresa if self.conta_id else obter_grupo_empresa_padrao()
         self.full_clean()
         super().save(*args, **kwargs)
 
@@ -433,25 +390,17 @@ class CartaoCredito(models.Model):
     conta_pagamento = models.ForeignKey(Conta, on_delete=models.PROTECT, related_name="cartoes", null=True, blank=True)
     cor = models.CharField(max_length=7, default="#111827")
     ativo = models.BooleanField(default=True)
-    empresa = models.ForeignKey("auth.Group", on_delete=models.PROTECT, related_name="cartoes_credito", null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["nome"]
-        constraints = [models.UniqueConstraint(fields=["empresa", "nome"], name="cartaocredito_empresa_nome_uniq")]
+        constraints = [models.UniqueConstraint(fields=["nome"], name="cartaocredito_nome_uniq")]
 
     def __str__(self):
         return self.nome
 
-    def clean(self):
-        empresa_id = self.empresa_id or getattr(self.conta_pagamento, "empresa_id", None)
-        if empresa_id and self.conta_pagamento_id and self.conta_pagamento.empresa_id != empresa_id:
-            raise ValidationError({"conta_pagamento": "Selecione uma conta do mesmo espaço financeiro."})
-
     def save(self, *args, **kwargs):
-        if self.empresa_id is None:
-            self.empresa = self.conta_pagamento.empresa if self.conta_pagamento_id else obter_grupo_empresa_padrao()
         self.full_clean()
         super().save(*args, **kwargs)
 
@@ -474,17 +423,16 @@ class FaturaCartao(models.Model):
     categoria_pagamento = models.ForeignKey(CategoriaFinanceira, on_delete=models.PROTECT, related_name="faturas_cartao", null=True, blank=True)
     transacao_pagamento = models.ForeignKey(Transacao, on_delete=models.PROTECT, related_name="faturas_cartao_pagas", null=True, blank=True)
     data_pagamento = models.DateField(null=True, blank=True)
-    empresa = models.ForeignKey("auth.Group", on_delete=models.PROTECT, related_name="faturas_cartao", null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["-ano", "-mes", "cartao__nome"]
         indexes = [
-            models.Index(fields=["empresa", "status"], name="fatura_emp_status_idx"),
-            models.Index(fields=["empresa", "ano", "mes"], name="fatura_emp_periodo_idx"),
+            models.Index(fields=["status"], name="fatura_status_idx"),
+            models.Index(fields=["ano", "mes"], name="fatura_periodo_idx"),
         ]
-        constraints = [models.UniqueConstraint(fields=["empresa", "cartao", "ano", "mes"], name="faturacartao_empresa_cartao_periodo_uniq")]
+        constraints = [models.UniqueConstraint(fields=["cartao", "ano", "mes"], name="faturacartao_cartao_periodo_uniq")]
 
     def __str__(self):
         return f"{self.cartao} - {self.mes:02d}/{self.ano}"
@@ -497,17 +445,8 @@ class FaturaCartao(models.Model):
         return arredondar(total)
 
     def clean(self):
-        empresa_id = self.empresa_id or getattr(self.cartao, "empresa_id", None)
-        if empresa_id:
-            if self.cartao_id and self.cartao.empresa_id != empresa_id:
-                raise ValidationError({"cartao": "Selecione um cartão do mesmo espaço financeiro."})
-            if self.conta_pagamento_id and self.conta_pagamento.empresa_id != empresa_id:
-                raise ValidationError({"conta_pagamento": "Selecione uma conta do mesmo espaço financeiro."})
-            if self.categoria_pagamento_id:
-                if self.categoria_pagamento.empresa_id != empresa_id:
-                    raise ValidationError({"categoria_pagamento": "Selecione uma categoria do mesmo espaço financeiro."})
-                if self.categoria_pagamento.tipo != "despesa":
-                    raise ValidationError({"categoria_pagamento": "A categoria de pagamento deve ser de despesa."})
+        if self.categoria_pagamento_id and self.categoria_pagamento.tipo != "despesa":
+            raise ValidationError({"categoria_pagamento": "A categoria de pagamento deve ser de despesa."})
         if self.status == "paga":
             if not self.conta_pagamento_id:
                 raise ValidationError({"conta_pagamento": "Informe a conta de pagamento."})
@@ -519,8 +458,6 @@ class FaturaCartao(models.Model):
                 raise ValidationError({"status": "Use a ação Pagar fatura para criar a baixa bancária."})
 
     def save(self, *args, **kwargs):
-        if self.empresa_id is None:
-            self.empresa = self.cartao.empresa if self.cartao_id else obter_grupo_empresa_padrao()
         if self.conta_pagamento_id is None and self.cartao_id and self.cartao.conta_pagamento_id:
             self.conta_pagamento = self.cartao.conta_pagamento
         self.full_clean()
@@ -542,7 +479,6 @@ class FaturaCartao(models.Model):
             status="pago",
             conta=conta,
             categoria=categoria,
-            empresa=self.empresa,
             criado_por=usuario,
         )
         self.status = "paga"
@@ -568,10 +504,8 @@ class LancamentoCartao(models.Model):
     data_compra = models.DateField(default=date.today)
     parcela_numero = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1)])
     parcela_total = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1)])
-    grupo_parcelamento = models.CharField(max_length=40, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ativo")
     observacoes = models.TextField(blank=True)
-    empresa = models.ForeignKey("auth.Group", on_delete=models.PROTECT, related_name="lancamentos_cartao", null=True, blank=True)
     criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="lancamentos_cartao_criados")
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
@@ -579,7 +513,7 @@ class LancamentoCartao(models.Model):
     class Meta:
         ordering = ["-data_compra", "-id"]
         indexes = [
-            models.Index(fields=["empresa", "data_compra"], name="lanc_card_emp_data_idx"),
+            models.Index(fields=["criado_por", "data_compra"], name="lanc_card_user_data_idx"),
             models.Index(fields=["fatura", "status"], name="lanc_card_fat_stat_idx"),
         ]
 
@@ -589,24 +523,14 @@ class LancamentoCartao(models.Model):
         return self.descricao
 
     def clean(self):
-        empresa_id = self.empresa_id or getattr(self.cartao, "empresa_id", None)
         if self.parcela_numero > self.parcela_total:
             raise ValidationError({"parcela_numero": "A parcela atual não pode ser maior que o total de parcelas."})
         if self.categoria_id and self.categoria.tipo != "despesa":
             raise ValidationError({"categoria": "Lançamentos de cartão exigem categoria de despesa."})
-        if empresa_id:
-            if self.fatura_id and self.fatura.empresa_id != empresa_id:
-                raise ValidationError({"fatura": "Selecione uma fatura do mesmo espaço financeiro."})
-            if self.cartao_id and self.cartao.empresa_id != empresa_id:
-                raise ValidationError({"cartao": "Selecione um cartão do mesmo espaço financeiro."})
-            if self.categoria_id and self.categoria.empresa_id != empresa_id:
-                raise ValidationError({"categoria": "Selecione uma categoria do mesmo espaço financeiro."})
-            if self.fatura_id and self.cartao_id and self.fatura.cartao_id != self.cartao_id:
-                raise ValidationError({"fatura": "A fatura deve pertencer ao cartão selecionado."})
+        if self.fatura_id and self.cartao_id and self.fatura.cartao_id != self.cartao_id:
+            raise ValidationError({"fatura": "A fatura deve pertencer ao cartão selecionado."})
 
     def save(self, *args, **kwargs):
-        if self.empresa_id is None:
-            self.empresa = self.cartao.empresa if self.cartao_id else obter_grupo_empresa_padrao()
         self.full_clean()
         super().save(*args, **kwargs)
 
@@ -631,7 +555,6 @@ class RecorrenciaFinanceira(models.Model):
     data_fim = models.DateField(null=True, blank=True)
     ativa = models.BooleanField(default=True)
     observacoes = models.TextField(blank=True)
-    empresa = models.ForeignKey("auth.Group", on_delete=models.PROTECT, related_name="recorrencias_financeiras", null=True, blank=True)
     criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="recorrencias_financeiras_criadas")
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
@@ -647,16 +570,8 @@ class RecorrenciaFinanceira(models.Model):
             raise ValidationError({"categoria": "A categoria deve ter o mesmo tipo da recorrência."})
         if self.data_fim and self.data_fim < self.data_inicio:
             raise ValidationError({"data_fim": "A data final não pode ser anterior à data inicial."})
-        empresa_id = self.empresa_id or getattr(self.conta, "empresa_id", None)
-        if empresa_id:
-            if self.conta_id and self.conta.empresa_id != empresa_id:
-                raise ValidationError({"conta": "Selecione uma conta do mesmo espaço financeiro."})
-            if self.categoria_id and self.categoria.empresa_id != empresa_id:
-                raise ValidationError({"categoria": "Selecione uma categoria do mesmo espaço financeiro."})
 
     def save(self, *args, **kwargs):
-        if self.empresa_id is None:
-            self.empresa = self.conta.empresa if self.conta_id else obter_grupo_empresa_padrao()
         self.full_clean()
         super().save(*args, **kwargs)
 
@@ -666,22 +581,15 @@ class PlanejamentoMensal(models.Model):
     ano = models.PositiveSmallIntegerField(validators=[MinValueValidator(2000), MaxValueValidator(2100)])
     categoria = models.ForeignKey(CategoriaFinanceira, on_delete=models.PROTECT, related_name="planejamentos_mensais")
     valor_planejado = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.00"))])
-    empresa = models.ForeignKey("auth.Group", on_delete=models.PROTECT, related_name="planejamentos_mensais", null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["-ano", "-mes", "categoria__nome"]
-        constraints = [models.UniqueConstraint(fields=["empresa", "ano", "mes", "categoria"], name="planejamentomensal_empresa_periodo_categoria_uniq")]
+        constraints = [models.UniqueConstraint(fields=["ano", "mes", "categoria"], name="planejamentomensal_periodo_categoria_uniq")]
 
     def __str__(self):
         return f"{self.categoria} - {self.mes:02d}/{self.ano}"
-
-    def save(self, *args, **kwargs):
-        if self.empresa_id is None:
-            self.empresa = self.categoria.empresa if self.categoria_id else obter_grupo_empresa_padrao()
-        super().save(*args, **kwargs)
-
 
 class MetaFinanceira(models.Model):
     STATUS_CHOICES = [
@@ -700,7 +608,6 @@ class MetaFinanceira(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ativa")
     cor = models.CharField(max_length=7, default="#16A34A")
     observacoes = models.TextField(blank=True)
-    empresa = models.ForeignKey("auth.Group", on_delete=models.PROTECT, related_name="metas_financeiras", null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
@@ -722,8 +629,3 @@ class MetaFinanceira(models.Model):
             return Decimal("0.00")
         percentual = (self.valor_atual / self.valor_alvo) * Decimal("100")
         return min(arredondar(percentual), Decimal("100.00"))
-
-    def save(self, *args, **kwargs):
-        if self.empresa_id is None:
-            self.empresa = self.conta_vinculada.empresa if self.conta_vinculada_id else obter_grupo_empresa_padrao()
-        super().save(*args, **kwargs)

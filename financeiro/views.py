@@ -10,10 +10,9 @@ from django.utils.dateparse import parse_date
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from core.permissions import require_capability
+from django.contrib.auth.decorators import login_required
 from core.query import paginate_queryset
 from core.search import filter_ranked_search
-from core.tenancy import obter_grupo_empresa_ou_erro, queryset_da_empresa
 from .forms import DespesaSimplificadaForm, ReceitaSimplificadaForm, ReservaForm
 from .models import Despesa, Receita, Reserva, arredondar
 from .planejamento import calcular_planejamento_semanal, navegacao_semanal
@@ -22,7 +21,7 @@ from .planejamento import calcular_planejamento_semanal, navegacao_semanal
 def _queryset_simples(modelo, request):
     busca = request.GET.get("q", "").strip()
     status = request.GET.get("status", "").strip()
-    itens = queryset_da_empresa(modelo.objects.all(), request.user)
+    itens = modelo.objects.filter(criado_por=request.user)
     status_validos = {choice[0] for choice in modelo.STATUS_CHOICES}
     if status in status_validos:
         itens = itens.filter(status=status)
@@ -42,7 +41,7 @@ def _referencia_semanal(request):
     return parse_date(request.GET.get("semana", "")) or timezone.localdate()
 
 
-@require_capability("pode_visualizar_financeiro")
+@login_required
 def receita_lista(request):
     receitas, busca, status = _queryset_simples(Receita, request)
     page_obj = paginate_queryset(request, receitas, per_page=25)
@@ -53,13 +52,12 @@ def receita_lista(request):
     )
 
 
-@require_capability("pode_gerenciar_financeiro")
+@login_required
 def receita_criar(request):
     if request.method == "POST":
         form = ReceitaSimplificadaForm(request.POST, user=request.user)
         if form.is_valid():
             receita = form.save(commit=False)
-            receita.empresa = obter_grupo_empresa_ou_erro(request.user)
             receita.criado_por = request.user
             receita.save()
             messages.success(request, "Receita salva com sucesso.")
@@ -69,9 +67,9 @@ def receita_criar(request):
     return render(request, "financeiro/receita_form.html", {"form": form, "titulo": "Nova receita"})
 
 
-@require_capability("pode_gerenciar_financeiro")
+@login_required
 def receita_editar(request, pk):
-    receita = get_object_or_404(queryset_da_empresa(Receita.objects.all(), request.user), pk=pk)
+    receita = get_object_or_404(Receita.objects.filter(criado_por=request.user), pk=pk)
     if request.method == "POST":
         form = ReceitaSimplificadaForm(request.POST, instance=receita, user=request.user)
         if form.is_valid():
@@ -84,23 +82,23 @@ def receita_editar(request, pk):
 
 
 @require_POST
-@require_capability("pode_gerenciar_financeiro")
+@login_required
 def receita_marcar_recebida(request, pk):
-    receita = get_object_or_404(queryset_da_empresa(Receita.objects.all(), request.user), pk=pk)
+    receita = get_object_or_404(Receita.objects.filter(criado_por=request.user), pk=pk)
     receita.status = "recebida"
     receita.save(update_fields=["status", "atualizado_em"])
     messages.success(request, "Receita marcada como recebida.")
     return _voltar_para(request, "financeiro:receita_lista")
 
 
-@require_capability("pode_visualizar_financeiro")
+@login_required
 def despesa_lista(request):
     despesas, busca, status = _queryset_simples(Despesa, request)
     tipo = request.GET.get("tipo", "").strip()
     tipos_validos = {choice[0] for choice in Despesa.TIPO_CHOICES}
     if tipo in tipos_validos:
         despesas = despesas.filter(tipo=tipo)
-    fixas = queryset_da_empresa(Despesa.objects.filter(tipo="fixa").exclude(status="cancelada"), request.user).order_by("descricao")
+    fixas = Despesa.objects.filter(criado_por=request.user, tipo="fixa").exclude(status="cancelada").order_by("descricao")
     page_obj = paginate_queryset(request, despesas, per_page=25)
     return render(
         request,
@@ -116,13 +114,12 @@ def despesa_lista(request):
     )
 
 
-@require_capability("pode_gerenciar_financeiro")
+@login_required
 def despesa_criar(request):
     if request.method == "POST":
         form = DespesaSimplificadaForm(request.POST, user=request.user)
         if form.is_valid():
             despesa = form.save(commit=False)
-            despesa.empresa = obter_grupo_empresa_ou_erro(request.user)
             despesa.criado_por = request.user
             despesa.save()
             messages.success(request, "Despesa salva com sucesso.")
@@ -132,9 +129,9 @@ def despesa_criar(request):
     return render(request, "financeiro/despesa_form.html", {"form": form, "titulo": "Nova despesa"})
 
 
-@require_capability("pode_gerenciar_financeiro")
+@login_required
 def despesa_editar(request, pk):
-    despesa = get_object_or_404(queryset_da_empresa(Despesa.objects.all(), request.user), pk=pk)
+    despesa = get_object_or_404(Despesa.objects.filter(criado_por=request.user), pk=pk)
     if request.method == "POST":
         form = DespesaSimplificadaForm(request.POST, instance=despesa, user=request.user)
         if form.is_valid():
@@ -147,9 +144,9 @@ def despesa_editar(request, pk):
 
 
 @require_POST
-@require_capability("pode_gerenciar_financeiro")
+@login_required
 def despesa_marcar_paga(request, pk):
-    despesa = get_object_or_404(queryset_da_empresa(Despesa.objects.exclude(status="cancelada"), request.user), pk=pk)
+    despesa = get_object_or_404(Despesa.objects.filter(criado_por=request.user).exclude(status="cancelada"), pk=pk)
     despesa.status = "paga"
     despesa.save(update_fields=["status", "atualizado_em"])
     messages.success(request, "Despesa marcada como paga.")
@@ -157,16 +154,16 @@ def despesa_marcar_paga(request, pk):
 
 
 @require_POST
-@require_capability("pode_gerenciar_financeiro")
+@login_required
 def despesa_cancelar(request, pk):
-    despesa = get_object_or_404(queryset_da_empresa(Despesa.objects.all(), request.user), pk=pk)
+    despesa = get_object_or_404(Despesa.objects.filter(criado_por=request.user), pk=pk)
     despesa.status = "cancelada"
     despesa.save(update_fields=["status", "atualizado_em"])
     messages.success(request, "Despesa cancelada.")
     return _voltar_para(request, "financeiro:despesa_lista")
 
 
-@require_capability("pode_visualizar_financeiro")
+@login_required
 def exportar_csv(request):
     response = HttpResponse(content_type="text/csv; charset=utf-8")
     response["Content-Disposition"] = 'attachment; filename="financeiro_simplificado.csv"'
@@ -174,8 +171,8 @@ def exportar_csv(request):
     writer = csv.writer(response)
     writer.writerow(["tipo", "descricao", "valor", "data", "categoria", "status", "parcelas", "observacoes"])
 
-    receitas = queryset_da_empresa(Receita.objects.all(), request.user).order_by("data", "id")
-    despesas = queryset_da_empresa(Despesa.objects.all(), request.user).order_by("data", "id")
+    receitas = Receita.objects.filter(criado_por=request.user).order_by("data", "id")
+    despesas = Despesa.objects.filter(criado_por=request.user).order_by("data", "id")
     for item in receitas:
         writer.writerow(["receita", item.descricao, item.valor, item.data.isoformat(), item.categoria, item.get_status_display(), "", item.observacoes])
     for item in despesas:
@@ -183,12 +180,12 @@ def exportar_csv(request):
     return response
 
 
-@require_capability("pode_visualizar_financeiro")
+@login_required
 def controle(request):
     referencia = _referencia_semanal(request)
     planejamento = calcular_planejamento_semanal(request.user, referencia, quantidade=6)
-    reservas = queryset_da_empresa(Reserva.objects.all(), request.user)
-    fixas = queryset_da_empresa(Despesa.objects.filter(tipo="fixa").exclude(status="cancelada"), request.user).order_by("descricao")
+    reservas = Reserva.objects.filter(criado_por=request.user)
+    fixas = Despesa.objects.filter(criado_por=request.user, tipo="fixa").exclude(status="cancelada").order_by("descricao")
     reservas_total = arredondar(sum((reserva.valor_atual for reserva in reservas), Decimal("0.00")))
     return render(
         request,
@@ -203,13 +200,13 @@ def controle(request):
     )
 
 
-@require_capability("pode_gerenciar_financeiro")
+@login_required
 def reserva_criar(request):
     if request.method == "POST":
         form = ReservaForm(request.POST)
         if form.is_valid():
             reserva = form.save(commit=False)
-            reserva.empresa = obter_grupo_empresa_ou_erro(request.user)
+            reserva.criado_por = request.user
             reserva.save()
             messages.success(request, "Reserva salva com sucesso.")
             return redirect("financeiro:controle")
@@ -218,9 +215,9 @@ def reserva_criar(request):
     return render(request, "financeiro/reserva_form.html", {"form": form, "titulo": "Nova reserva"})
 
 
-@require_capability("pode_gerenciar_financeiro")
+@login_required
 def reserva_editar(request, pk):
-    reserva = get_object_or_404(queryset_da_empresa(Reserva.objects.all(), request.user), pk=pk)
+    reserva = get_object_or_404(Reserva.objects.filter(criado_por=request.user), pk=pk)
     if request.method == "POST":
         form = ReservaForm(request.POST, instance=reserva)
         if form.is_valid():

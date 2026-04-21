@@ -1,121 +1,178 @@
 {% extends "base.html" %}
 {% load br_format %}
+{% load ai_format %}
 
-{% block title %}Resumo semanal{% endblock %}
+{% block title %}Dashboard{% endblock %}
 
 {% block content %}
 <section>
-    <div class="section-heading">
-        <div>
-            <h2>Resumo da semana</h2>
-            <p>Disponível, gasto e compromissos próximos em uma visão direta.</p>
-        </div>
-        <div class="inline-actions">
-            {% if user.pode_gerenciar_financeiro %}
-                <a class="btn btn-primary-lite" href="{% url 'financeiro:despesa_criar' %}"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span>Nova despesa</span></a>
-                <a class="btn btn-secondary" href="{% url 'financeiro:receita_criar' %}"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span>Nova receita</span></a>
-            {% endif %}
-            <a class="btn btn-secondary" href="{% url 'financeiro:exportar_csv' %}" title="Exportar CSV"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span>CSV</span></a>
+    <div class="dashboard-actions-row dashboard-actions-top">
+        <div class="inline-actions dashboard-main-actions">
+            <a class="btn btn-dashboard-expense" href="{% url 'financeiro:despesa_criar' %}"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span>Nova despesa</span></a>
+            <a class="btn btn-dashboard-income" href="{% url 'financeiro:receita_criar' %}"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span>Nova receita</span></a>
             <a class="btn btn-secondary" href="{% url 'financeiro:controle' %}"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/></svg><span>Controle</span></a>
         </div>
+        <a class="quiet-link" href="{% url 'financeiro:exportar_csv' %}"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span>CSV</span></a>
     </div>
 
-    <div class="stats-grid">
-        <div class="stat-card stat-card-primary"><span class="label">Livre nesta semana</span><span class="value">{{ indicadores.disponivel_semana|brl }}</span></div>
-        <div class="stat-card"><span class="label">Gasto nesta semana</span><span class="value">{{ indicadores.gasto_semana|brl }}</span></div>
-        <div class="stat-card"><span class="label">Compromissos próximos</span><span class="value">{{ indicadores.compromissos|brl }}</span></div>
-        <div class="stat-card"><span class="label">Saldo disponível</span><span class="value">{{ indicadores.saldo_total|brl }}</span></div>
-    </div>
+    <div class="dashboard-section">
+        <div class="dashboard-hero">
+            <div>
+                <span class="eyebrow">Semana</span>
+                <h2>{{ semana_nav.inicio|date:"d/m/Y" }} a {{ semana_nav.fim|date:"d/m/Y" }}</h2>
+                <p>Cota semanal calculada pelo dinheiro livre do mês dividido por quatro.</p>
+            </div>
+            <div class="inline-actions week-actions dashboard-nav-actions">
+                <a class="btn btn-secondary btn-icon-action" href="?semana={{ semana_nav.anterior|date:'Y-m-d' }}&periodo={{ periodo }}" title="Semana anterior" aria-label="Semana anterior"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span class="visually-hidden">Semana anterior</span></a>
+                <form method="get" class="week-picker-form">
+                    <input type="hidden" name="periodo" value="{{ periodo }}">
+                    <label class="visually-hidden" for="semana-dashboard">Selecionar semana</label>
+                    <input id="semana-dashboard" type="date" name="semana" value="{{ semana_nav.inicio|date:'Y-m-d' }}">
+                    <button class="btn btn-secondary btn-icon-action" type="submit" title="Aplicar semana" aria-label="Aplicar semana"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M20 7 9 18l-5-5"/></svg><span class="visually-hidden">Aplicar</span></button>
+                </form>
+                <a class="btn btn-secondary btn-icon-action" href="?semana={{ semana_nav.proxima|date:'Y-m-d' }}&periodo={{ periodo }}" title="Próxima semana" aria-label="Próxima semana"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg><span class="visually-hidden">Próxima semana</span></a>
+            </div>
+        </div>
 
-    <div class="section-heading compact-heading">
-        <div>
-            <h3>Planejamento semanal</h3>
-            <p>{{ semana_nav.inicio|date:"d/m/Y" }} a {{ semana_nav.fim|date:"d/m/Y" }}</p>
-        </div>
-        <div class="inline-actions week-actions">
-            <a class="btn btn-secondary btn-icon-action" href="?semana={{ semana_nav.anterior|date:'Y-m-d' }}&periodo={{ periodo }}" title="Semana anterior" aria-label="Semana anterior"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span class="visually-hidden">Semana anterior</span></a>
-            <a class="btn btn-secondary" href="?periodo={{ periodo }}" title="Semana atual"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 8v4l3 2"/></svg><span>Atual</span></a>
-            <a class="btn btn-secondary btn-icon-action" href="?semana={{ semana_nav.proxima|date:'Y-m-d' }}&periodo={{ periodo }}" title="Próxima semana" aria-label="Próxima semana"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg><span class="visually-hidden">Próxima semana</span></a>
-        </div>
-    </div>
-    <div class="weekly-grid">
-        {% for semana in planejamento_semanal %}
-            <article class="week-card {% if semana.semana_atual %}week-card-current{% endif %}">
-                <div class="week-card-header">
-                    <strong>{{ semana.rotulo }}</strong>
-                    {% if semana.semana_atual %}<span class="badge">Agora</span>{% endif %}
-                </div>
-                <span class="week-available">{{ semana.disponivel|brl }}</span>
-                <dl class="week-breakdown">
-                    <div><dt>Já gasto</dt><dd>{{ semana.gastos_pagos|brl }}</dd></div>
-                    <div><dt>Fixos</dt><dd>{{ semana.fixos|brl }}</dd></div>
-                    <div><dt>Parcelas</dt><dd>{{ semana.parcelas|brl }}</dd></div>
-                    <div><dt>Pendentes</dt><dd>{{ semana.gastos_pendentes|brl }}</dd></div>
+        <div class="dashboard-focus">
+            <article class="available-panel">
+                <span class="label">Livre nesta semana</span>
+                <strong>{{ indicadores.disponivel_semana|brl }}</strong>
+                <dl>
+                    <div><dt>Cota da semana</dt><dd>{{ indicadores.cota_semana|brl }}</dd></div>
+                    <div><dt>Já gasto na semana</dt><dd>{{ indicadores.gasto_semana|brl }}</dd></div>
+                    <div><dt>Fixos no mês</dt><dd>{{ mes_resumo.fixos|brl }}</dd></div>
+                    <div><dt>Parcelas no mês</dt><dd>{{ mes_resumo.parcelas|brl }}</dd></div>
                 </dl>
             </article>
-        {% endfor %}
+            <div class="focus-side">
+                <div class="stat-card"><span class="label">Saldo disponível na semana</span><span class="value">{{ indicadores.cota_semana|brl }}</span></div>
+                <div class="stat-card"><span class="label">Já gasto na semana</span><span class="value">{{ indicadores.gasto_semana|brl }}</span></div>
+            </div>
+        </div>
     </div>
 
-    <div class="dashboard-columns">
-        <div>
-            <div class="section-heading compact-heading"><div><h3>Gastos da semana</h3><p>Distribuição por tipo de despesa.</p></div></div>
-            <div class="chart-card chart-card-grid">
-                {% for item in graficos.por_tipo %}
-                    <div class="chart-metric">
-                        <span>{{ item.label }}</span>
-                        <strong>{{ item.valor|brl }}</strong>
+    <div class="dashboard-section dashboard-month-section">
+        <div class="section-heading dashboard-section-title">
+            <div>
+                <span class="eyebrow">Mês</span>
+                <h2>{{ mes_resumo.inicio|date:"F/Y" }}</h2>
+                <p>Resumo do mês inteiro, com os gráficos por tipo, categoria e evolução mensal.</p>
+            </div>
+        </div>
+
+        <div class="dashboard-focus">
+            <article class="available-panel available-panel-soft">
+                <span class="label">Livre no mês</span>
+                <strong>{{ mes_resumo.disponivel|brl }}</strong>
+                <dl>
+                    <div><dt>Já gasto</dt><dd>{{ mes_resumo.gastos_pagos|brl }}</dd></div>
+                    <div><dt>Fixos</dt><dd>{{ mes_resumo.fixos|brl }}</dd></div>
+                    <div><dt>Parcelas</dt><dd>{{ mes_resumo.parcelas|brl }}</dd></div>
+                    <div><dt>Pendentes</dt><dd>{{ mes_resumo.gastos_pendentes|brl }}</dd></div>
+                </dl>
+            </article>
+            <div class="focus-side">
+                <div class="stat-card"><span class="label">Gasto do mês</span><span class="value">{{ mes_resumo.gasto_total|brl }}</span></div>
+                <div class="stat-card"><span class="label">Receitas do mês</span><span class="value">{{ mes_resumo.receitas|brl }}</span></div>
+            </div>
+        </div>
+
+        <div class="dashboard-chart-grid">
+            <article class="chart-card">
+                <div class="section-heading compact-heading chart-heading"><div><h3>Gastos por tipo no mês</h3></div></div>
+                {% if graficos_mes.total %}
+                    <div class="pie-layout">
+                        <div class="pie-chart" style="background: conic-gradient({% for item in graficos_mes.por_tipo %}{{ item.cor }} {{ item.inicio }}% {{ item.fim }}%{% if not forloop.last %}, {% endif %}{% endfor %});"></div>
+                        <ul class="chart-legend">
+                            {% for item in graficos_mes.por_tipo %}
+                                <li><span style="background: {{ item.cor }};"></span><strong>{{ item.label }}</strong><em>{{ item.valor|brl }}</em></li>
+                            {% endfor %}
+                        </ul>
                     </div>
+                {% else %}
+                    <p class="empty-state">Sem gastos neste mês.</p>
+                {% endif %}
+            </article>
+
+            <article class="chart-card">
+                <div class="section-heading compact-heading chart-heading"><div><h3>Principais categorias no mês</h3></div></div>
+                {% if graficos_mes.por_categoria %}
+                    <div class="pie-layout">
+                        <div class="pie-chart pie-chart-soft" style="background: conic-gradient({% for item in graficos_mes.por_categoria %}{{ item.cor }} {{ item.inicio }}% {{ item.fim }}%{% if not forloop.last %}, {% endif %}{% endfor %});"></div>
+                        <ul class="chart-legend">
+                            {% for item in graficos_mes.por_categoria %}
+                                <li><span style="background: {{ item.cor }};"></span><strong>{{ item.label }}</strong><em>{{ item.valor|brl }}</em></li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% else %}
+                    <p class="empty-state">Sem categorias neste mês.</p>
+                {% endif %}
+            </article>
+
+            <article class="chart-card chart-card-wide">
+                <div class="section-heading compact-heading chart-heading"><div><h3>Evolução mensal</h3></div></div>
+                <div class="trend-chart">
+                    {% for item in graficos_mes.evolucao %}
+                        <div class="trend-column {% if item.semana_atual %}trend-column-current{% endif %}">
+                            <span class="trend-bar" style="height: {{ item.percentual }}%;"></span>
+                            <strong>{{ item.valor|brl }}</strong>
+                            <em>{{ item.rotulo }}</em>
+                        </div>
+                    {% endfor %}
+                </div>
+            </article>
+        </div>
+    </div>
+
+    <div class="section-heading compact-heading"><div><h3>Últimos lançamentos</h3></div></div>
+    {% if ultimos_lancamentos %}
+        <div class="table-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Status</th><th>Total</th></tr></thead><tbody>{% for item in ultimos_lancamentos %}<tr><td>{{ item.data|date:"d/m/Y" }}</td><td>{{ item.descricao }}</td><td>{{ item.tipo }}</td><td>{{ item.status }}</td><td class="money">{{ item.valor|brl }}</td></tr>{% endfor %}</tbody></table></div>
+    {% else %}
+        <p class="empty-state">Ainda não há lançamentos.</p>
+    {% endif %}
+
+    <div class="ai-mentor-panel">
+        <div class="ai-mentor-header">
+            <div>
+                <span class="eyebrow">Mentoria financeira da IA</span>
+                <h3>Análise do último mês</h3>
+                {% if mentoria_ia %}
+                    <p>Gerada em {{ mentoria_ia.criado_em|date:"d/m/Y H:i" }} com dados de {{ mentoria_ia.periodo_inicio|date:"d/m/Y" }} a {{ mentoria_ia.periodo_fim|date:"d/m/Y" }}.</p>
+                {% else %}
+                    <p>Gere uma leitura breve dos gastos com 5 ações práticas para economizar e avançar nas metas.</p>
+                {% endif %}
+            </div>
+            <form method="post" action="{% url 'gerar_mentoria_ia' %}">
+                {% csrf_token %}
+                <button class="btn btn-secondary" type="submit"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 3l1.6 4.7L18 9.4l-4.4 1.7L12 16l-1.6-4.9L6 9.4l4.4-1.7L12 3Z"/><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8L19 14Z"/></svg><span>Gerar análise</span></button>
+            </form>
+        </div>
+        {% if mentoria_ia %}
+            <div class="ai-mentor-content">{{ mentoria_ia.conteudo|mentoria_formatada }}</div>
+        {% else %}
+            <p class="empty-state">Nenhuma mentoria gerada ainda.</p>
+        {% endif %}
+    </div>
+
+    <div class="dashboard-meta-row">
+        <div>
+            <h3>Metas</h3>
+            <p>Metas são reservas com valor alvo e progresso visível.</p>
+        </div>
+        {% if reservas_resumo %}
+            <div class="meta-pie-list">
+                {% for item in reservas_resumo %}
+                    <a class="meta-pie-card" href="{% url 'financeiro:reserva_editar' item.obj.pk %}">
+                        <span class="meta-pie" style="background: conic-gradient(var(--accent) 0 {{ item.percentual }}%, rgba(47, 125, 105, 0.12) {{ item.percentual }}% 100%);"><em>{{ item.percentual }}%</em></span>
+                        <span><strong>{{ item.obj.nome }}</strong><small>{{ item.obj.valor_atual|brl }} de {{ item.obj.valor_alvo|brl }}</small></span>
+                    </a>
                 {% endfor %}
             </div>
-        </div>
-        <aside>
-            <div class="section-heading compact-heading"><div><h3>Por categoria</h3></div></div>
-            <div class="chart-card">
-                {% if graficos.por_categoria %}
-                    <div class="bar-chart">
-                        {% for item in graficos.por_categoria %}
-                            <div class="bar-row">
-                                <div class="bar-row-top"><span>{{ item.label }}</span><strong>{{ item.valor|brl }}</strong></div>
-                                <div class="bar-track"><span style="width: {{ item.percentual }}%;"></span></div>
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <p class="empty-state">Sem despesas na semana.</p>
-                {% endif %}
-            </div>
-        </aside>
-    </div>
-
-    <div class="dashboard-columns">
-        <div>
-            <div class="section-heading compact-heading"><div><h3>Últimos lançamentos</h3></div><div><a class="btn btn-secondary btn-icon-action" href="{% url 'financeiro:despesa_lista' %}" title="Ver despesas"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="3"/></svg><span class="visually-hidden">Ver despesas</span></a></div></div>
-            {% if ultimos_lancamentos %}
-                <div class="table-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Status</th><th>Total</th></tr></thead><tbody>{% for item in ultimos_lancamentos %}<tr><td>{{ item.data|date:"d/m/Y" }}</td><td>{{ item.descricao }}</td><td>{{ item.tipo }}</td><td>{{ item.status }}</td><td class="money">{{ item.valor|brl }}</td></tr>{% endfor %}</tbody></table></div>
-            {% else %}
-                <p class="empty-state">Ainda não há lançamentos.</p>
-            {% endif %}
-        </div>
-
-        <aside class="side-stack">
-            <div class="panel soft-panel">
-                <h3>Disponível total</h3>
-                <p class="big-money">{{ indicadores.disponivel_apos_compromissos|brl }}</p>
-                <p class="muted">Saldo atual descontando os compromissos das próximas semanas.</p>
-            </div>
-            <div class="panel soft-panel">
-                <h3>Reservas</h3>
-                {% if reservas_resumo %}
-                    <ul class="simple-list">
-                        {% for reserva in reservas_resumo %}
-                            <li>{{ reserva.nome }}: {{ reserva.percentual_concluido|decimal_br }}%</li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="muted">Sem reservas cadastradas.</p>
-                {% endif %}
-            </div>
-        </aside>
+        {% else %}
+            <a class="quiet-link" href="{% url 'financeiro:reserva_criar' %}"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span>Criar meta</span></a>
+        {% endif %}
     </div>
 </section>
 {% endblock %}

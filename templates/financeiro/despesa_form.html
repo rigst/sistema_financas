@@ -14,10 +14,11 @@
             {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
             <div class="form-grid">
                 <div><label for="{{ form.tipo.id_for_label }}">Tipo</label>{{ form.tipo }}{{ form.tipo.errors }}</div>
-                <div><label for="{{ form.valor.id_for_label }}">Valor</label>{{ form.valor }}{{ form.valor.errors }}</div>
+                <div><label for="{{ form.valor.id_for_label }}">Valor total</label>{{ form.valor }}{{ form.valor.errors }}</div>
                 <div class="full"><label for="{{ form.descricao.id_for_label }}">Descrição</label>{{ form.descricao }}{{ form.descricao.errors }}</div>
                 <div><label for="{{ form.data.id_for_label }}">Data ou primeiro vencimento</label>{{ form.data }}{{ form.data.errors }}</div>
                 <div data-installments-field><label for="{{ form.parcelas.id_for_label }}">Parcelas</label>{{ form.parcelas }}{{ form.parcelas.errors }}</div>
+                <div data-installments-field><label for="{{ form.valor_parcela.id_for_label }}">Valor da parcela</label>{{ form.valor_parcela }}{{ form.valor_parcela.errors }}</div>
                 <div><label for="{{ form.status.id_for_label }}">Status</label>{{ form.status }}{{ form.status.errors }}</div>
                 <div class="full"><label for="{{ form.categoria.id_for_label }}">Categoria</label>{{ form.categoria }}{{ form.categoria.errors }}</div>
                 <div class="full"><label for="{{ form.observacoes.id_for_label }}">Observações</label>{{ form.observacoes }}{{ form.observacoes.errors }}</div>

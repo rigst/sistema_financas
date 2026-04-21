@@ -6,19 +6,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.utils import timezone
 
-from core.models import Empresa
-from core.tenancy import VISITOR_GROUP_PREFIX, obter_grupo_empresa_usuario
-from financeiro.models import (
-    CartaoCredito,
-    CategoriaFinanceira,
-    Conta,
-    FaturaCartao,
-    LancamentoCartao,
-    MetaFinanceira,
-    PlanejamentoMensal,
-    RecorrenciaFinanceira,
-    Transacao,
-)
+from financeiro.models import Despesa, Receita, Reserva
 
 logger = logging.getLogger(__name__)
 
@@ -57,34 +45,20 @@ def registrar_tentativa_visitante(ip: str):
 
 
 def limpar_dados_visitante(user):
-    if not user or not getattr(user, "eh_visitante", False):
+    if not user or not getattr(user, "username", "").startswith("visitante_"):
         return
 
-    grupo = obter_grupo_empresa_usuario(user)
-    if grupo:
-        RecorrenciaFinanceira.objects.filter(empresa=grupo).delete()
-        MetaFinanceira.objects.filter(empresa=grupo).delete()
-        PlanejamentoMensal.objects.filter(empresa=grupo).delete()
-        LancamentoCartao.objects.filter(empresa=grupo).delete()
-        FaturaCartao.objects.filter(empresa=grupo).update(transacao_pagamento=None)
-        FaturaCartao.objects.filter(empresa=grupo).delete()
-        CartaoCredito.objects.filter(empresa=grupo).delete()
-        Transacao.objects.filter(empresa=grupo).delete()
-        CategoriaFinanceira.objects.filter(empresa=grupo).delete()
-        Conta.objects.filter(empresa=grupo).delete()
-
+    Despesa.objects.filter(criado_por=user).delete()
+    Receita.objects.filter(criado_por=user).delete()
+    Reserva.objects.filter(criado_por=user).delete()
     user.delete()
-
-    if grupo and grupo.name.startswith(VISITOR_GROUP_PREFIX):
-        Empresa.objects.filter(grupo=grupo).delete()
-        grupo.delete()
 
 
 def limpar_visitantes_expirados():
     limite = timezone.now() - timedelta(hours=_visitante_ttl_hours())
     usuarios_expirados = (
         get_user_model()
-        .objects.filter(perfil="visitante", criado_em__lt=limite)
+        .objects.filter(username__startswith="visitante_", criado_em__lt=limite)
         .order_by("criado_em")
         .iterator()
     )

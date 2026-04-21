@@ -8,35 +8,32 @@
     <div class="section-heading">
         <div>
             <h2>Controle</h2>
-            <p>Planejamento semanal, metas, reservas e gastos fixos.</p>
+            <p>Planejamento semanal com base no dinheiro livre do mês dividido por quatro.</p>
         </div>
         <div class="inline-actions">
-            {% if user.pode_gerenciar_financeiro %}
-                <a class="btn btn-primary-lite" href="{% url 'financeiro:reserva_criar' %}"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span>Nova reserva</span></a>
-                <a class="btn btn-secondary" href="{% url 'financeiro:despesa_criar' %}"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span>Nova fixa</span></a>
-            {% endif %}
-            <a class="btn btn-secondary" href="{% url 'financeiro:exportar_csv' %}" title="Exportar CSV"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span>CSV</span></a>
+            <a class="btn btn-primary-lite" href="{% url 'financeiro:reserva_criar' %}"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span>Nova meta</span></a>
+            <a class="quiet-link" href="{% url 'financeiro:exportar_csv' %}" title="Exportar CSV"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span>CSV</span></a>
         </div>
     </div>
 
     <div class="stats-grid">
-        <div class="stat-card stat-card-primary"><span class="label">Livre nesta semana</span><span class="value">{{ planejamento.semana_atual.disponivel|brl }}</span></div>
-        <div class="stat-card"><span class="label">Compromissos próximos</span><span class="value">{{ planejamento.total_comprometido|brl }}</span></div>
+        <div class="stat-card stat-card-primary"><span class="label">Ainda livre nesta semana</span><span class="value">{{ planejamento.semana_atual.livre_semana|brl }}</span></div>
+        <div class="stat-card"><span class="label">Cota semanal</span><span class="value">{{ planejamento.semana_atual.cota_semana|brl }}</span></div>
+        <div class="stat-card"><span class="label">Já gasto na semana</span><span class="value">{{ planejamento.semana_atual.gasto_semana|brl }}</span></div>
         <div class="stat-card"><span class="label">Reservas</span><span class="value">{{ reservas_total|brl }}</span></div>
-        <div class="stat-card"><span class="label">Livre após compromissos</span><span class="value">{{ planejamento.disponivel_apos_compromissos|brl }}</span></div>
     </div>
 
-    <div class="section-heading compact-heading"><div><h3>Planejamento semanal</h3><p>{{ semana_nav.inicio|date:"d/m/Y" }} a {{ semana_nav.fim|date:"d/m/Y" }}</p></div><div class="inline-actions week-actions"><a class="btn btn-secondary btn-icon-action" href="?semana={{ semana_nav.anterior|date:'Y-m-d' }}" title="Semana anterior" aria-label="Semana anterior"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span class="visually-hidden">Semana anterior</span></a><a class="btn btn-secondary" href="{% url 'financeiro:controle' %}" title="Semana atual"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 8v4l3 2"/></svg><span>Atual</span></a><a class="btn btn-secondary btn-icon-action" href="?semana={{ semana_nav.proxima|date:'Y-m-d' }}" title="Próxima semana" aria-label="Próxima semana"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg><span class="visually-hidden">Próxima semana</span></a></div></div>
+    <div class="section-heading compact-heading"><div><h3>Semanas do mês</h3><p>Cada semana mostra cota, gasto variável já pago e saldo livre.</p></div><div class="inline-actions week-actions"><a class="btn btn-secondary btn-icon-action" href="?semana={{ semana_nav.anterior|date:'Y-m-d' }}" title="Semana anterior" aria-label="Semana anterior"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span class="visually-hidden">Semana anterior</span></a><a class="btn btn-secondary" href="{% url 'financeiro:controle' %}" title="Semana atual"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 8v4l3 2"/></svg><span>Atual</span></a><a class="btn btn-secondary btn-icon-action" href="?semana={{ semana_nav.proxima|date:'Y-m-d' }}" title="Próxima semana" aria-label="Próxima semana"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg><span class="visually-hidden">Próxima semana</span></a></div></div>
     <div class="weekly-grid">
         {% for semana in planejamento.semanas %}
             <article class="week-card {% if semana.semana_atual %}week-card-current{% endif %}">
                 <div class="week-card-header"><strong>{{ semana.rotulo }}</strong>{% if semana.semana_atual %}<span class="badge">Agora</span>{% endif %}</div>
-                <span class="week-available">{{ semana.disponivel|brl }}</span>
+                <span class="week-available">{{ semana.livre_semana|brl }}</span>
                 <dl class="week-breakdown">
-                    <div><dt>Gasto</dt><dd>{{ semana.gastos_pagos|brl }}</dd></div>
+                    <div><dt>Cota</dt><dd>{{ semana.cota_semana|brl }}</dd></div>
+                    <div><dt>Já gasto</dt><dd>{{ semana.gasto_semana|brl }}</dd></div>
                     <div><dt>Fixos</dt><dd>{{ semana.fixos|brl }}</dd></div>
                     <div><dt>Parcelas</dt><dd>{{ semana.parcelas|brl }}</dd></div>
-                    <div><dt>Pendentes</dt><dd>{{ semana.gastos_pendentes|brl }}</dd></div>
                 </dl>
             </article>
         {% endfor %}
@@ -44,9 +41,9 @@
 
     <div class="dashboard-columns">
         <div>
-            <div class="section-heading compact-heading"><div><h3>Metas e reservas</h3></div></div>
+            <div class="section-heading compact-heading"><div><h3>Metas</h3><p>Reservas com valor alvo para acompanhar objetivos sem burocracia.</p></div></div>
             {% if reservas %}
-                <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Alvo</th><th>Atual</th><th>Progresso</th><th class="actions-col">Ações</th></tr></thead><tbody>{% for reserva in reservas %}<tr><td>{{ reserva.nome }}</td><td class="money">{{ reserva.valor_alvo|brl }}</td><td class="money">{{ reserva.valor_atual|brl }}</td><td>{{ reserva.percentual_concluido|decimal_br }}%</td><td class="actions-col">{% if user.pode_gerenciar_financeiro %}<a class="btn btn-secondary btn-icon-action" href="{% url 'financeiro:reserva_editar' reserva.pk %}" title="Editar"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M4 20l4.5-1 9.2-9.2a1.8 1.8 0 0 0 0-2.6l-.9-.9a1.8 1.8 0 0 0-2.6 0L5 15.5 4 20Z"/><path d="M13.5 7.5l3 3"/></svg><span class="visually-hidden">Editar</span></a>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+                <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Alvo</th><th>Atual</th><th>Progresso</th><th class="actions-col">Ações</th></tr></thead><tbody>{% for reserva in reservas %}<tr><td>{{ reserva.nome }}</td><td class="money">{{ reserva.valor_alvo|brl }}</td><td class="money">{{ reserva.valor_atual|brl }}</td><td>{{ reserva.percentual_concluido|decimal_br }}%</td><td class="actions-col"><a class="btn btn-secondary btn-icon-action" href="{% url 'financeiro:reserva_editar' reserva.pk %}" title="Editar"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M4 20l4.5-1 9.2-9.2a1.8 1.8 0 0 0 0-2.6l-.9-.9a1.8 1.8 0 0 0-2.6 0L5 15.5 4 20Z"/><path d="M13.5 7.5l3 3"/></svg><span class="visually-hidden">Editar</span></a></td></tr>{% endfor %}</tbody></table></div>
             {% else %}
                 <p class="empty-state">Nenhuma meta ou reserva cadastrada.</p>
             {% endif %}

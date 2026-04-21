@@ -70,7 +70,6 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "core.middleware.EmpresaAtivaMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -87,7 +86,6 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "core.context_processors.empresa_context",
             ],
         },
     },
@@ -174,6 +172,10 @@ LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "login"
 HEALTHZ_TOKEN = os.getenv("DJANGO_HEALTHZ_TOKEN", "").strip()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
+OPENAI_MENTORIA_MODEL = os.getenv("OPENAI_MENTORIA_MODEL", "gpt-5-mini").strip()
+OPENAI_MENTORIA_FALLBACK_MODEL = os.getenv("OPENAI_MENTORIA_FALLBACK_MODEL", "gpt-4.1-mini").strip()
+OPENAI_TIMEOUT_SECONDS = int(os.getenv("OPENAI_TIMEOUT_SECONDS", "45"))
 
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]

@@ -74,7 +74,10 @@ class FinanceiroSimplificadoModelTests(TestCase):
         self.assertEqual(planejamento["saldo_total"], Decimal("1650.00"))
         self.assertEqual(semana["fixos"], Decimal("900.00"))
         self.assertEqual(semana["parcelas"], Decimal("200.00"))
-        self.assertEqual(semana["disponivel"], Decimal("550.00"))
+        self.assertEqual(planejamento["base_mes"]["sobra_mes"], Decimal("550.00"))
+        self.assertEqual(semana["cota_semana"], Decimal("137.50"))
+        self.assertEqual(semana["gasto_semana"], Decimal("350.00"))
+        self.assertEqual(semana["disponivel"], Decimal("-212.50"))
 
 
 class FinanceiroSimplificadoViewTests(TestCase):
@@ -130,6 +133,27 @@ class FinanceiroSimplificadoViewTests(TestCase):
         self.assertContains(response_controle, "Planejamento semanal")
         self.assertContains(response_controle, "Emergência")
 
+    def test_despesa_parcelada_pode_ser_informada_pelo_valor_da_parcela(self):
+        response = self.client.post(
+            reverse("financeiro:despesa_criar"),
+            {
+                "tipo": "parcelada",
+                "descricao": "Celular",
+                "valor": "900,00",
+                "valor_parcela": "300,00",
+                "data": "2026-04-20",
+                "categoria": "Eletrônicos",
+                "parcelas": "3",
+                "status": "pendente",
+                "observacoes": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        despesa = Despesa.objects.get(descricao="Celular")
+        self.assertEqual(despesa.valor, Decimal("900.00"))
+        self.assertEqual(despesa.valor_parcela, Decimal("300.00"))
+
     def test_acoes_rapidas_atualizam_status_e_csv_exporta_fluxo_simples(self):
         receita = Receita.objects.create(
             descricao="Receita prevista",
@@ -176,7 +200,7 @@ class FinanceiroSimplificadoViewTests(TestCase):
         response = self.client.get(reverse("financeiro:controle"), {"semana": "2026-04-20"})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "20/04/2026 a 26/04/2026")
+        self.assertContains(response, "20/04 a 26/04")
         self.assertContains(response, "semana=2026-04-13")
         self.assertContains(response, "semana=2026-04-27")
 

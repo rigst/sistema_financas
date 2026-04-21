@@ -9,15 +9,19 @@ from django.db.models import Sum, Value, DecimalField
 from django.db.models.functions import Coalesce
 from django.http import HttpResponseNotFound, JsonResponse
 from django.shortcuts import redirect, render
-from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
-from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from core.tenancy import definir_empresa_ativa, queryset_da_empresa
-from financeiro.models import Despesa, Receita, Reserva, arredondar
-from financeiro.planejamento import calcular_planejamento_semanal, dados_graficos_dashboard, navegacao_semanal
+from core.ai_mentoria import gerar_mentoria_financeira
+from financeiro.models import Despesa, MentoriaFinanceiraIA, Receita, Reserva, arredondar
+from financeiro.planejamento import (
+    calcular_planejamento_semanal,
+    dados_graficos_dashboard,
+    dados_graficos_mensal,
+    navegacao_semanal,
+    resumo_mensal,
+)
 
 
 def healthz(request):
@@ -33,10 +37,12 @@ def healthz(request):
 def dashboard(request):
     periodo = request.GET.get("periodo", "30")
     referencia = parse_date(request.GET.get("semana", "")) or timezone.localdate()
-    receitas_qs = queryset_da_empresa(Receita.objects.all(), request.user)
-    despesas_qs = queryset_da_empresa(Despesa.objects.exclude(status="cancelada"), request.user)
-    planejamento = calcular_planejamento_semanal(request.user, referencia, quantidade=5)
+    receitas_qs = Receita.objects.filter(criado_por=request.user)
+    despesas_qs = Despesa.objects.filter(criado_por=request.user).exclude(status="cancelada")
+    planejamento = calcular_planejamento_semanal(request.user, referencia, quantidade=1)
     graficos = dados_graficos_dashboard(request.user, referencia)
+    mes_resumo = resumo_mensal(request.user, referencia)
+    graficos_mes = dados_graficos_mensal(request.user, referencia)
 
     if periodo != "todos":
         try:
@@ -67,7 +73,8 @@ def dashboard(request):
     indicadores = {
         "saldo_total": planejamento["saldo_total"],
         "disponivel_semana": planejamento["semana_atual"]["disponivel"] if planejamento["semana_atual"] else Decimal("0.00"),
-        "gasto_semana": planejamento["semana_atual"]["gasto_total"] if planejamento["semana_atual"] else Decimal("0.00"),
+        "cota_semana": planejamento["semana_atual"]["cota_semana"] if planejamento["semana_atual"] else Decimal("0.00"),
+        "gasto_semana": planejamento["semana_atual"]["gasto_semana"] if planejamento["semana_atual"] else Decimal("0.00"),
         "compromissos": planejamento["total_comprometido"],
         "disponivel_apos_compromissos": planejamento["disponivel_apos_compromissos"],
         "receitas": arredondar(receitas),
@@ -79,59 +86,47 @@ def dashboard(request):
         "total_transacoes": receitas_periodo.count() + despesas_periodo.count(),
     }
 
-    ultimas_receitas = list(receitas_qs.order_by("-data", "-id")[:4])
-    ultimas_despesas = list(despesas_qs.order_by("-data", "-id")[:4])
+    ultimas_receitas = list(receitas_qs.order_by("-data", "-id")[:5])
+    ultimas_despesas = list(despesas_qs.order_by("-data", "-id")[:5])
     ultimos_lancamentos = sorted(
         [{"tipo": "Receita", "data": item.data, "descricao": item.descricao, "valor": item.valor, "status": item.get_status_display()} for item in ultimas_receitas]
         + [{"tipo": "Despesa", "data": item.data, "descricao": item.descricao, "valor": item.valor, "status": item.get_status_display()} for item in ultimas_despesas],
         key=lambda item: item["data"],
         reverse=True,
-    )[:8]
-    reservas_resumo = queryset_da_empresa(Reserva.objects.all(), request.user)[:3]
+    )[:5]
+    reservas_resumo = [
+        {"obj": reserva, "percentual": int(reserva.percentual_concluido)}
+        for reserva in Reserva.objects.filter(criado_por=request.user)[:3]
+    ]
+    mentoria_ia = MentoriaFinanceiraIA.objects.filter(criado_por=request.user).first()
 
     context = {
         "planejamento_semanal": planejamento["semanas"],
         "ultimos_lancamentos": ultimos_lancamentos,
         "reservas_resumo": reservas_resumo,
         "graficos": graficos,
+        "graficos_mes": graficos_mes,
         "indicadores": indicadores,
+        "mes_resumo": mes_resumo,
         "periodo": periodo,
         "semana_nav": navegacao_semanal(referencia),
+        "mentoria_ia": mentoria_ia,
     }
     return render(request, "core/dashboard.html", context)
 
 
 @login_required
-def manual(request):
-    perfis = [
-        {
-            "nome": "Administrador",
-            "descricao": "Acompanha o sistema inteiro e gerencia finanças, configurações e usuários.",
-        },
-        {
-            "nome": "Editor",
-            "descricao": "Registra receitas, despesas, reservas e ajustes do planejamento semanal.",
-        },
-        {
-            "nome": "Visualizador",
-            "descricao": "Consulta informações financeiras sem editar cadastros nem lançamentos.",
-        },
-    ]
-    return render(request, "core/manual.html", {"perfis_manual": perfis})
+@require_POST
+def gerar_mentoria_ia(request):
+    try:
+        gerar_mentoria_financeira(request.user)
+    except (RuntimeError, ValueError) as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, "Mentoria financeira da IA atualizada.")
+    return redirect("dashboard")
 
 
 @login_required
-@require_POST
-def alternar_empresa(request):
-    empresa_id = request.POST.get("empresa_id")
-    empresa = definir_empresa_ativa(request, request.user, empresa_id)
-
-    if empresa is None:
-        messages.error(request, "Espaço financeiro inválido para este usuário.")
-    else:
-        messages.success(request, f"Espaço financeiro ativo alterado para {empresa.nome}.")
-
-    destino = request.POST.get("next") or request.META.get("HTTP_REFERER") or reverse("dashboard")
-    if not url_has_allowed_host_and_scheme(destino, allowed_hosts={request.get_host()}):
-        destino = reverse("dashboard")
-    return redirect(destino)
+def manual(request):
+    return render(request, "core/manual.html")

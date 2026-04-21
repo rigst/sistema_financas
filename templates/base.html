@@ -7,7 +7,7 @@
     <title>{% block title %}StölbenFinanças{% endblock %}</title>
     <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
     <link rel="apple-touch-icon" href="{% static 'favicon.png' %}">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20260412-mobilefix5">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20260421-ai-text">
 </head>
 <body>
     <header class="site-header">
@@ -27,29 +27,6 @@
                         <div id="header-user-meta" class="header-user-meta">
                             <div class="header-user-info">
                                 <span class="header-user-greeting">Olá, {{ user }}</span>
-                                <div class="header-user-company">
-                                    {% if empresas_usuario|length > 1 %}
-                                        <form action="{% url 'alternar_empresa' %}" method="post" class="header-company-switch">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                            <label for="empresa-ativa-select" style="display:none;">Empresa ativa</label>
-                                            <select id="empresa-ativa-select" name="empresa_id" class="header-company-select js-auto-submit">
-                                                {% for empresa_item in empresas_usuario %}
-                                                    <option value="{{ empresa_item.pk }}" {% if empresa_ativa and empresa_item.pk == empresa_ativa.pk %}selected{% endif %}>
-                                                        {{ empresa_item.nome }}
-                                                    </option>
-                                                {% endfor %}
-                                            </select>
-                                        </form>
-                                    {% elif user.eh_visitante %}
-                                        <span>Empresa Visitante</span>
-                                    {% elif empresa_ativa %}
-                                        <span>{{ empresa_ativa.nome }}</span>
-                                    {% else %}
-                                        <span>{{ user.nome_empresa }}</span>
-                                    {% endif %}
-                                </div>
-                                <span class="user-role">{{ user.get_perfil_display }}</span>
                             </div>
                             <div class="header-user-actions">
                                 <form action="{% url 'logout' %}" method="post">
@@ -65,11 +42,9 @@
                     <div id="header-main-links" class="nav-bottom">
                         <ul class="nav-links">
                             <li><a href="{% url 'dashboard' %}" {% if request.resolver_match.url_name == 'dashboard' %}class="active"{% endif %}>Dashboard</a></li>
-                            {% if user.pode_visualizar_financeiro %}
-                                <li><a href="{% url 'financeiro:receita_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'receita' in request.resolver_match.url_name %}class="active"{% endif %}>Receitas</a></li>
-                                <li><a href="{% url 'financeiro:despesa_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'despesa' in request.resolver_match.url_name %}class="active"{% endif %}>Despesas</a></li>
-                                <li><a href="{% url 'financeiro:controle' %}" {% if request.resolver_match.namespace == 'financeiro' and request.resolver_match.url_name == 'controle' or request.resolver_match.namespace == 'financeiro' and 'reserva' in request.resolver_match.url_name %}class="active"{% endif %}>Controle</a></li>
-                            {% endif %}
+                            <li><a href="{% url 'financeiro:receita_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'receita' in request.resolver_match.url_name %}class="active"{% endif %}>Receitas</a></li>
+                            <li><a href="{% url 'financeiro:despesa_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'despesa' in request.resolver_match.url_name %}class="active"{% endif %}>Despesas</a></li>
+                            <li><a href="{% url 'financeiro:controle' %}" {% if request.resolver_match.namespace == 'financeiro' and request.resolver_match.url_name == 'controle' or request.resolver_match.namespace == 'financeiro' and 'reserva' in request.resolver_match.url_name %}class="active"{% endif %}>Controle</a></li>
                             <li><a href="{% url 'manual' %}" {% if request.resolver_match.url_name == 'manual' %}class="active"{% endif %}>Manual</a></li>
                         </ul>
                     </div>
@@ -99,7 +74,6 @@
       const CURRENT_DRAFT_CONTEXT = {
         authenticated: {% if user.is_authenticated %}true{% else %}false{% endif %},
         userId: "{% if user.is_authenticated %}{{ user.pk }}{% endif %}",
-        companyId: "{% if user.is_authenticated and empresa_ativa %}{{ empresa_ativa.pk }}{% endif %}",
       };
 
       const clearDraftStorage = () => {
@@ -441,22 +415,69 @@
           if (select.dataset.installmentsBound === "1") return;
           select.dataset.installmentsBound = "1";
           const form = select.form;
-          const field = form ? form.querySelector("[data-installments-field]") : null;
-          const input = form ? form.querySelector("[data-installments-input]") : null;
-          if (!field || !input) return;
+          const fields = form ? Array.from(form.querySelectorAll("[data-installments-field]")) : [];
+          const countInput = form ? form.querySelector("[data-installments-input]") : null;
+          const totalInput = form ? form.querySelector("[data-installments-total]") : null;
+          const unitInput = form ? form.querySelector("[data-installments-unit]") : null;
+          if (!fields.length || !countInput || !totalInput || !unitInput) return;
+          let lastEdited = "total";
+
+          const parseNumber = (value) => {
+            const normalized = normalizeDecimal(value);
+            if (!normalized) return 0;
+            const parsed = Number(normalized.replace(",", "."));
+            return Number.isFinite(parsed) ? parsed : 0;
+          };
+
+          const parcelCount = () => Math.max(1, Number.parseInt(countInput.value || "1", 10) || 1);
+
+          const syncFromTotal = () => {
+            const count = parcelCount();
+            const total = parseNumber(totalInput.value);
+            if (count > 0 && total > 0) {
+              unitInput.value = formatCurrency(String(total / count).replace(".", ","));
+            }
+          };
+
+          const syncFromUnit = () => {
+            const total = parseNumber(unitInput.value) * parcelCount();
+            if (total > 0) {
+              totalInput.value = formatCurrency(String(total).replace(".", ","));
+            }
+          };
 
           const sync = () => {
             const isInstallment = select.value === "parcelada";
-            field.hidden = !isInstallment;
-            input.disabled = !isInstallment;
+            fields.forEach((field) => {
+              field.hidden = !isInstallment;
+            });
+            countInput.disabled = !isInstallment;
+            unitInput.disabled = !isInstallment;
             if (!isInstallment) {
-              input.value = "1";
-            } else if (!input.value || Number(input.value) < 2) {
-              input.value = "2";
+              countInput.value = "1";
+              unitInput.value = "";
+              return;
+            }
+            if (!countInput.value || Number(countInput.value) < 2) {
+              countInput.value = "2";
+            }
+            if (lastEdited === "unit") {
+              syncFromUnit();
+            } else {
+              syncFromTotal();
             }
           };
 
           select.addEventListener("change", sync);
+          totalInput.addEventListener("change", () => {
+            lastEdited = "total";
+            sync();
+          });
+          unitInput.addEventListener("change", () => {
+            lastEdited = "unit";
+            sync();
+          });
+          countInput.addEventListener("change", sync);
           sync();
         });
       };

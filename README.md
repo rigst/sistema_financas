@@ -1,21 +1,18 @@
 # Sistema de Finanças
 
-Aplicação Django para controle pessoal de finanças, com autenticação, multiempresa, controle de acesso, dashboard e CRUDs financeiros.
+Aplicação Django para controle pessoal e individual de finanças, com autenticação, dashboard e CRUDs financeiros simplificados.
 
 ## Funcionalidades disponíveis
 
 - dashboard financeiro
-- contas e saldos
-- categorias financeiras
-- transações de receita, despesa e transferência
-- cartões de crédito
-- faturas e compras parceladas
-- pagamento de fatura com baixa na conta bancária
-- planejamento mensal por categoria
-- metas financeiras
-- recorrências financeiras com geração de lançamentos futuros
-- relatório mensal de fluxo de caixa
-- importação e exportação CSV de transações
+- receitas previstas ou recebidas
+- despesas variáveis, fixas e parceladas
+- cálculo automático de parcelas
+- planejamento semanal
+- resumo mensal com gráficos
+- metas e reservas simples
+- mentoria financeira por IA com OpenAI
+- exportação CSV de receitas e despesas
 
 ## Requisitos
 
@@ -34,6 +31,14 @@ cp .env.example .env
 python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
+```
+
+Para habilitar a mentoria financeira da IA, configure:
+
+```bash
+OPENAI_API_KEY=...
+OPENAI_MENTORIA_MODEL=gpt-5-mini
+OPENAI_MENTORIA_FALLBACK_MODEL=gpt-4.1-mini
 ```
 
 ## Uso local
@@ -60,21 +65,21 @@ python manage.py test
 
 ## Fluxo financeiro
 
-Receitas e despesas comuns usam `Transacao`.
+Receitas entram pelo menu `Receitas`.
 
-Transferências usam `Transacao` com conta origem e conta destino.
+Despesas entram pelo menu `Despesas`, como variáveis, fixas ou parceladas.
 
-Compras de cartão usam `LancamentoCartao`, agrupadas por `FaturaCartao`. A compra no cartão não baixa saldo bancário imediatamente. O saldo da conta só é reduzido quando a fatura é paga.
+O Dashboard mostra quanto está livre para gastar na semana e no mês.
 
-Recorrências geram transações pendentes futuras, evitando automação silenciosa.
+O Controle concentra planejamento semanal, metas e reservas.
 
-Transações podem ser exportadas em CSV pela listagem. A importação CSV aceita as colunas `tipo`, `descricao`, `valor`, `data_competencia`, `status`, `conta`, `categoria`, `conta_destino`, `data_pagamento` e `observacoes`.
+Os dados são individuais por usuário, sem empresa, grupos ou perfis de acesso.
 
 ## Estrutura principal
 
 - `financeiro`: domínio financeiro principal.
-- `core`: dashboard, permissões, contexto, helpers e segurança.
-- `usuarios`: autenticação, perfis, visitantes e controle de acesso.
+- `core`: dashboard, helpers e segurança.
+- `usuarios`: autenticação e visitantes.
 - `templates/base.html`: layout principal.
 - `static/css/style.css`: design visual.
 - `config`: configurações Django e rotas.

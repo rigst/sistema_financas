@@ -1,15 +1,16 @@
 from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
+from urllib.error import HTTPError
+from io import BytesIO
 
-from django.contrib.auth.models import Group
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from core.models import Empresa
-from financeiro.models import Despesa, Receita
+from financeiro.models import Despesa, MentoriaFinanceiraIA, Receita
 
 
 class DashboardTests(TestCase):
@@ -41,8 +42,8 @@ class DashboardTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "R$ 1.200,00")
-        self.assertContains(response, "Resumo da semana")
-        self.assertContains(response, "Planejamento semanal")
+        self.assertContains(response, "Livre nesta semana")
+        self.assertContains(response, "Gastos por tipo")
         self.assertEqual(response.context["indicadores"]["total_transacoes"], 1)
 
     def test_dashboard_exibe_saldo_e_ultimos_lancamentos_financeiros(self):
@@ -61,11 +62,30 @@ class DashboardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Livre nesta semana")
         self.assertContains(response, "Salário recente")
-        self.assertContains(response, "R$ 400,00")
+        self.assertContains(response, "R$ 300,00")
         self.assertIn("planejamento_semanal", response.context)
         lancamentos = [item["descricao"] for item in response.context["ultimos_lancamentos"]]
         self.assertIn("Salário recente", lancamentos)
         self.assertNotIn("Compra cancelada", lancamentos)
+
+    def test_dashboard_limita_ultimos_lancamentos_a_cinco(self):
+        hoje = timezone.localdate()
+        for indice in range(6):
+            Receita.objects.create(
+                descricao=f"Lançamento {indice}",
+                valor=Decimal("10.00"),
+                data=hoje + timedelta(days=indice + 1),
+                status="recebida",
+                categoria="Extra",
+                criado_por=self.user,
+            )
+
+        response = self.client.get(reverse("dashboard"), {"periodo": "todos"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["ultimos_lancamentos"]), 5)
+        self.assertContains(response, "Lançamento 5")
+        self.assertNotContains(response, "Lançamento 0")
 
     def test_dashboard_permite_navegar_por_semana(self):
         response = self.client.get(reverse("dashboard"), {"semana": "2026-04-20", "periodo": "todos"})
@@ -74,6 +94,74 @@ class DashboardTests(TestCase):
         self.assertContains(response, "20/04/2026 a 26/04/2026")
         self.assertContains(response, "semana=2026-04-13")
         self.assertContains(response, "semana=2026-04-27")
+
+    def test_dashboard_exibe_ultima_mentoria_ia_salva(self):
+        MentoriaFinanceiraIA.objects.create(
+            criado_por=self.user,
+            periodo_inicio=timezone.localdate() - timedelta(days=30),
+            periodo_fim=timezone.localdate(),
+            conteudo="Análise salva pela IA.\n1. Reduza gastos pequenos.",
+            modelo="modelo-teste",
+        )
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Mentoria financeira da IA")
+        self.assertContains(response, "Análise salva pela IA.")
+        self.assertContains(response, 'class="ai-mentor-summary"', html=False)
+        self.assertContains(response, 'class="ai-mentor-list"', html=False)
+        self.assertContains(response, "Gerar análise")
+
+    @override_settings(OPENAI_API_KEY="sk-teste", OPENAI_MENTORIA_MODEL="modelo-teste")
+    @patch("core.ai_mentoria._post_openai")
+    def test_botao_gera_mentoria_ia_e_salva_resultado(self, post_openai):
+        post_openai.return_value = {
+            "output_text": "Seu gasto do mês ficou concentrado em mercado.\n1. Defina um limite semanal."
+        }
+
+        response = self.client.post(reverse("gerar_mentoria_ia"), follow=True)
+
+        self.assertRedirects(response, reverse("dashboard"))
+        mentoria = MentoriaFinanceiraIA.objects.get(criado_por=self.user)
+        self.assertIn("Seu gasto do mês", mentoria.conteudo)
+        self.assertEqual(mentoria.modelo, "modelo-teste")
+        self.assertIn("gastos_por_categoria", mentoria.dados_enviados)
+        self.assertContains(response, "Mentoria financeira da IA atualizada.")
+
+    @override_settings(
+        OPENAI_API_KEY="sk-teste",
+        OPENAI_MENTORIA_MODEL="modelo-inexistente",
+        OPENAI_MENTORIA_FALLBACK_MODEL="gpt-4.1-mini",
+    )
+    @patch("core.ai_mentoria._post_openai")
+    def test_botao_mentoria_ia_usa_fallback_quando_modelo_nao_existe(self, post_openai):
+        erro = HTTPError(
+            url="https://api.openai.com/v1/responses",
+            code=400,
+            msg="Bad Request",
+            hdrs=None,
+            fp=BytesIO(b'{"error":{"code":"model_not_found","message":"model does not exist"}}'),
+        )
+        post_openai.side_effect = [
+            erro,
+            {"output_text": "Análise com fallback.\n1. Ajuste o mercado."},
+        ]
+
+        response = self.client.post(reverse("gerar_mentoria_ia"), follow=True)
+
+        self.assertRedirects(response, reverse("dashboard"))
+        mentoria = MentoriaFinanceiraIA.objects.get(criado_por=self.user)
+        self.assertEqual(mentoria.modelo, "gpt-4.1-mini")
+        self.assertIn("Análise com fallback", mentoria.conteudo)
+
+    @override_settings(OPENAI_API_KEY="")
+    def test_botao_mentoria_ia_sem_chave_mostra_erro(self):
+        response = self.client.post(reverse("gerar_mentoria_ia"), follow=True)
+
+        self.assertRedirects(response, reverse("dashboard"))
+        self.assertFalse(MentoriaFinanceiraIA.objects.filter(criado_por=self.user).exists())
+        self.assertContains(response, "Configure OPENAI_API_KEY")
 
     def test_manual_do_sistema_esta_disponivel(self):
         response = self.client.get(reverse("manual"))
@@ -88,7 +176,7 @@ class DashboardTests(TestCase):
         response = self.client.get(reverse("manual"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Dicas rápidas")
+        self.assertContains(response, "Ações rápidas")
         self.assertContains(response, "despesa parcelada")
         self.assertNotContains(response, "Visualizar um cadastro sem editar.")
         self.assertNotContains(response, "Abrir relatórios, PDF e Excel do orçamento.")
@@ -127,55 +215,39 @@ class InfraestruturaTests(TestCase):
         self.assertJSONEqual(response_token_valido.content, {"status": "ok"})
 
 
-class MultiEmpresaAtivaTests(TestCase):
+class SistemaIndividualTests(TestCase):
     def setUp(self):
-        self.empresa_a = Group.objects.create(name="Empresa A")
-        self.empresa_b = Group.objects.create(name="Empresa B")
         self.user = get_user_model().objects.create_user(
-            username="usuario_multiempresa",
+            username="usuario_individual",
             password="senha-forte-123",
-            perfil="admin",
         )
-        self.user.groups.set([self.empresa_a, self.empresa_b])
+        self.outro_usuario = get_user_model().objects.create_user(
+            username="outro_usuario",
+            password="senha-forte-123",
+        )
         self.client.force_login(self.user)
 
         Receita.objects.create(
-            descricao="Receita A",
+            descricao="Receita própria",
             valor=Decimal("100.00"),
             data=date(2026, 4, 16),
-            empresa=self.empresa_a,
             criado_por=self.user,
         )
         Receita.objects.create(
-            descricao="Receita B",
+            descricao="Receita de outra pessoa",
             valor=Decimal("200.00"),
             data=date(2026, 4, 16),
-            empresa=self.empresa_b,
-            criado_por=self.user,
+            criado_por=self.outro_usuario,
         )
 
-    def test_header_exibe_seletor_quando_usuario_tem_varias_empresas(self):
+    def test_header_nao_exibe_empresa_ou_seletor_de_grupos(self):
         response = self.client.get(reverse("dashboard"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'name="empresa_id"', html=False)
-        self.assertContains(response, "Empresa A")
-        self.assertContains(response, "Empresa B")
+        self.assertNotContains(response, 'name="empresa_id"', html=False)
+        self.assertNotContains(response, "Empresa padrão")
 
-    def test_trocar_empresa_ativa_altera_isolamento_dos_dados(self):
+    def test_dados_financeiros_sao_filtrados_por_usuario(self):
         response_inicial = self.client.get(reverse("financeiro:receita_lista"))
-        self.assertContains(response_inicial, "Receita A")
-        self.assertNotContains(response_inicial, "Receita B")
-
-        self.client.post(
-            reverse("alternar_empresa"),
-            {
-                "empresa_id": Empresa.objects.get(grupo=self.empresa_b).pk,
-                "next": reverse("financeiro:receita_lista"),
-            },
-            follow=True,
-        )
-
-        response_trocado = self.client.get(reverse("financeiro:receita_lista"))
-        self.assertContains(response_trocado, "Receita B")
-        self.assertNotContains(response_trocado, "Receita A")
+        self.assertContains(response_inicial, "Receita própria")
+        self.assertNotContains(response_inicial, "Receita de outra pessoa")
