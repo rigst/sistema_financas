@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% load br_format %}
-<!-- {% load ai_format %} -->
 
 {% block title %}Dashboard{% endblock %}
 
@@ -20,63 +19,51 @@
             <div>
                 <span class="eyebrow">Semana</span>
                 <h2>{{ semana_nav.inicio|date:"d/m/Y" }} a {{ semana_nav.fim|date:"d/m/Y" }}</h2>
-                <p>Cota semanal calculada pelo dinheiro livre do mês dividido por quatro.</p>
+                <p>Competência e limite semanal recalculados conforme a semana selecionada.</p>
             </div>
             <div class="inline-actions week-actions dashboard-nav-actions">
-                <a class="btn btn-secondary btn-icon-action" href="?semana={{ semana_nav.anterior|date:'Y-m-d' }}&periodo={{ periodo }}" title="Semana anterior" aria-label="Semana anterior"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span class="visually-hidden">Semana anterior</span></a>
+                <a class="btn btn-secondary btn-icon-action" href="?semana={{ semana_nav.anterior|date:'Y-m-d' }}&periodo={{ periodo }}{% if incluir_previstos_mes %}&previstos=1{% endif %}" title="Semana anterior" aria-label="Semana anterior"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span class="visually-hidden">Semana anterior</span></a>
                 <form method="get" class="week-picker-form">
                     <input type="hidden" name="periodo" value="{{ periodo }}">
+                    {% if incluir_previstos_mes %}<input type="hidden" name="previstos" value="1">{% endif %}
                     <label class="visually-hidden" for="semana-dashboard">Selecionar semana</label>
                     <input id="semana-dashboard" type="date" name="semana" value="{{ semana_nav.inicio|date:'Y-m-d' }}">
                     <button class="btn btn-secondary btn-icon-action" type="submit" title="Aplicar semana" aria-label="Aplicar semana"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M20 7 9 18l-5-5"/></svg><span class="visually-hidden">Aplicar</span></button>
                 </form>
-                <a class="btn btn-secondary btn-icon-action" href="?semana={{ semana_nav.proxima|date:'Y-m-d' }}&periodo={{ periodo }}" title="Próxima semana" aria-label="Próxima semana"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg><span class="visually-hidden">Próxima semana</span></a>
+                <a class="btn btn-secondary btn-icon-action" href="?semana={{ semana_nav.proxima|date:'Y-m-d' }}&periodo={{ periodo }}{% if incluir_previstos_mes %}&previstos=1{% endif %}" title="Próxima semana" aria-label="Próxima semana"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg><span class="visually-hidden">Próxima semana</span></a>
             </div>
         </div>
 
-        <div class="dashboard-focus">
-            <article class="available-panel">
-                <span class="label">Livre nesta semana</span>
-                <strong>{{ indicadores.disponivel_semana|brl }}</strong>
-                <dl>
-                    <div><dt>Cota da semana</dt><dd>{{ indicadores.cota_semana|brl }}</dd></div>
-                    <div><dt>Já gasto na semana</dt><dd>{{ indicadores.gasto_semana|brl }}</dd></div>
-                    <div><dt>Fixos no mês</dt><dd>{{ mes_resumo.fixos|brl }}</dd></div>
-                    <div><dt>Parcelas no mês</dt><dd>{{ mes_resumo.parcelas|brl }}</dd></div>
-                </dl>
-            </article>
-            <div class="focus-side">
-                <div class="stat-card"><span class="label">Saldo disponível na semana</span><span class="value">{{ indicadores.cota_semana|brl }}</span></div>
-                <div class="stat-card"><span class="label">Já gasto na semana</span><span class="value">{{ indicadores.gasto_semana|brl }}</span></div>
-            </div>
-        </div>
-    </div>
-
-    <div class="dashboard-section dashboard-month-section">
-        <div class="section-heading dashboard-section-title">
-            <div>
-                <span class="eyebrow">Mês</span>
-                <h2>{{ mes_resumo.inicio|date:"F/Y" }}</h2>
-                <p>Resumo do mês inteiro, com os gráficos por tipo, categoria e evolução mensal.</p>
-            </div>
-        </div>
-
-        <div class="dashboard-focus">
+        <div class="dashboard-focus dashboard-focus-split">
             <article class="available-panel available-panel-soft">
-                <span class="label">Livre no mês</span>
+                <span class="label">Mês</span>
                 <strong>{{ mes_resumo.disponivel|brl }}</strong>
                 <dl>
-                    <div><dt>Já gasto</dt><dd>{{ mes_resumo.gastos_pagos|brl }}</dd></div>
-                    <div><dt>Fixos</dt><dd>{{ mes_resumo.fixos|brl }}</dd></div>
+                    <div><dt>Receitas</dt><dd>{{ mes_resumo.receitas|brl }}</dd></div>
+                    <div><dt>Despesas</dt><dd>{{ mes_resumo.gasto_total|brl }}</dd></div>
+                    <div><dt>Fixas</dt><dd>{{ mes_resumo.fixos|brl }}</dd></div>
                     <div><dt>Parcelas</dt><dd>{{ mes_resumo.parcelas|brl }}</dd></div>
-                    <div><dt>Pendentes</dt><dd>{{ mes_resumo.gastos_pendentes|brl }}</dd></div>
                 </dl>
             </article>
-            <div class="focus-side">
-                <div class="stat-card"><span class="label">Gasto do mês</span><span class="value">{{ mes_resumo.gasto_total|brl }}</span></div>
-                <div class="stat-card"><span class="label">Receitas do mês</span><span class="value">{{ mes_resumo.receitas|brl }}</span></div>
-            </div>
+            <article class="available-panel">
+                <div class="panel-label-row">
+                    <span class="label">Semana</span>
+                    {% if incluir_previstos_mes %}
+                        <a class="quiet-link forecast-toggle active" href="?semana={{ semana_nav.referencia|date:'Y-m-d' }}&periodo={{ periodo }}" title="Usar apenas valores confirmados"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M3 12h18"/><path d="M7 8h10"/><path d="M7 16h10"/></svg><span>Com previsões</span></a>
+                    {% else %}
+                        <a class="quiet-link forecast-toggle" href="?semana={{ semana_nav.referencia|date:'Y-m-d' }}&periodo={{ periodo }}&previstos=1" title="Computar receitas e despesas previstas do mês"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M3 12h18"/><path d="M7 8h10"/><path d="M7 16h10"/></svg><span>Previsões</span></a>
+                    {% endif %}
+                </div>
+                <strong>{{ indicadores.disponivel_semana|brl }}</strong>
+                <dl>
+                    <div><dt>Máximo semanal</dt><dd>{{ indicadores.cota_semana|brl }}</dd></div>
+                    <div><dt>Já gasto</dt><dd>{{ indicadores.gasto_semana|brl }}</dd></div>
+                    <div><dt>Pendente mês</dt><dd>{{ indicadores.pendente_pagar|brl }}</dd></div>
+                    <div><dt>Recebido a tempo</dt><dd>{{ planejamento_semanal.0.receitas_recebidas|brl }}</dd></div>
+                </dl>
+            </article>
         </div>
+    </div>
 
         <div class="dashboard-chart-grid">
             <article class="chart-card">
@@ -86,7 +73,7 @@
                         <div class="pie-chart" style="background: conic-gradient({% for item in graficos_mes.por_tipo %}{{ item.cor }} {{ item.inicio }}% {{ item.fim }}%{% if not forloop.last %}, {% endif %}{% endfor %});"></div>
                         <ul class="chart-legend">
                             {% for item in graficos_mes.por_tipo %}
-                                <li><span style="background: {{ item.cor }};"></span><strong>{{ item.label }}</strong><em>{{ item.valor|brl }}</em></li>
+                                <li><span style="background: {{ item.cor }};"></span><strong>{{ item.label }}</strong><em>{{ item.valor|brl }} · {{ item.percentual }}%</em></li>
                             {% endfor %}
                         </ul>
                     </div>
@@ -102,7 +89,7 @@
                         <div class="pie-chart pie-chart-soft" style="background: conic-gradient({% for item in graficos_mes.por_categoria %}{{ item.cor }} {{ item.inicio }}% {{ item.fim }}%{% if not forloop.last %}, {% endif %}{% endfor %});"></div>
                         <ul class="chart-legend">
                             {% for item in graficos_mes.por_categoria %}
-                                <li><span style="background: {{ item.cor }};"></span><strong>{{ item.label }}</strong><em>{{ item.valor|brl }}</em></li>
+                                <li><span style="background: {{ item.cor }};"></span><strong class="category-with-icon">{% include "partials/category_icon.html" with icon=item.label|categoria_icone %}{{ item.label }}</strong><em>{{ item.valor|brl }} · {{ item.participacao }}%</em></li>
                             {% endfor %}
                         </ul>
                     </div>
@@ -124,11 +111,10 @@
                 </div>
             </article>
         </div>
-    </div>
 
     <div class="section-heading compact-heading"><div><h3>Últimos lançamentos</h3></div></div>
     {% if ultimos_lancamentos %}
-        <div class="table-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Status</th><th>Total</th></tr></thead><tbody>{% for item in ultimos_lancamentos %}<tr><td>{{ item.data|date:"d/m/Y" }}</td><td>{{ item.descricao }}</td><td>{{ item.tipo }}</td><td>{{ item.status }}</td><td class="money">{{ item.valor|brl }}</td></tr>{% endfor %}</tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th><th>Situação</th><th>Total</th></tr></thead><tbody>{% for item in ultimos_lancamentos %}<tr><td>{{ item.data|date:"d/m/Y" }}</td><td>{{ item.descricao }}</td><td>{% if item.categoria %}<span class="category-with-icon">{% include "partials/category_icon.html" with icon=item.categoria|categoria_icone %}{{ item.categoria }}</span>{% else %}-{% endif %}</td><td>{{ item.tipo }}</td><td>{{ item.status }}</td><td class="money">{{ item.valor|brl }}</td></tr>{% endfor %}</tbody></table></div>
     {% else %}
         <p class="empty-state">Ainda não há lançamentos.</p>
     {% endif %}
@@ -139,21 +125,18 @@
                 <span class="eyebrow">Mentoria financeira da IA</span>
                 <h3>Análise do último mês</h3>
                 {% if mentoria_ia %}
-                    <p>Gerada em {{ mentoria_ia.criado_em|date:"d/m/Y H:i" }} com dados de {{ mentoria_ia.periodo_inicio|date:"d/m/Y" }} a {{ mentoria_ia.periodo_fim|date:"d/m/Y" }}.</p>
+                    <p id="ai-mentor-meta">Gerada em {{ mentoria_ia.criado_em|date:"d/m/Y H:i" }} com dados de {{ mentoria_ia.periodo_inicio|date:"d/m/Y" }} a {{ mentoria_ia.periodo_fim|date:"d/m/Y" }}.</p>
                 {% else %}
-                    <p>Gere uma leitura breve dos gastos com 5 ações práticas para economizar e avançar nas metas.</p>
+                    <p id="ai-mentor-meta">Gere uma leitura breve dos gastos com 5 ações práticas para economizar e avançar nas metas.</p>
                 {% endif %}
             </div>
-            <form method="post" action="{% url 'gerar_mentoria_ia' %}">
+            <form method="post" action="{% url 'gerar_mentoria_ia' %}" id="ai-mentor-form">
                 {% csrf_token %}
                 <button class="btn btn-secondary" type="submit"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 3l1.6 4.7L18 9.4l-4.4 1.7L12 16l-1.6-4.9L6 9.4l4.4-1.7L12 3Z"/><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8L19 14Z"/></svg><span>Gerar análise</span></button>
             </form>
         </div>
-        {% if mentoria_ia %}
-            <div class="ai-mentor-content">{{ mentoria_ia.conteudo|mentoria_formatada }}</div>
-        {% else %}
-            <p class="empty-state">Nenhuma mentoria gerada ainda.</p>
-        {% endif %}
+        <div class="ai-progress" id="ai-progress" hidden><span class="ai-progress-bar" id="ai-progress-bar"></span></div>
+        <div id="ai-mentor-body">{% include "partials/mentoria_ia.html" with mentoria_ia=mentoria_ia %}</div>
     </div>
 
     <div class="dashboard-meta-row">
@@ -175,4 +158,63 @@
         {% endif %}
     </div>
 </section>
+<script nonce="{{ request.csp_nonce }}">
+(() => {
+  const form = document.getElementById("ai-mentor-form");
+  const progress = document.getElementById("ai-progress");
+  const progressBar = document.getElementById("ai-progress-bar");
+  const body = document.getElementById("ai-mentor-body");
+  const meta = document.getElementById("ai-mentor-meta");
+  if (!form || !progress || !progressBar || !body || !meta) return;
+
+  let timer = null;
+  const setProgress = (value) => {
+    progress.hidden = false;
+    progressBar.style.width = `${value}%`;
+  };
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const data = new FormData(form);
+    let current = 8;
+    setProgress(current);
+    timer = window.setInterval(() => {
+      current = Math.min(current + 7, 85);
+      setProgress(current);
+    }, 280);
+
+    try {
+      const response = await fetch(form.action, {
+        method: "POST",
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+        body: data,
+      });
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        throw new Error("O servidor não retornou uma resposta JSON para a análise.");
+      }
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.erro || "Não foi possível gerar a análise.");
+      }
+      window.clearInterval(timer);
+      setProgress(100);
+      body.innerHTML = payload.html;
+      meta.textContent = `Gerada em ${payload.meta.criado_em} com dados de ${payload.meta.periodo_inicio} a ${payload.meta.periodo_fim}.`;
+      window.setTimeout(() => {
+        progress.hidden = true;
+        progressBar.style.width = "0%";
+      }, 500);
+    } catch (error) {
+      window.clearInterval(timer);
+      setProgress(100);
+      meta.textContent = error.message;
+      window.setTimeout(() => {
+        progress.hidden = true;
+        progressBar.style.width = "0%";
+      }, 900);
+    }
+  });
+})();
+</script>
 {% endblock %}

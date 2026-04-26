@@ -1,0 +1,25 @@
+<span class="category-icon" aria-hidden="true">
+    {% if icon == "home" %}
+        <svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10.5V20h14v-9.5"/><path d="M9.5 20v-6h5v6"/></svg>
+    {% elif icon == "cart" %}
+        <svg viewBox="0 0 24 24"><path d="M4 5h2l2 11h10l2-8H7"/><circle cx="10" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></svg>
+    {% elif icon == "utensils" %}
+        <svg viewBox="0 0 24 24"><path d="M7 4v16"/><path d="M4 4v5a3 3 0 0 0 6 0V4"/><path d="M16 4v16"/><path d="M16 4c2 1.5 3 3.6 3 6.2V12h-3"/></svg>
+    {% elif icon == "car" %}
+        <svg viewBox="0 0 24 24"><path d="M6 16h12"/><path d="M5 16l1.6-5.2A3 3 0 0 1 9.5 8h5a3 3 0 0 1 2.9 2.8L19 16"/><circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="18" r="1.5"/></svg>
+    {% elif icon == "health" %}
+        <svg viewBox="0 0 24 24"><path d="M12 21s-7-4.4-9-9a5 5 0 0 1 8-5.7A5 5 0 0 1 19 12c-2 4.6-7 9-7 9Z"/><path d="M12 8v6"/><path d="M9 11h6"/></svg>
+    {% elif icon == "education" %}
+        <svg viewBox="0 0 24 24"><path d="M3 8.5 12 4l9 4.5-9 4.5-9-4.5Z"/><path d="M7 11v5c2.8 2 7.2 2 10 0v-5"/></svg>
+    {% elif icon == "work" %}
+        <svg viewBox="0 0 24 24"><path d="M9 7V5h6v2"/><rect x="4" y="7" width="16" height="12" rx="2"/><path d="M4 12h16"/></svg>
+    {% elif icon == "star" %}
+        <svg viewBox="0 0 24 24"><path d="m12 4 2.2 5 5.4.5-4.1 3.6 1.2 5.3L12 15.7l-4.7 2.7 1.2-5.3-4.1-3.6 5.4-.5L12 4Z"/></svg>
+    {% elif icon == "receipt" %}
+        <svg viewBox="0 0 24 24"><path d="M6 3h12v18l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2L6 21V3Z"/><path d="M9 8h6"/><path d="M9 12h6"/><path d="M9 16h4"/></svg>
+    {% elif icon == "money" %}
+        <svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M7 9h1"/><path d="M16 15h1"/></svg>
+    {% else %}
+        <svg viewBox="0 0 24 24"><path d="M20 12 12 20 4 12V4h8l8 8Z"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>
+    {% endif %}
+</span>

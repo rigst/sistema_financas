@@ -6,7 +6,7 @@ from django.test import TestCase
 from django.urls import NoReverseMatch, reverse
 
 from .models import Despesa, Receita, Reserva
-from .planejamento import calcular_planejamento_semanal
+from .planejamento import calcular_planejamento_semanal, resumo_fluxo_periodo, resumo_mensal
 
 
 class FinanceiroSimplificadoModelTests(TestCase):
@@ -27,8 +27,44 @@ class FinanceiroSimplificadoModelTests(TestCase):
 
         ocorrencias = despesa.ocorrencias(date(2026, 4, 1), date(2026, 6, 30))
 
+        despesa.refresh_from_db()
+        self.assertEqual(despesa.competencia, date(2026, 4, 1))
         self.assertEqual([item["valor"] for item in ocorrencias], [Decimal("200.00"), Decimal("200.00"), Decimal("200.00")])
         self.assertEqual([item["parcela"] for item in ocorrencias], [1, 2, 3])
+
+    def test_parcelada_pode_comecar_em_parcela_atual_maior_que_um(self):
+        despesa = Despesa.objects.create(
+            tipo="parcelada",
+            descricao="Financiamento",
+            valor=Decimal("1200.00"),
+            data=date(2026, 4, 10),
+            categoria="Casa",
+            parcelas=12,
+            parcela_atual=5,
+            status="pendente",
+            criado_por=self.user,
+        )
+        receita = Receita.objects.create(
+            tipo="parcelada",
+            descricao="Acordo",
+            valor=Decimal("600.00"),
+            data=date(2026, 4, 12),
+            categoria="Serviços",
+            parcelas=6,
+            parcela_atual=4,
+            status="prevista",
+            criado_por=self.user,
+        )
+
+        despesas = despesa.ocorrencias(date(2026, 4, 1), date(2026, 6, 30))
+        receitas = receita.ocorrencias(date(2026, 4, 1), date(2026, 6, 30))
+
+        self.assertEqual([item["parcela"] for item in despesas], [5, 6, 7])
+        self.assertEqual([item["valor"] for item in despesas], [Decimal("100.00"), Decimal("100.00"), Decimal("100.00")])
+        self.assertEqual(despesa.parcela_na_data(date(2026, 6, 1)), 7)
+        self.assertEqual([item["parcela"] for item in receitas], [4, 5, 6])
+        self.assertEqual([item["valor"] for item in receitas], [Decimal("100.00"), Decimal("100.00"), Decimal("100.00")])
+        self.assertEqual(receita.parcela_na_data(date(2026, 5, 1)), 5)
 
     def test_planejamento_semanal_mostra_disponivel_e_compromissos(self):
         Receita.objects.create(
@@ -75,9 +111,49 @@ class FinanceiroSimplificadoModelTests(TestCase):
         self.assertEqual(semana["fixos"], Decimal("900.00"))
         self.assertEqual(semana["parcelas"], Decimal("200.00"))
         self.assertEqual(planejamento["base_mes"]["sobra_mes"], Decimal("550.00"))
-        self.assertEqual(semana["cota_semana"], Decimal("137.50"))
+        self.assertEqual(semana["cota_semana"], Decimal("300.00"))
         self.assertEqual(semana["gasto_semana"], Decimal("350.00"))
-        self.assertEqual(semana["disponivel"], Decimal("-212.50"))
+        self.assertEqual(semana["disponivel"], Decimal("-50.00"))
+
+    def test_resumos_separam_pago_pendente_e_parcelas_restantes(self):
+        Receita.objects.create(
+            descricao="Receita confirmada",
+            valor=Decimal("1000.00"),
+            data=date(2026, 4, 2),
+            categoria="Serviços",
+            status="recebida",
+            criado_por=self.user,
+        )
+        Despesa.objects.create(
+            tipo="variavel",
+            descricao="Mercado",
+            valor=Decimal("120.00"),
+            data=date(2026, 4, 3),
+            categoria="Compras",
+            status="paga",
+            criado_por=self.user,
+        )
+        Despesa.objects.create(
+            tipo="parcelada",
+            descricao="Geladeira",
+            valor=Decimal("1200.00"),
+            data=date(2026, 4, 5),
+            categoria="Casa",
+            parcelas=12,
+            parcela_atual=5,
+            status="pendente",
+            criado_por=self.user,
+        )
+
+        fluxo = resumo_fluxo_periodo(self.user, date(2026, 4, 1), date(2026, 4, 30))
+        mensal = resumo_mensal(self.user, date(2026, 4, 10))
+
+        self.assertEqual(fluxo["despesas_pagas"], Decimal("120.00"))
+        self.assertEqual(fluxo["despesas_pendentes"], Decimal("100.00"))
+        self.assertEqual(fluxo["saldo_confirmado"], Decimal("880.00"))
+        self.assertEqual(fluxo["saldo_planejado"], Decimal("780.00"))
+        self.assertEqual(mensal["parcelas"], Decimal("100.00"))
+        self.assertEqual(mensal["despesas_pendentes"], Decimal("100.00"))
 
 
 class FinanceiroSimplificadoViewTests(TestCase):
@@ -90,15 +166,18 @@ class FinanceiroSimplificadoViewTests(TestCase):
             reverse("financeiro:receita_criar"),
             {
                 "descricao": "Freelance",
+                "tipo": "variavel",
                 "valor": "1500,00",
                 "data": "2026-04-16",
+                "competencia": "2026-04",
                 "categoria": "Serviços",
                 "status": "recebida",
                 "observacoes": "",
             },
         )
         self.assertEqual(response_receita.status_code, 302)
-        self.assertTrue(Receita.objects.filter(descricao="Freelance").exists())
+        receita = Receita.objects.get(descricao="Freelance")
+        self.assertEqual(receita.competencia, date(2026, 4, 1))
 
         response_despesa = self.client.post(
             reverse("financeiro:despesa_criar"),
@@ -107,14 +186,17 @@ class FinanceiroSimplificadoViewTests(TestCase):
                 "descricao": "Curso",
                 "valor": "600,00",
                 "data": "2026-04-20",
+                "competencia": "2026-04",
                 "categoria": "Educação",
                 "parcelas": "3",
-                "status": "pendente",
+                "parcela_atual": "2",
                 "observacoes": "",
             },
         )
         self.assertEqual(response_despesa.status_code, 302)
-        self.assertEqual(Despesa.objects.filter(descricao="Curso", tipo="parcelada", parcelas=3).count(), 1)
+        despesa = Despesa.objects.get(descricao="Curso", tipo="parcelada", parcelas=3)
+        self.assertEqual(despesa.competencia, date(2026, 4, 1))
+        self.assertEqual(despesa.parcela_atual, 2)
 
         response_reserva = self.client.post(
             reverse("financeiro:reserva_criar"),
@@ -142,9 +224,10 @@ class FinanceiroSimplificadoViewTests(TestCase):
                 "valor": "900,00",
                 "valor_parcela": "300,00",
                 "data": "2026-04-20",
+                "competencia": "2026-04",
                 "categoria": "Eletrônicos",
                 "parcelas": "3",
-                "status": "pendente",
+                "parcela_atual": "2",
                 "observacoes": "",
             },
         )
@@ -153,8 +236,9 @@ class FinanceiroSimplificadoViewTests(TestCase):
         despesa = Despesa.objects.get(descricao="Celular")
         self.assertEqual(despesa.valor, Decimal("900.00"))
         self.assertEqual(despesa.valor_parcela, Decimal("300.00"))
+        self.assertEqual(despesa.parcela_atual, 2)
 
-    def test_acoes_rapidas_atualizam_status_e_csv_exporta_fluxo_simples(self):
+    def test_acoes_rapidas_e_csv_exportam_fluxo_simples(self):
         receita = Receita.objects.create(
             descricao="Receita prevista",
             valor=Decimal("900.00"),
@@ -174,13 +258,17 @@ class FinanceiroSimplificadoViewTests(TestCase):
         )
 
         response_receita = self.client.post(reverse("financeiro:receita_marcar_recebida", args=[receita.pk]))
-        response_despesa = self.client.post(reverse("financeiro:despesa_marcar_paga", args=[despesa.pk]))
 
         receita.refresh_from_db()
         despesa.refresh_from_db()
         self.assertEqual(response_receita.status_code, 302)
-        self.assertEqual(response_despesa.status_code, 302)
         self.assertEqual(receita.status, "recebida")
+        self.assertIsNotNone(receita.data_recebimento)
+        self.assertEqual(despesa.status, "pendente")
+
+        response_pagar = self.client.post(reverse("financeiro:despesa_marcar_paga", args=[despesa.pk]))
+        despesa.refresh_from_db()
+        self.assertEqual(response_pagar.status_code, 302)
         self.assertEqual(despesa.status, "paga")
 
         response_cancelar = self.client.post(reverse("financeiro:despesa_cancelar", args=[despesa.pk]))
@@ -192,9 +280,10 @@ class FinanceiroSimplificadoViewTests(TestCase):
         conteudo = response_csv.content.decode("utf-8-sig")
         self.assertEqual(response_csv.status_code, 200)
         self.assertIn("text/csv", response_csv["Content-Type"])
-        self.assertIn("tipo,descricao,valor,data,categoria,status,parcelas,observacoes", conteudo)
+        self.assertIn("tipo,descricao,valor,data,competencia,categoria,status,parcelas,parcela_atual,observacoes", conteudo)
         self.assertIn("receita,Receita prevista", conteudo)
         self.assertIn("despesa,Conta de luz", conteudo)
+        self.assertIn("2026-04", conteudo)
 
     def test_controle_permite_navegar_por_semana(self):
         response = self.client.get(reverse("financeiro:controle"), {"semana": "2026-04-20"})

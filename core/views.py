@@ -1,14 +1,14 @@
 from datetime import timedelta
 from decimal import Decimal
+import logging
 import secrets
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum, Value, DecimalField
-from django.db.models.functions import Coalesce
 from django.http import HttpResponseNotFound, JsonResponse
 from django.shortcuts import redirect, render
+from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
@@ -20,8 +20,11 @@ from financeiro.planejamento import (
     dados_graficos_dashboard,
     dados_graficos_mensal,
     navegacao_semanal,
+    resumo_fluxo_periodo,
     resumo_mensal,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def healthz(request):
@@ -37,9 +40,10 @@ def healthz(request):
 def dashboard(request):
     periodo = request.GET.get("periodo", "30")
     referencia = parse_date(request.GET.get("semana", "")) or timezone.localdate()
-    receitas_qs = Receita.objects.filter(criado_por=request.user)
+    incluir_previstos_mes = request.GET.get("previstos") == "1"
+    receitas_qs = Receita.objects.filter(criado_por=request.user, ativa=True)
     despesas_qs = Despesa.objects.filter(criado_por=request.user).exclude(status="cancelada")
-    planejamento = calcular_planejamento_semanal(request.user, referencia, quantidade=1)
+    planejamento = calcular_planejamento_semanal(request.user, referencia, quantidade=1, incluir_previstos=incluir_previstos_mes)
     graficos = dados_graficos_dashboard(request.user, referencia)
     mes_resumo = resumo_mensal(request.user, referencia)
     graficos_mes = dados_graficos_mensal(request.user, referencia)
@@ -50,25 +54,15 @@ def dashboard(request):
         except (TypeError, ValueError):
             dias = 30
         inicio = timezone.localdate() - timedelta(days=dias)
-        receitas_periodo = receitas_qs.filter(data__gte=inicio)
-        despesas_periodo = despesas_qs.filter(data__gte=inicio)
+        resumo_periodo = resumo_fluxo_periodo(request.user, inicio, timezone.localdate())
     else:
-        receitas_periodo = receitas_qs
-        despesas_periodo = despesas_qs
+        inicio = timezone.localdate() - timedelta(days=365 * 5)
+        resumo_periodo = resumo_fluxo_periodo(request.user, inicio, timezone.localdate())
 
-    soma_field = DecimalField(max_digits=14, decimal_places=2)
-    receitas = receitas_periodo.filter(status="recebida").aggregate(
-        total=Coalesce(Sum("valor"), Value(0), output_field=soma_field)
-    )["total"]
-    despesas = despesas_periodo.filter(status="paga").aggregate(
-        total=Coalesce(Sum("valor"), Value(0), output_field=soma_field)
-    )["total"]
-    pendente_receber = receitas_qs.filter(status="prevista").aggregate(
-        total=Coalesce(Sum("valor"), Value(0), output_field=soma_field)
-    )["total"]
-    pendente_pagar = despesas_qs.filter(status="pendente").aggregate(
-        total=Coalesce(Sum("valor"), Value(0), output_field=soma_field)
-    )["total"]
+    receitas = resumo_periodo["receitas_recebidas"]
+    despesas = resumo_periodo["despesas_pagas"]
+    pendente_receber = resumo_periodo["receitas_previstas"]
+    pendente_pagar = mes_resumo["despesas_pendentes"]
 
     indicadores = {
         "saldo_total": planejamento["saldo_total"],
@@ -83,20 +77,46 @@ def dashboard(request):
         "pendente_receber": arredondar(pendente_receber),
         "pendente_pagar": arredondar(pendente_pagar),
         "total_contas": 0,
-        "total_transacoes": receitas_periodo.count() + despesas_periodo.count(),
+        "total_transacoes": len(resumo_periodo["receitas"]) + len(resumo_periodo["despesas"]),
     }
 
     ultimas_receitas = list(receitas_qs.order_by("-data", "-id")[:5])
     ultimas_despesas = list(despesas_qs.order_by("-data", "-id")[:5])
+    def _rotulo_parcela(item):
+        if item.tipo != "parcelada":
+            return ""
+        parcela = item.parcela_na_data(timezone.localdate())
+        return f" · {parcela}/{item.parcelas}" if parcela else ""
+
     ultimos_lancamentos = sorted(
-        [{"tipo": "Receita", "data": item.data, "descricao": item.descricao, "valor": item.valor, "status": item.get_status_display()} for item in ultimas_receitas]
-        + [{"tipo": "Despesa", "data": item.data, "descricao": item.descricao, "valor": item.valor, "status": item.get_status_display()} for item in ultimas_despesas],
+        [
+            {
+                "tipo": "Receita",
+                "data": item.data,
+                "descricao": item.descricao,
+                "categoria": item.categoria,
+                "valor": item.valor,
+                "status": f"{item.get_status_display()}{_rotulo_parcela(item)}",
+            }
+            for item in ultimas_receitas
+        ]
+        + [
+            {
+                "tipo": "Despesa",
+                "data": item.data,
+                "descricao": item.descricao,
+                "categoria": item.categoria,
+                "valor": item.valor,
+                "status": f"{item.get_status_display()}{_rotulo_parcela(item)}",
+            }
+            for item in ultimas_despesas
+        ],
         key=lambda item: item["data"],
         reverse=True,
     )[:5]
     reservas_resumo = [
         {"obj": reserva, "percentual": int(reserva.percentual_concluido)}
-        for reserva in Reserva.objects.filter(criado_por=request.user)[:3]
+        for reserva in Reserva.objects.filter(criado_por=request.user, ativa=True)[:3]
     ]
     mentoria_ia = MentoriaFinanceiraIA.objects.filter(criado_por=request.user).first()
 
@@ -110,6 +130,7 @@ def dashboard(request):
         "mes_resumo": mes_resumo,
         "periodo": periodo,
         "semana_nav": navegacao_semanal(referencia),
+        "incluir_previstos_mes": incluir_previstos_mes,
         "mentoria_ia": mentoria_ia,
     }
     return render(request, "core/dashboard.html", context)
@@ -119,10 +140,31 @@ def dashboard(request):
 @require_POST
 def gerar_mentoria_ia(request):
     try:
-        gerar_mentoria_financeira(request.user)
+        mentoria = gerar_mentoria_financeira(request.user)
     except (RuntimeError, ValueError) as exc:
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            return JsonResponse({"ok": False, "erro": str(exc)}, status=400)
         messages.error(request, str(exc))
+    except Exception as exc:
+        logger.exception("Erro inesperado ao gerar mentoria financeira da IA")
+        mensagem = "Erro inesperado ao gerar a mentoria financeira da IA."
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            return JsonResponse({"ok": False, "erro": mensagem}, status=500)
+        messages.error(request, mensagem)
     else:
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            html = render_to_string("partials/mentoria_ia.html", {"mentoria_ia": mentoria}, request=request)
+            return JsonResponse(
+                {
+                    "ok": True,
+                    "html": html,
+                    "meta": {
+                        "criado_em": timezone.localtime(mentoria.criado_em).strftime("%d/%m/%Y %H:%M"),
+                        "periodo_inicio": mentoria.periodo_inicio.strftime("%d/%m/%Y"),
+                        "periodo_fim": mentoria.periodo_fim.strftime("%d/%m/%Y"),
+                    },
+                }
+            )
         messages.success(request, "Mentoria financeira da IA atualizada.")
     return redirect("dashboard")
 

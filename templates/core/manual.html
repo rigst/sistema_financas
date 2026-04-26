@@ -14,7 +14,7 @@
     <div class="stats-grid manual-grid">
         <div class="stat-card"><span class="label"><strong>1. Dashboard</strong></span><p>Mostra cota da semana, gasto da semana, livre restante, gráficos mensais e mentoria da IA.</p></div>
         <div class="stat-card"><span class="label"><strong>2. Receitas</strong></span><p>Entradas previstas ou recebidas, como salário, vendas e reembolsos.</p></div>
-        <div class="stat-card"><span class="label"><strong>3. Despesas</strong></span><p>Gastos variáveis, fixos e parcelados, com filtro por tipo e status.</p></div>
+        <div class="stat-card"><span class="label"><strong>3. Despesas</strong></span><p>Gastos variáveis, fixos e parcelados, com atalhos para fixas e parceladas ativas.</p></div>
         <div class="stat-card"><span class="label"><strong>4. Controle</strong></span><p>Semanas do mês, metas em reservas e gastos fixos.</p></div>
     </div>
 
@@ -26,9 +26,10 @@
                 <li>Registre receitas previstas quando ainda espera receber.</li>
                 <li>Use despesa variável para gastos do dia a dia.</li>
                 <li>Use despesa fixa para compromissos que se repetem todo mês.</li>
-                <li>Use despesa parcelada para compras divididas em várias parcelas.</li>
+                <li>Use despesa parcelada ou receita parcelada informando total de parcelas e a parcela atual.</li>
+                <li>Em despesas, digite uma nova categoria ou escolha uma categoria já usada.</li>
                 <li>No Dashboard, mude a data da semana quando quiser analisar outro período.</li>
-                <li>A cota semanal usa o que sobra no mês após fixos, parcelas e gastos variáveis já pagos, dividido por quatro.</li>
+                <li>A cota semanal usa receitas recebidas até a semana, reserva fixos e parcelas do mês e distribui o livre entre as semanas restantes.</li>
                 <li>As metas aparecem como progresso de reserva e podem ser editadas pelo Controle.</li>
             </ul>
         </div>
@@ -36,8 +37,9 @@
         <div class="panel">
             <h3>Ações rápidas</h3>
             <ul class="simple-list manual-list">
-                <li>Nas listas, use o botão de confirmação para marcar receita recebida ou despesa paga.</li>
-                <li>Use o botão de editar para corrigir valor, data, categoria ou status.</li>
+                <li>Nas listas, use o botão de confirmação para marcar receita recebida.</li>
+                <li>Na lista de despesas, use o botão de confirmação para marcar pendentes como pagas.</li>
+                <li>Use o botão de editar para corrigir valor, data, competência, categoria ou tipo.</li>
                 <li>Use cancelar em despesas que não devem mais entrar no planejamento.</li>
                 <li>Use Gerar análise na mentoria da IA para atualizar o texto salvo com os dados do último mês.</li>
                 <li>O CSV fica como opção discreta para conferência ou backup externo.</li>

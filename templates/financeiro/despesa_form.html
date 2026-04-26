@@ -12,15 +12,18 @@
         <form method="post" data-unsaved-warning="1">
             {% csrf_token %}{{ form.concorrencia_atualizado_em }}
             {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
-            <div class="form-grid">
+            <div class="form-grid expense-form-grid">
+                <div class="expense-description-field"><label for="{{ form.descricao.id_for_label }}">Descrição</label>{{ form.descricao }}{{ form.descricao.errors }}</div>
                 <div><label for="{{ form.tipo.id_for_label }}">Tipo</label>{{ form.tipo }}{{ form.tipo.errors }}</div>
                 <div><label for="{{ form.valor.id_for_label }}">Valor total</label>{{ form.valor }}{{ form.valor.errors }}</div>
-                <div class="full"><label for="{{ form.descricao.id_for_label }}">Descrição</label>{{ form.descricao }}{{ form.descricao.errors }}</div>
                 <div><label for="{{ form.data.id_for_label }}">Data ou primeiro vencimento</label>{{ form.data }}{{ form.data.errors }}</div>
-                <div data-installments-field><label for="{{ form.parcelas.id_for_label }}">Parcelas</label>{{ form.parcelas }}{{ form.parcelas.errors }}</div>
+                <div><label for="{{ form.competencia.id_for_label }}">Competência</label>{{ form.competencia }}{{ form.competencia.errors }}</div>
+                <div data-installments-field><label for="{{ form.parcelas.id_for_label }}">Total de parcelas</label>{{ form.parcelas }}{{ form.parcelas.errors }}</div>
+                <div data-installments-field><label for="{{ form.parcela_atual.id_for_label }}">Parcela atual</label>{{ form.parcela_atual }}{{ form.parcela_atual.errors }}</div>
                 <div data-installments-field><label for="{{ form.valor_parcela.id_for_label }}">Valor da parcela</label>{{ form.valor_parcela }}{{ form.valor_parcela.errors }}</div>
-                <div><label for="{{ form.status.id_for_label }}">Status</label>{{ form.status }}{{ form.status.errors }}</div>
+                <div><label for="{{ form.status.id_for_label }}">Situação</label>{{ form.status }}{{ form.status.errors }}</div>
                 <div class="full"><label for="{{ form.categoria.id_for_label }}">Categoria</label>{{ form.categoria }}{{ form.categoria.errors }}</div>
+                {% if form.categorias_sugeridas %}<datalist id="categorias-despesa">{% for categoria in form.categorias_sugeridas %}<option value="{{ categoria }}">{% endfor %}</datalist>{% endif %}
                 <div class="full"><label for="{{ form.observacoes.id_for_label }}">Observações</label>{{ form.observacoes }}{{ form.observacoes.errors }}</div>
             </div>
             <div class="inline-actions inline-actions-end"><a class="btn btn-secondary" href="{% url 'financeiro:despesa_lista' %}" title="Cancelar"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg><span>Cancelar</span></a><button class="btn btn-primary" type="submit" title="Salvar despesa"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg><span>Salvar despesa</span></button></div>

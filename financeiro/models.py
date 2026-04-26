@@ -24,18 +24,35 @@ def adicionar_meses_data(data_base, incremento):
     return data_base.replace(year=ano, month=mes, day=dia)
 
 
+def normalizar_competencia(valor):
+    if not valor:
+        return valor
+    return valor.replace(day=1)
+
+
 class Receita(models.Model):
+    TIPO_CHOICES = [
+        ("variavel", "Variável"),
+        ("fixa", "Fixa"),
+        ("parcelada", "Parcelada"),
+    ]
     STATUS_CHOICES = [
         ("recebida", "Recebida"),
         ("prevista", "Prevista"),
     ]
 
     descricao = models.CharField(max_length=255)
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default="variavel")
     valor = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
     data = models.DateField(default=date.today)
+    competencia = models.DateField()
     categoria = models.CharField(max_length=120, blank=True)
+    parcelas = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(120)])
+    parcela_atual = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(120)])
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="recebida")
+    data_recebimento = models.DateField(null=True, blank=True)
     observacoes = models.TextField(blank=True)
+    ativa = models.BooleanField(default=True)
     criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="receitas_criadas")
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
@@ -49,6 +66,104 @@ class Receita(models.Model):
 
     def __str__(self):
         return self.descricao
+
+    def clean(self):
+        if self.tipo != "parcelada" and self.parcelas != 1:
+            raise ValidationError({"parcelas": "Use parcelas apenas para receita parcelada."})
+        if self.tipo != "parcelada" and self.parcela_atual != 1:
+            raise ValidationError({"parcela_atual": "Use parcela atual apenas para receita parcelada."})
+        if self.tipo == "parcelada" and self.parcelas < 2:
+            raise ValidationError({"parcelas": "Receita parcelada precisa ter pelo menos 2 parcelas."})
+        if self.tipo == "parcelada" and self.parcela_atual > self.parcelas:
+            raise ValidationError({"parcela_atual": "A parcela atual não pode ser maior que o total de parcelas."})
+        if not self.competencia:
+            self.competencia = self.data
+        self.competencia = normalizar_competencia(self.competencia)
+        if self.status == "recebida" and not self.data_recebimento:
+            self.data_recebimento = self.data
+        if self.status == "prevista":
+            self.data_recebimento = None
+
+    def save(self, *args, **kwargs):
+        if not self.competencia:
+            self.competencia = self.data
+        self.competencia = normalizar_competencia(self.competencia)
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    @property
+    def valor_parcela(self):
+        if self.tipo != "parcelada":
+            return arredondar(self.valor)
+        return arredondar(self.valor / Decimal(self.parcelas))
+
+    def ocorrencias(self, inicio, fim):
+        data_recebimento = self.data_recebimento or self.data
+        if self.tipo == "fixa":
+            ocorrencias = []
+            indice = 0
+            while indice < 120:
+                competencia_ocorrencia = adicionar_meses_data(self.competencia, indice)
+                if competencia_ocorrencia > fim:
+                    break
+                if competencia_ocorrencia >= inicio:
+                    data_ocorrencia = adicionar_meses_data(self.data, indice)
+                    recebida = self.status == "recebida" and data_ocorrencia <= data_recebimento
+                    ocorrencias.append(
+                        {
+                            "data": data_ocorrencia,
+                            "competencia": competencia_ocorrencia,
+                            "valor": arredondar(self.valor),
+                            "parcela": None,
+                            "status": "recebida" if recebida else "prevista",
+                            "data_recebimento": data_recebimento if recebida else None,
+                        }
+                    )
+                indice += 1
+            return ocorrencias
+        if self.tipo == "parcelada":
+            ocorrencias = []
+            inicio_indice = self.parcela_atual - 1
+            for indice in range(inicio_indice, self.parcelas):
+                incremento = indice - inicio_indice
+                competencia_ocorrencia = adicionar_meses_data(self.competencia, incremento)
+                if not inicio <= competencia_ocorrencia <= fim:
+                    continue
+                data_ocorrencia = adicionar_meses_data(self.data, incremento)
+                recebida = self.status == "recebida" and data_ocorrencia <= data_recebimento
+                ocorrencias.append(
+                    {
+                        "data": data_ocorrencia,
+                        "competencia": competencia_ocorrencia,
+                        "valor": self.valor_parcela,
+                        "parcela": indice + 1,
+                        "status": "recebida" if recebida else "prevista",
+                        "data_recebimento": data_recebimento if recebida else None,
+                    }
+                )
+            return ocorrencias
+        if inicio <= self.competencia <= fim:
+            return [
+                {
+                    "data": self.data,
+                    "competencia": self.competencia,
+                    "valor": arredondar(self.valor),
+                    "parcela": None,
+                    "status": self.status,
+                    "data_recebimento": self.data_recebimento,
+                }
+            ]
+        return []
+
+    def parcela_na_data(self, referencia=None):
+        referencia = referencia or date.today()
+        if self.tipo != "parcelada":
+            return None
+        meses_decorridos = (referencia.year - self.competencia.year) * 12 + (referencia.month - self.competencia.month)
+        if meses_decorridos < 0:
+            return self.parcela_atual
+        return min(self.parcela_atual + meses_decorridos, self.parcelas)
+
 
 class Despesa(models.Model):
     TIPO_CHOICES = [
@@ -66,8 +181,10 @@ class Despesa(models.Model):
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default="variavel")
     valor = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
     data = models.DateField(default=date.today)
+    competencia = models.DateField()
     categoria = models.CharField(max_length=120, blank=True)
     parcelas = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(120)])
+    parcela_atual = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(120)])
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pendente")
     observacoes = models.TextField(blank=True)
     criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="despesas_criadas")
@@ -87,10 +204,20 @@ class Despesa(models.Model):
     def clean(self):
         if self.tipo != "parcelada" and self.parcelas != 1:
             raise ValidationError({"parcelas": "Use parcelas apenas para despesa parcelada."})
+        if self.tipo != "parcelada" and self.parcela_atual != 1:
+            raise ValidationError({"parcela_atual": "Use parcela atual apenas para despesa parcelada."})
         if self.tipo == "parcelada" and self.parcelas < 2:
             raise ValidationError({"parcelas": "Despesa parcelada precisa ter pelo menos 2 parcelas."})
+        if self.tipo == "parcelada" and self.parcela_atual > self.parcelas:
+            raise ValidationError({"parcela_atual": "A parcela atual não pode ser maior que o total de parcelas."})
+        if not self.competencia:
+            self.competencia = self.data
+        self.competencia = normalizar_competencia(self.competencia)
 
     def save(self, *args, **kwargs):
+        if not self.competencia:
+            self.competencia = self.data
+        self.competencia = normalizar_competencia(self.competencia)
         self.full_clean()
         super().save(*args, **kwargs)
 
@@ -107,22 +234,54 @@ class Despesa(models.Model):
             ocorrencias = []
             indice = 0
             while indice < 120:
-                data_ocorrencia = adicionar_meses_data(self.data, indice)
-                if data_ocorrencia > fim:
+                competencia_ocorrencia = adicionar_meses_data(self.competencia, indice)
+                if competencia_ocorrencia > fim:
                     break
-                if data_ocorrencia >= inicio:
-                    ocorrencias.append({"data": data_ocorrencia, "valor": arredondar(self.valor), "parcela": None})
+                if competencia_ocorrencia >= inicio:
+                    ocorrencias.append(
+                        {
+                            "data": adicionar_meses_data(self.data, indice),
+                            "competencia": competencia_ocorrencia,
+                            "valor": arredondar(self.valor),
+                            "parcela": None,
+                            "status": self.status,
+                        }
+                    )
                 indice += 1
             return ocorrencias
         if self.tipo == "parcelada":
+            inicio_indice = self.parcela_atual - 1
             return [
-                {"data": adicionar_meses_data(self.data, indice), "valor": self.valor_parcela, "parcela": indice + 1}
-                for indice in range(self.parcelas)
-                if inicio <= adicionar_meses_data(self.data, indice) <= fim
+                {
+                    "data": adicionar_meses_data(self.data, indice - inicio_indice),
+                    "competencia": adicionar_meses_data(self.competencia, indice - inicio_indice),
+                    "valor": self.valor_parcela,
+                    "parcela": indice + 1,
+                    "status": self.status,
+                }
+                for indice in range(inicio_indice, self.parcelas)
+                if inicio <= adicionar_meses_data(self.competencia, indice - inicio_indice) <= fim
             ]
-        if inicio <= self.data <= fim:
-            return [{"data": self.data, "valor": arredondar(self.valor), "parcela": None}]
+        if inicio <= self.competencia <= fim:
+            return [
+                {
+                    "data": self.data,
+                    "competencia": self.competencia,
+                    "valor": arredondar(self.valor),
+                    "parcela": None,
+                    "status": self.status,
+                }
+            ]
         return []
+
+    def parcela_na_data(self, referencia=None):
+        referencia = referencia or date.today()
+        if self.tipo != "parcelada":
+            return None
+        meses_decorridos = (referencia.year - self.competencia.year) * 12 + (referencia.month - self.competencia.month)
+        if meses_decorridos < 0:
+            return self.parcela_atual
+        return min(self.parcela_atual + meses_decorridos, self.parcelas)
 
 
 class Reserva(models.Model):
@@ -130,6 +289,7 @@ class Reserva(models.Model):
     valor_atual = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"), validators=[MinValueValidator(Decimal("0.00"))])
     valor_alvo = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"), validators=[MinValueValidator(Decimal("0.00"))])
     observacoes = models.TextField(blank=True)
+    ativa = models.BooleanField(default=True)
     criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="reservas_criadas", null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)

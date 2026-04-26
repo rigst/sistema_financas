@@ -12,8 +12,8 @@ class FinanceiroAdminMixin(PerfilAdminPermissionMixin):
 @admin.register(Receita)
 class ReceitaAdmin(FinanceiroAdminMixin, admin.ModelAdmin):
     exclude = ("criado_por",)
-    list_display = ("descricao", "valor", "data", "categoria", "status")
-    list_filter = ("status", "data")
+    list_display = ("descricao", "tipo", "valor", "data", "competencia", "categoria", "parcelas", "parcela_atual", "status", "ativa")
+    list_filter = ("tipo", "status", "ativa", "competencia", "data")
     search_fields = ("descricao", "categoria", "observacoes")
     date_hierarchy = "data"
 
@@ -26,8 +26,8 @@ class ReceitaAdmin(FinanceiroAdminMixin, admin.ModelAdmin):
 @admin.register(Despesa)
 class DespesaAdmin(FinanceiroAdminMixin, admin.ModelAdmin):
     exclude = ("criado_por",)
-    list_display = ("descricao", "tipo", "valor", "valor_parcela", "data", "categoria", "parcelas", "status")
-    list_filter = ("tipo", "status", "data")
+    list_display = ("descricao", "tipo", "valor", "valor_parcela", "data", "competencia", "categoria", "parcelas", "parcela_atual", "status")
+    list_filter = ("tipo", "competencia", "data", "status")
     search_fields = ("descricao", "categoria", "observacoes")
     date_hierarchy = "data"
 
@@ -40,7 +40,8 @@ class DespesaAdmin(FinanceiroAdminMixin, admin.ModelAdmin):
 @admin.register(Reserva)
 class ReservaAdmin(FinanceiroAdminMixin, admin.ModelAdmin):
     exclude = ("criado_por",)
-    list_display = ("nome", "valor_atual", "valor_alvo", "percentual_concluido")
+    list_display = ("nome", "valor_atual", "valor_alvo", "percentual_concluido", "ativa")
+    list_filter = ("ativa",)
     search_fields = ("nome", "observacoes")
 
     def save_model(self, request, obj, form, change):

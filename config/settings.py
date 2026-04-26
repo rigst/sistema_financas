@@ -46,8 +46,8 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", DEFAULT_SECRET_KEY)
 if IS_PRODUCTION and SECRET_KEY == DEFAULT_SECRET_KEY:
     raise RuntimeError("Defina DJANGO_SECRET_KEY em produção.")
 
-DEBUG = env_bool("DJANGO_DEBUG", default=not IS_PRODUCTION)
-DEBUG_EXPOSE_MEDIA = env_bool("DJANGO_DEBUG_EXPOSE_MEDIA", default=False)
+DEBUG = False
+DEBUG_EXPOSE_MEDIA = False
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 
@@ -232,6 +232,8 @@ if IS_PRODUCTION:
     CSRF_COOKIE_SAMESITE = "Lax"
 
 if IS_TEST:
+    SECURE_SSL_REDIRECT = False
+    HEALTHZ_TOKEN = ""
     PASSWORD_HASHERS = [
         "django.contrib.auth.hashers.MD5PasswordHasher",
     ]

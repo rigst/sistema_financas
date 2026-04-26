@@ -1,0 +1,6 @@
+{% load ai_format %}
+{% if mentoria_ia %}
+    <div class="ai-mentor-content">{{ mentoria_ia.conteudo|mentoria_formatada }}</div>
+{% else %}
+    <p class="empty-state">Nenhuma mentoria gerada ainda.</p>
+{% endif %}

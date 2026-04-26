@@ -706,6 +706,28 @@ button:focus-visible {
   letter-spacing: -0.04em;
 }
 
+.panel-label-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.forecast-toggle {
+  min-height: 28px;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(71, 101, 138, 0.14);
+  font-size: 0.78rem;
+}
+
+.forecast-toggle.active {
+  color: var(--accent);
+  border-color: rgba(47, 125, 105, 0.2);
+  background: rgba(47, 125, 105, 0.08);
+}
+
 .available-panel dl {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -760,6 +782,7 @@ button:focus-visible {
   color: var(--accent);
 }
 
+.btn-dashboard-expense,
 .dashboard-main-actions .btn-dashboard-expense {
   background: rgba(209, 69, 69, 0.12);
   color: #b63e3e;
@@ -777,6 +800,7 @@ button:focus-visible {
   background: rgba(255, 255, 255, 0.94);
 }
 
+.btn-dashboard-expense:hover,
 .dashboard-main-actions .btn-dashboard-expense:hover {
   background: rgba(209, 69, 69, 0.18);
 }
@@ -1235,8 +1259,37 @@ button:focus-visible {
 .dashboard-columns {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 1rem;
+  gap: 1.5rem;
   align-items: start;
+}
+
+.control-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(230px, 280px);
+  gap: 1rem;
+}
+
+.control-goals-panel {
+  min-width: 0;
+}
+
+.control-goals-panel .table-wrap {
+  overflow-x: auto;
+}
+
+.control-goals-panel table {
+  min-width: 640px;
+}
+
+.control-goals-panel .actions-stack-inline {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+}
+
+.control-goals-panel .actions-stack .btn-icon-action,
+.control-goals-panel .actions-stack form .btn-icon-action {
+  width: 36px;
+  min-width: 36px;
+  min-height: 36px;
 }
 
 .side-stack {
@@ -1246,6 +1299,31 @@ button:focus-visible {
 
 .soft-panel {
   box-shadow: none;
+}
+
+.control-fixed-panel {
+  margin-top: 0.45rem;
+}
+
+.inactive-row {
+  opacity: 0.62;
+}
+
+.inactive-toggle {
+  margin: 0.65rem 0 0;
+  text-align: right;
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+
+.inactive-toggle a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.inactive-toggle a:hover {
+  color: var(--text);
+  text-decoration: underline;
 }
 
 .planning-details {
@@ -1273,6 +1351,39 @@ button:focus-visible {
 .fixed-expense-pill span {
   color: var(--text-soft);
   font-weight: 600;
+}
+
+.table-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.table-sort-button span {
+  min-width: 0.8rem;
+  color: var(--accent);
+  font-size: 0.78rem;
+}
+
+.table-sort-button:hover {
+  color: var(--accent);
+}
+
+.expense-form-grid {
+  grid-template-columns: minmax(0, 2fr) minmax(180px, 0.8fr);
+}
+
+.expense-description-field {
+  min-width: 0;
 }
 
 .chart-card {
@@ -1608,6 +1719,36 @@ tr:hover td {
   height: 1rem;
   border: 2px solid rgba(255, 255, 255, 0.75);
   box-shadow: 0 0 0 1px rgba(71, 101, 138, 0.14);
+}
+
+.category-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  min-width: 0;
+  vertical-align: middle;
+}
+
+.category-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: var(--accent);
+  background: rgba(47, 125, 105, 0.09);
+  border: 1px solid rgba(47, 125, 105, 0.12);
+}
+
+.category-icon svg {
+  width: 0.92rem;
+  height: 0.92rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .status-rascunho { color: #445f7d; }
@@ -2964,3 +3105,23 @@ tr:hover td {
 
 .status-pendente { color: #8b6f47; }
 .status-pago { color: #3d8f56; }
+.dashboard-focus-split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ai-progress {
+  width: 100%;
+  height: 10px;
+  margin: 1rem 0 0.5rem;
+  background: rgba(47, 125, 105, 0.12);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.ai-progress-bar {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #2f7d69, #5da891);
+  transition: width 180ms ease;
+}

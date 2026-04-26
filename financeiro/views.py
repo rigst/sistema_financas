@@ -21,13 +21,18 @@ from .planejamento import calcular_planejamento_semanal, navegacao_semanal
 def _queryset_simples(modelo, request):
     busca = request.GET.get("q", "").strip()
     status = request.GET.get("status", "").strip()
+    mostrar_inativos = request.GET.get("inativos") == "1"
     itens = modelo.objects.filter(criado_por=request.user)
-    status_validos = {choice[0] for choice in modelo.STATUS_CHOICES}
+    if modelo is Receita and not mostrar_inativos:
+        itens = itens.filter(ativa=True)
+    if modelo is Despesa and not mostrar_inativos:
+        itens = itens.exclude(status="cancelada")
+    status_validos = {choice[0] for choice in getattr(modelo, "STATUS_CHOICES", [])}
     if status in status_validos:
         itens = itens.filter(status=status)
     if busca:
         itens = filter_ranked_search(itens, busca, ("descricao", "observacoes", "categoria"))
-    return itens, busca, status
+    return itens, busca, status, mostrar_inativos
 
 
 def _voltar_para(request, fallback):
@@ -43,12 +48,15 @@ def _referencia_semanal(request):
 
 @login_required
 def receita_lista(request):
-    receitas, busca, status = _queryset_simples(Receita, request)
+    receitas, busca, status, mostrar_inativos = _queryset_simples(Receita, request)
     page_obj = paginate_queryset(request, receitas, per_page=25)
+    hoje = timezone.localdate()
+    for item in page_obj.object_list:
+        item.parcela_exibicao = item.parcela_na_data(hoje) if item.tipo == "parcelada" else None
     return render(
         request,
         "financeiro/receita_lista.html",
-        {"receitas": page_obj, "page_obj": page_obj, "busca": busca, "status": status},
+        {"receitas": page_obj, "page_obj": page_obj, "busca": busca, "status": status, "mostrar_inativos": mostrar_inativos},
     )
 
 
@@ -84,22 +92,44 @@ def receita_editar(request, pk):
 @require_POST
 @login_required
 def receita_marcar_recebida(request, pk):
-    receita = get_object_or_404(Receita.objects.filter(criado_por=request.user), pk=pk)
+    receita = get_object_or_404(Receita.objects.filter(criado_por=request.user, ativa=True), pk=pk)
     receita.status = "recebida"
-    receita.save(update_fields=["status", "atualizado_em"])
+    receita.data_recebimento = timezone.localdate()
+    receita.save(update_fields=["status", "data_recebimento", "atualizado_em"])
     messages.success(request, "Receita marcada como recebida.")
+    return _voltar_para(request, "financeiro:receita_lista")
+
+
+@require_POST
+@login_required
+def receita_excluir(request, pk):
+    receita = get_object_or_404(Receita.objects.filter(criado_por=request.user), pk=pk)
+    receita.ativa = False
+    receita.save(update_fields=["ativa", "atualizado_em"])
+    messages.success(request, "Receita inativada.")
     return _voltar_para(request, "financeiro:receita_lista")
 
 
 @login_required
 def despesa_lista(request):
-    despesas, busca, status = _queryset_simples(Despesa, request)
+    despesas, busca, _status, mostrar_inativos = _queryset_simples(Despesa, request)
     tipo = request.GET.get("tipo", "").strip()
     tipos_validos = {choice[0] for choice in Despesa.TIPO_CHOICES}
     if tipo in tipos_validos:
         despesas = despesas.filter(tipo=tipo)
-    fixas = Despesa.objects.filter(criado_por=request.user, tipo="fixa").exclude(status="cancelada").order_by("descricao")
+    fixas = Despesa.objects.filter(criado_por=request.user, tipo="fixa").exclude(status="cancelada").order_by("-valor", "descricao")
+    parceladas = list(
+        Despesa.objects.filter(criado_por=request.user, tipo="parcelada")
+        .exclude(status="cancelada")
+        .order_by("descricao")
+    )
     page_obj = paginate_queryset(request, despesas, per_page=25)
+    hoje = timezone.localdate()
+    parceladas.sort(key=lambda item: (item.valor_parcela, item.valor), reverse=True)
+    for item in parceladas:
+        item.parcela_exibicao = item.parcela_na_data(hoje)
+    for item in page_obj.object_list:
+        item.parcela_exibicao = item.parcela_na_data(hoje) if item.tipo == "parcelada" else None
     return render(
         request,
         "financeiro/despesa_lista.html",
@@ -107,9 +137,11 @@ def despesa_lista(request):
             "despesas": page_obj,
             "page_obj": page_obj,
             "busca": busca,
-            "status": status,
             "tipo": tipo,
             "fixas": fixas,
+            "parceladas": parceladas,
+            "hoje": hoje,
+            "mostrar_inativos": mostrar_inativos,
         },
     )
 
@@ -169,24 +201,53 @@ def exportar_csv(request):
     response["Content-Disposition"] = 'attachment; filename="financeiro_simplificado.csv"'
     response.write("\ufeff")
     writer = csv.writer(response)
-    writer.writerow(["tipo", "descricao", "valor", "data", "categoria", "status", "parcelas", "observacoes"])
+    writer.writerow(["tipo", "descricao", "valor", "data", "competencia", "categoria", "status", "parcelas", "parcela_atual", "observacoes"])
 
     receitas = Receita.objects.filter(criado_por=request.user).order_by("data", "id")
     despesas = Despesa.objects.filter(criado_por=request.user).order_by("data", "id")
     for item in receitas:
-        writer.writerow(["receita", item.descricao, item.valor, item.data.isoformat(), item.categoria, item.get_status_display(), "", item.observacoes])
+        writer.writerow(
+            [
+                "receita",
+                item.descricao,
+                item.valor,
+                item.data.isoformat(),
+                item.competencia.strftime("%Y-%m"),
+                item.categoria,
+                item.get_status_display(),
+                item.parcelas,
+                item.parcela_atual,
+                item.observacoes,
+            ]
+        )
     for item in despesas:
-        writer.writerow(["despesa", item.descricao, item.valor, item.data.isoformat(), item.categoria, item.get_status_display(), item.parcelas, item.observacoes])
+        writer.writerow(
+            [
+                "despesa",
+                item.descricao,
+                item.valor,
+                item.data.isoformat(),
+                item.competencia.strftime("%Y-%m"),
+                item.categoria,
+                item.get_status_display(),
+                item.parcelas,
+                item.parcela_atual,
+                item.observacoes,
+            ]
+        )
     return response
 
 
 @login_required
 def controle(request):
     referencia = _referencia_semanal(request)
+    mostrar_inativos = request.GET.get("inativos") == "1"
     planejamento = calcular_planejamento_semanal(request.user, referencia, quantidade=6)
     reservas = Reserva.objects.filter(criado_por=request.user)
+    if not mostrar_inativos:
+        reservas = reservas.filter(ativa=True)
     fixas = Despesa.objects.filter(criado_por=request.user, tipo="fixa").exclude(status="cancelada").order_by("descricao")
-    reservas_total = arredondar(sum((reserva.valor_atual for reserva in reservas), Decimal("0.00")))
+    reservas_total = arredondar(sum((reserva.valor_atual for reserva in reservas.filter(ativa=True)), Decimal("0.00")))
     return render(
         request,
         "financeiro/controle.html",
@@ -196,6 +257,7 @@ def controle(request):
             "fixas": fixas,
             "reservas_total": reservas_total,
             "semana_nav": navegacao_semanal(referencia),
+            "mostrar_inativos": mostrar_inativos,
         },
     )
 
@@ -227,3 +289,13 @@ def reserva_editar(request, pk):
     else:
         form = ReservaForm(instance=reserva)
     return render(request, "financeiro/reserva_form.html", {"form": form, "titulo": "Editar reserva"})
+
+
+@require_POST
+@login_required
+def reserva_excluir(request, pk):
+    reserva = get_object_or_404(Reserva.objects.filter(criado_por=request.user), pk=pk)
+    reserva.ativa = False
+    reserva.save(update_fields=["ativa", "atualizado_em"])
+    messages.success(request, "Meta inativada.")
+    return _voltar_para(request, "financeiro:controle")

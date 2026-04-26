@@ -10,6 +10,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from core.formatting import parse_decimal_br
 from financeiro.models import Despesa, MentoriaFinanceiraIA, Receita
 
 
@@ -42,7 +43,7 @@ class DashboardTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "R$ 1.200,00")
-        self.assertContains(response, "Livre nesta semana")
+        self.assertContains(response, "Máximo semanal")
         self.assertContains(response, "Gastos por tipo")
         self.assertEqual(response.context["indicadores"]["total_transacoes"], 1)
 
@@ -56,13 +57,26 @@ class DashboardTests(TestCase):
             categoria="Mercado",
             criado_por=self.user,
         )
+        Despesa.objects.create(
+            descricao="Compra parcelada",
+            valor=Decimal("600.00"),
+            data=timezone.localdate(),
+            status="pendente",
+            tipo="parcelada",
+            categoria="Compras",
+            parcelas=6,
+            parcela_atual=3,
+            criado_por=self.user,
+        )
 
         response = self.client.get(reverse("dashboard"), {"periodo": "todos"})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Livre nesta semana")
+        self.assertContains(response, "Máximo semanal")
         self.assertContains(response, "Salário recente")
-        self.assertContains(response, "R$ 300,00")
+        self.assertContains(response, "Compra parcelada")
+        self.assertContains(response, "3/6")
+        self.assertNotContains(response, "R$ 300,00")
         self.assertIn("planejamento_semanal", response.context)
         lancamentos = [item["descricao"] for item in response.context["ultimos_lancamentos"]]
         self.assertIn("Salário recente", lancamentos)
@@ -213,6 +227,17 @@ class InfraestruturaTests(TestCase):
         self.assertEqual(response_token_invalido.status_code, 404)
         self.assertEqual(response_token_valido.status_code, 200)
         self.assertJSONEqual(response_token_valido.content, {"status": "ok"})
+
+
+class FormatacaoTests(TestCase):
+    def test_parse_decimal_br_calcula_multiplicacao_e_divisao(self):
+        self.assertEqual(parse_decimal_br("100/2"), Decimal("50"))
+        self.assertEqual(parse_decimal_br("100*2"), Decimal("200"))
+        self.assertEqual(parse_decimal_br("100+50/2"), Decimal("125"))
+        self.assertEqual(parse_decimal_br("1.200,00/3"), Decimal("400.00"))
+        self.assertEqual(parse_decimal_br("100+50/2+30/3"), Decimal("135"))
+        self.assertEqual(parse_decimal_br("1.200+600/3"), Decimal("1400"))
+        self.assertEqual(parse_decimal_br("(1.200+600)/3"), Decimal("600"))
 
 
 class SistemaIndividualTests(TestCase):

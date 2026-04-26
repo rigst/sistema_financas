@@ -117,6 +117,123 @@
         return `${negative}${integerPart || "0"},${decimalPart}`;
       };
 
+      const hasDecimalExpression = (value) => /[+*/()]/.test(String(value || "")) || /-/.test(String(value || "").slice(1));
+
+      const evaluateDecimalExpression = (value) => {
+        const raw = String(value || "").replace(/[^\d,.\-+*/()]/g, "").trim();
+        if (!raw) return "";
+
+        const parseNumber = (part) => {
+          let normalized = String(part || "").trim();
+          if (!normalized) return null;
+          if (normalized.includes(",") && normalized.includes(".")) {
+            normalized = normalized.replace(/\./g, "").replace(",", ".");
+          } else if (normalized.includes(",")) {
+            normalized = normalized.replace(",", ".");
+          } else if (normalized.includes(".")) {
+            const pieces = normalized.split(".");
+            if (pieces.length > 1 && pieces.slice(1).every((piece) => piece.length === 3)) {
+              normalized = pieces.join("");
+            }
+          }
+          const numeric = Number(normalized);
+          return Number.isFinite(numeric) ? numeric : null;
+        };
+
+        const tokens = [];
+        let current = "";
+        let expectsNumber = true;
+        for (let index = 0; index < raw.length; index += 1) {
+          const char = raw[index];
+          if (/\d|[,.]/.test(char)) {
+            current += char;
+            expectsNumber = false;
+            continue;
+          }
+          if ((char === "+" || char === "-") && expectsNumber) {
+            current += char;
+            expectsNumber = false;
+            continue;
+          }
+          if ("+-*/()".includes(char)) {
+            if (current) {
+              const numeric = parseNumber(current);
+              if (numeric === null) return raw;
+              tokens.push(numeric);
+              current = "";
+            }
+            if (char === "(") {
+              tokens.push(char);
+              expectsNumber = true;
+            } else if (char === ")") {
+              tokens.push(char);
+              expectsNumber = false;
+            } else {
+              tokens.push(char);
+              expectsNumber = true;
+            }
+            continue;
+          }
+          return raw;
+        }
+        if (current) {
+          const numeric = parseNumber(current);
+          if (numeric === null) return raw;
+          tokens.push(numeric);
+        }
+        if (!tokens.length) return raw;
+
+        const precedence = { "+": 1, "-": 1, "*": 2, "/": 2 };
+        const values = [];
+        const operators = [];
+        const applyOperator = (operator) => {
+          if (values.length < 2) return false;
+          const right = values.pop();
+          const left = values.pop();
+          if (operator === "+") values.push(left + right);
+          else if (operator === "-") values.push(left - right);
+          else if (operator === "*") values.push(left * right);
+          else if (operator === "/") {
+            if (right === 0) return false;
+            values.push(left / right);
+          } else {
+            return false;
+          }
+          return true;
+        };
+
+        for (const token of tokens) {
+          if (typeof token === "number") {
+            values.push(token);
+          } else if (token === "(") {
+            operators.push(token);
+          } else if (token === ")") {
+            while (operators.length && operators[operators.length - 1] !== "(") {
+              if (!applyOperator(operators.pop())) return raw;
+            }
+            if (!operators.length || operators[operators.length - 1] !== "(") return raw;
+            operators.pop();
+          } else {
+            while (
+              operators.length &&
+              operators[operators.length - 1] !== "(" &&
+              precedence[operators[operators.length - 1]] >= precedence[token]
+            ) {
+              if (!applyOperator(operators.pop())) return raw;
+            }
+            operators.push(token);
+          }
+        }
+
+        while (operators.length) {
+          const operator = operators.pop();
+          if (operator === "(" || !applyOperator(operator)) return raw;
+        }
+
+        if (values.length !== 1 || !Number.isFinite(values[0])) return raw;
+        return String(values[0]).replace(".", ",");
+      };
+
       const formatDecimal = (value, places = 2) => {
         const normalized = normalizeDecimal(value);
         if (!normalized) return "";
@@ -155,12 +272,18 @@
             return;
           }
           if (!input.value) return;
+          if (hasDecimalExpression(input.value)) {
+            input.value = evaluateDecimalExpression(input.value);
+          }
           input.value = isCurrency ? formatCurrency(input.value, places) : formatDecimal(input.value, places);
           input.dataset.zeroCleared = "0";
         };
 
         const applyEditFormat = () => {
           if (!input.value) return;
+          if (hasDecimalExpression(input.value)) {
+            input.value = evaluateDecimalExpression(input.value);
+          }
           const normalized = normalizeDecimal(input.value);
           if (normalized === `0,${"0".repeat(places)}`) {
             input.value = "";
@@ -173,6 +296,12 @@
 
         input.addEventListener("focus", applyEditFormat);
         input.addEventListener("blur", applyDisplayFormat);
+        input.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" || !hasDecimalExpression(input.value)) return;
+          event.preventDefault();
+          applyDisplayFormat();
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+        });
 
         applyDisplayFormat();
       };
@@ -411,19 +540,21 @@
       };
 
       const bindExpenseInstallments = (scope = document) => {
-        scope.querySelectorAll("[data-expense-type]").forEach((select) => {
+        scope.querySelectorAll("[data-expense-type], [data-income-type]").forEach((select) => {
           if (select.dataset.installmentsBound === "1") return;
           select.dataset.installmentsBound = "1";
           const form = select.form;
           const fields = form ? Array.from(form.querySelectorAll("[data-installments-field]")) : [];
           const countInput = form ? form.querySelector("[data-installments-input]") : null;
+          const currentInput = form ? form.querySelector("[data-installments-current]") : null;
           const totalInput = form ? form.querySelector("[data-installments-total]") : null;
           const unitInput = form ? form.querySelector("[data-installments-unit]") : null;
           if (!fields.length || !countInput || !totalInput || !unitInput) return;
           let lastEdited = "total";
 
           const parseNumber = (value) => {
-            const normalized = normalizeDecimal(value);
+            const resolved = hasDecimalExpression(value) ? evaluateDecimalExpression(value) : value;
+            const normalized = normalizeDecimal(resolved);
             if (!normalized) return 0;
             const parsed = Number(normalized.replace(",", "."));
             return Number.isFinite(parsed) ? parsed : 0;
@@ -452,14 +583,22 @@
               field.hidden = !isInstallment;
             });
             countInput.disabled = !isInstallment;
+            if (currentInput) currentInput.disabled = !isInstallment;
             unitInput.disabled = !isInstallment;
             if (!isInstallment) {
               countInput.value = "1";
+              if (currentInput) currentInput.value = "1";
               unitInput.value = "";
               return;
             }
             if (!countInput.value || Number(countInput.value) < 2) {
               countInput.value = "2";
+            }
+            if (currentInput && (!currentInput.value || Number(currentInput.value) < 1)) {
+              currentInput.value = "1";
+            }
+            if (currentInput && Number(currentInput.value) > Number(countInput.value)) {
+              currentInput.value = countInput.value;
             }
             if (lastEdited === "unit") {
               syncFromUnit();
@@ -478,6 +617,7 @@
             sync();
           });
           countInput.addEventListener("change", sync);
+          if (currentInput) currentInput.addEventListener("change", sync);
           sync();
         });
       };
@@ -575,7 +715,8 @@
         const form = event.target;
         if (!(form instanceof HTMLFormElement)) return;
         form.querySelectorAll("input[data-br-decimal='1']").forEach((input) => {
-          input.value = normalizeDecimal(input.value);
+          const resolved = hasDecimalExpression(input.value) ? evaluateDecimalExpression(input.value) : input.value;
+          input.value = normalizeDecimal(resolved);
         });
       });
 

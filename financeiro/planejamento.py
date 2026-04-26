@@ -1,12 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
 
-from django.db.models import DecimalField, Sum, Value
-from django.db.models.functions import Coalesce
-
 from .models import Despesa, Receita, adicionar_meses_data, arredondar
-
-SOMA_DECIMAL = DecimalField(max_digits=14, decimal_places=2)
 
 
 def inicio_da_semana(data_base):
@@ -37,162 +32,220 @@ def navegacao_semanal(referencia):
     }
 
 
-def _somar(queryset, campo="valor"):
-    return arredondar(queryset.aggregate(total=Coalesce(Sum(campo), Value(0), output_field=SOMA_DECIMAL))["total"])
-
-
-def _despesas_no_periodo(user, inicio, fim):
-    despesas = Despesa.objects.filter(criado_por=user).exclude(status="cancelada")
-    ocorrencias = []
-    for despesa in despesas:
-        for ocorrencia in despesa.ocorrencias(inicio, fim):
-            ocorrencias.append({"despesa": despesa, **ocorrencia})
-    return ocorrencias
-
-
 def _semanas_do_mes(referencia):
     inicio_mes = inicio_do_mes(referencia)
     fim_mes = fim_do_mes(referencia)
     inicio = inicio_da_semana(inicio_mes)
     semanas = []
     while inicio <= fim_mes:
-        fim = inicio + timedelta(days=6)
-        semanas.append((inicio, fim))
+        semanas.append((inicio, inicio + timedelta(days=6)))
         inicio += timedelta(days=7)
     return semanas
 
 
-def _base_mensal_para_semanas(user, referencia):
-    receitas = Receita.objects.filter(criado_por=user)
-    inicio_mes = inicio_do_mes(referencia)
-    fim_mes = fim_do_mes(referencia)
-    receitas_mes = receitas.filter(data__range=(inicio_mes, fim_mes))
-    ocorrencias_mes = _despesas_no_periodo(user, inicio_mes, fim_mes)
-    receitas_total = _somar(receitas_mes)
-    entradas_recebidas = _somar(receitas_mes.filter(status="recebida"))
-    entradas_previstas = _somar(receitas_mes.filter(status="prevista"))
-    fixos_mes = arredondar(sum((item["valor"] for item in ocorrencias_mes if item["despesa"].tipo == "fixa"), Decimal("0.00")))
-    parcelas_mes = arredondar(sum((item["valor"] for item in ocorrencias_mes if item["despesa"].tipo == "parcelada"), Decimal("0.00")))
-    variaveis_pagas_mes = arredondar(
-        sum((item["valor"] for item in ocorrencias_mes if item["despesa"].tipo == "variavel" and item["despesa"].status == "paga"), Decimal("0.00"))
-    )
-    variaveis_pendentes_mes = arredondar(
-        sum((item["valor"] for item in ocorrencias_mes if item["despesa"].tipo == "variavel" and item["despesa"].status == "pendente"), Decimal("0.00"))
-    )
-    compromissos_mes = arredondar(fixos_mes + parcelas_mes)
-    sobra_mes = arredondar(receitas_total - compromissos_mes - variaveis_pagas_mes)
-    cota_semanal = arredondar(sobra_mes / Decimal("4.00"))
+def _somar_ocorrencias(ocorrencias, *, filtro=None):
+    itens = ocorrencias if filtro is None else [item for item in ocorrencias if filtro(item)]
+    return arredondar(sum((item["valor"] for item in itens), Decimal("0.00")))
+
+
+def receitas_no_periodo(user, inicio, fim):
+    ocorrencias = []
+    for receita in Receita.objects.filter(criado_por=user, ativa=True):
+        for ocorrencia in receita.ocorrencias(inicio, fim):
+            ocorrencias.append({"receita": receita, **ocorrencia})
+    return ocorrencias
+
+
+def despesas_no_periodo(user, inicio, fim):
+    ocorrencias = []
+    for despesa in Despesa.objects.filter(criado_por=user).exclude(status="cancelada"):
+        for ocorrencia in despesa.ocorrencias(inicio, fim):
+            ocorrencias.append({"despesa": despesa, **ocorrencia})
+    return ocorrencias
+
+
+def _filtrar_por_data(ocorrencias, inicio, fim):
+    return [item for item in ocorrencias if inicio <= item["data"] <= fim]
+
+
+def resumo_fluxo_periodo(user, inicio, fim):
+    receitas = receitas_no_periodo(user, inicio, fim)
+    despesas = despesas_no_periodo(user, inicio, fim)
+    receitas_recebidas = _somar_ocorrencias(receitas, filtro=lambda item: item["status"] == "recebida")
+    receitas_previstas = _somar_ocorrencias(receitas, filtro=lambda item: item["status"] == "prevista")
+    fixos = _somar_ocorrencias(despesas, filtro=lambda item: item["despesa"].tipo == "fixa")
+    parcelas = _somar_ocorrencias(despesas, filtro=lambda item: item["despesa"].tipo == "parcelada")
+    variaveis = _somar_ocorrencias(despesas, filtro=lambda item: item["despesa"].tipo == "variavel")
+    despesas_pagas = _somar_ocorrencias(despesas, filtro=lambda item: item["status"] == "paga")
+    despesas_pendentes = _somar_ocorrencias(despesas, filtro=lambda item: item["status"] == "pendente")
+    variaveis_pagas = _somar_ocorrencias(despesas, filtro=lambda item: item["despesa"].tipo == "variavel" and item["status"] == "paga")
+    variaveis_pendentes = _somar_ocorrencias(despesas, filtro=lambda item: item["despesa"].tipo == "variavel" and item["status"] == "pendente")
+    despesas_total = arredondar(fixos + parcelas + variaveis)
+    receitas_total = arredondar(receitas_recebidas + receitas_previstas)
     return {
-        "inicio_mes": inicio_mes,
-        "fim_mes": fim_mes,
-        "receitas": receitas_total,
-        "receitas_recebidas": entradas_recebidas,
-        "receitas_previstas": entradas_previstas,
-        "fixos": fixos_mes,
-        "parcelas": parcelas_mes,
-        "compromissos": compromissos_mes,
-        "gastos_variaveis_pagos": variaveis_pagas_mes,
-        "gastos_variaveis_pendentes": variaveis_pendentes_mes,
-        "sobra_mes": sobra_mes,
-        "cota_semanal": cota_semanal,
+        "inicio": inicio,
+        "fim": fim,
+        "receitas": receitas,
+        "despesas": despesas,
+        "receitas_total": receitas_total,
+        "receitas_recebidas": receitas_recebidas,
+        "receitas_previstas": receitas_previstas,
+        "fixos": fixos,
+        "parcelas": parcelas,
+        "variaveis": variaveis,
+        "variaveis_pagas": variaveis_pagas,
+        "variaveis_pendentes": variaveis_pendentes,
+        "despesas_pagas": despesas_pagas,
+        "despesas_pendentes": despesas_pendentes,
+        "despesas_total": despesas_total,
+        "saldo_planejado": arredondar(receitas_total - despesas_total),
+        "saldo_confirmado": arredondar(receitas_recebidas - despesas_pagas),
     }
 
 
-def calcular_planejamento_semanal(user, referencia, quantidade=5):
-    receitas = Receita.objects.filter(criado_por=user)
-    despesas = Despesa.objects.filter(criado_por=user).exclude(status="cancelada")
-    saldo_total = arredondar(_somar(receitas.filter(status="recebida")) - _somar(despesas.filter(status="paga")))
-    base_mes = _base_mensal_para_semanas(user, referencia)
-    if quantidade == 1:
-        periodos = [(inicio_da_semana(referencia), fim_da_semana(referencia))]
-    else:
-        periodos = _semanas_do_mes(referencia)
+def _receitas_confirmadas_ate(receitas_mes, data_limite):
+    return _somar_ocorrencias(
+        receitas_mes,
+        filtro=lambda item: item["status"] == "recebida" and (item["data_recebimento"] or item["data"]) <= data_limite,
+    )
+
+
+def _data_fluxo_receita(item):
+    return item["data_recebimento"] or item["data"]
+
+
+def _saldo_total_confirmado(user, referencia):
+    inicio = adicionar_meses_data(inicio_do_mes(referencia), -60)
+    fim = referencia
+    receitas = receitas_no_periodo(user, inicio, fim)
+    despesas = despesas_no_periodo(user, inicio, fim)
+    receitas_confirmadas = _receitas_confirmadas_ate(receitas, fim)
+    despesas_ate_hoje = _somar_ocorrencias(despesas, filtro=lambda item: item["status"] == "paga" and item["data"] <= fim)
+    return arredondar(receitas_confirmadas - despesas_ate_hoje)
+
+
+def calcular_planejamento_semanal(user, referencia, quantidade=5, incluir_previstos=False):
+    inicio_mes = inicio_do_mes(referencia)
+    fim_mes = fim_do_mes(referencia)
+    fluxo_mes = resumo_fluxo_periodo(user, inicio_mes, fim_mes)
+    semanas_mes = _semanas_do_mes(referencia)
     semanas = []
 
-    for inicio, fim in periodos:
-        receitas_semana = receitas.filter(data__range=(inicio, fim))
-        entradas_previstas = _somar(receitas_semana.filter(status="prevista"))
-        entradas_recebidas = _somar(receitas_semana.filter(status="recebida"))
-        ocorrencias = _despesas_no_periodo(user, inicio, fim)
-        gastos_pagos = arredondar(
-            sum((item["valor"] for item in ocorrencias if item["despesa"].tipo == "variavel" and item["despesa"].status == "paga"), Decimal("0.00"))
+    for indice, (inicio, fim) in enumerate(semanas_mes):
+        receitas_semana = [item for item in fluxo_mes["receitas"] if inicio <= _data_fluxo_receita(item) <= fim]
+        despesas_semana = [item for item in fluxo_mes["despesas"] if inicio <= item["data"] <= fim]
+        variaveis_anteriores = _somar_ocorrencias(
+            fluxo_mes["despesas"],
+            filtro=lambda item: item["despesa"].tipo == "variavel"
+            and item["data"] < inicio
+            and (incluir_previstos or item["status"] == "paga"),
         )
-        fixos = arredondar(sum((item["valor"] for item in ocorrencias if item["despesa"].tipo == "fixa"), Decimal("0.00")))
-        parcelas = arredondar(sum((item["valor"] for item in ocorrencias if item["despesa"].tipo == "parcelada"), Decimal("0.00")))
-        variaveis_pendentes = arredondar(sum((item["valor"] for item in ocorrencias if item["despesa"].tipo == "variavel" and item["despesa"].status == "pendente"), Decimal("0.00")))
-        compromissos = arredondar(fixos + parcelas + variaveis_pendentes)
-        livre_semana = arredondar(base_mes["cota_semanal"] - gastos_pagos)
+        receitas_base = fluxo_mes["receitas_total"] if incluir_previstos else _receitas_confirmadas_ate(fluxo_mes["receitas"], fim)
+        semanas_restantes = len(semanas_mes) - indice
+        base_livre_confirmada = arredondar(
+            receitas_base - fluxo_mes["fixos"] - fluxo_mes["parcelas"] - variaveis_anteriores
+        )
+        cota_semana = (
+            arredondar(base_livre_confirmada / Decimal(semanas_restantes))
+            if semanas_restantes > 0
+            else base_livre_confirmada
+        )
+        gastos_semana = _somar_ocorrencias(
+            despesas_semana,
+            filtro=lambda item: item["despesa"].tipo == "variavel" and (incluir_previstos or item["status"] == "paga"),
+        )
+        gastos_pagos = _somar_ocorrencias(
+            despesas_semana,
+            filtro=lambda item: item["despesa"].tipo == "variavel" and item["status"] == "paga",
+        )
+        gastos_previstos = _somar_ocorrencias(
+            despesas_semana,
+            filtro=lambda item: item["despesa"].tipo == "variavel" and item["status"] == "pendente",
+        )
+        fixos_semana = _somar_ocorrencias(despesas_semana, filtro=lambda item: item["despesa"].tipo == "fixa")
+        parcelas_semana = _somar_ocorrencias(despesas_semana, filtro=lambda item: item["despesa"].tipo == "parcelada")
         semanas.append(
             {
                 "inicio": inicio,
                 "fim": fim,
                 "rotulo": f"{inicio:%d/%m} a {fim:%d/%m}",
                 "semana_atual": inicio <= referencia <= fim,
-                "receitas": arredondar(entradas_previstas + entradas_recebidas),
-                "receitas_previstas": entradas_previstas,
-                "receitas_recebidas": entradas_recebidas,
+                "receitas": _somar_ocorrencias(receitas_semana),
+                "receitas_previstas": _somar_ocorrencias(receitas_semana, filtro=lambda item: item["status"] == "prevista"),
+                "receitas_recebidas": _somar_ocorrencias(receitas_semana, filtro=lambda item: item["status"] == "recebida"),
+                "gasto_semana": gastos_semana,
                 "gastos_pagos": gastos_pagos,
-                "gastos_pendentes": variaveis_pendentes,
-                "fixos": fixos,
-                "parcelas": parcelas,
-                "compromissos": compromissos,
-                "gasto_total": arredondar(gastos_pagos + compromissos),
-                "cota_semana": base_mes["cota_semanal"],
-                "gasto_semana": gastos_pagos,
-                "livre_semana": livre_semana,
-                "disponivel": livre_semana,
+                "gastos_previstos": gastos_previstos,
+                "fixos": fixos_semana,
+                "parcelas": parcelas_semana,
+                "compromissos": arredondar(fixos_semana + parcelas_semana),
+                "gasto_total": arredondar(gastos_semana + fixos_semana + parcelas_semana),
+                "cota_semana": cota_semana,
+                "livre_semana": arredondar(cota_semana - gastos_semana),
+                "disponivel": arredondar(cota_semana - gastos_semana),
             }
         )
 
+    if quantidade == 1:
+        semanas = [semana for semana in semanas if semana["semana_atual"]] or ([semanas[0]] if semanas else [])
+
     semana_atual = next((semana for semana in semanas if semana["semana_atual"]), semanas[0] if semanas else None)
-    total_comprometido = arredondar(base_mes["compromissos"] + base_mes["gastos_variaveis_pagos"])
-    disponivel_apos_compromissos = base_mes["sobra_mes"]
     return {
-        "saldo_total": saldo_total,
+        "saldo_total": _saldo_total_confirmado(user, referencia),
         "semanas": semanas,
         "semana_atual": semana_atual,
-        "total_comprometido": total_comprometido,
-        "disponivel_apos_compromissos": disponivel_apos_compromissos,
-        "base_mes": base_mes,
+        "total_comprometido": fluxo_mes["despesas_total"],
+        "disponivel_apos_compromissos": fluxo_mes["saldo_planejado"],
+        "base_mes": {
+            "inicio_mes": inicio_mes,
+            "fim_mes": fim_mes,
+            "receitas": fluxo_mes["receitas_total"],
+            "receitas_recebidas": fluxo_mes["receitas_recebidas"],
+            "receitas_previstas": fluxo_mes["receitas_previstas"],
+            "fixos": fluxo_mes["fixos"],
+            "parcelas": fluxo_mes["parcelas"],
+            "gastos_variaveis": fluxo_mes["variaveis"],
+            "compromissos": fluxo_mes["despesas_total"],
+            "sobra_mes": fluxo_mes["saldo_planejado"],
+            "incluir_previstos": incluir_previstos,
+        },
     }
 
 
 def resumo_mensal(user, referencia):
-    receitas = Receita.objects.filter(criado_por=user)
     inicio = inicio_do_mes(referencia)
     fim = fim_do_mes(referencia)
-    receitas_mes = receitas.filter(data__range=(inicio, fim))
-    base_mes = _base_mensal_para_semanas(user, referencia)
-    entradas_previstas = _somar(receitas_mes.filter(status="prevista"))
-    entradas_recebidas = _somar(receitas_mes.filter(status="recebida"))
-    ocorrencias = _despesas_no_periodo(user, inicio, fim)
-    gastos_pagos = arredondar(sum((item["valor"] for item in ocorrencias if item["despesa"].tipo == "variavel" and item["despesa"].status == "paga"), Decimal("0.00")))
-    fixos = arredondar(sum((item["valor"] for item in ocorrencias if item["despesa"].tipo == "fixa"), Decimal("0.00")))
-    parcelas = arredondar(sum((item["valor"] for item in ocorrencias if item["despesa"].tipo == "parcelada"), Decimal("0.00")))
-    variaveis_pendentes = arredondar(sum((item["valor"] for item in ocorrencias if item["despesa"].tipo == "variavel" and item["despesa"].status == "pendente"), Decimal("0.00")))
-    compromissos = arredondar(fixos + parcelas + variaveis_pendentes)
+    fluxo = resumo_fluxo_periodo(user, inicio, fim)
+    planejamento = calcular_planejamento_semanal(user, referencia, quantidade=1)
     return {
         "inicio": inicio,
         "fim": fim,
         "rotulo": f"{inicio:%m/%Y}",
-        "receitas": arredondar(entradas_previstas + entradas_recebidas),
-        "receitas_previstas": entradas_previstas,
-        "receitas_recebidas": entradas_recebidas,
-        "gastos_pagos": gastos_pagos,
-        "gastos_pendentes": variaveis_pendentes,
-        "fixos": fixos,
-        "parcelas": parcelas,
-        "compromissos": compromissos,
-        "gasto_total": arredondar(gastos_pagos + compromissos),
-        "cota_semanal": base_mes["cota_semanal"],
-        "disponivel": base_mes["sobra_mes"],
+        "receitas": fluxo["receitas_total"],
+        "receitas_previstas": fluxo["receitas_previstas"],
+        "receitas_recebidas": fluxo["receitas_recebidas"],
+        "gastos_pagos": fluxo["variaveis_pagas"],
+        "gastos_pendentes": fluxo["variaveis_pendentes"],
+        "despesas_pagas": fluxo["despesas_pagas"],
+        "despesas_pendentes": fluxo["despesas_pendentes"],
+        "fixos": fluxo["fixos"],
+        "parcelas": fluxo["parcelas"],
+        "compromissos": fluxo["despesas_total"],
+        "gasto_total": fluxo["despesas_total"],
+        "cota_semanal": planejamento["semana_atual"]["cota_semana"] if planejamento["semana_atual"] else Decimal("0.00"),
+        "disponivel": fluxo["saldo_planejado"],
     }
 
 
-def _dados_graficos_periodo(user, inicio, fim, evolucao):
-    despesas_periodo = _despesas_no_periodo(user, inicio, fim)
+def _despesas_por_data_no_periodo(user, inicio, fim):
+    return _filtrar_por_data(despesas_no_periodo(user, inicio_do_mes(inicio), fim_do_mes(fim)), inicio, fim)
+
+
+def _dados_graficos_periodo(user, inicio, fim, evolucao, *, usar_data=False):
+    despesas_periodo = _despesas_por_data_no_periodo(user, inicio, fim) if usar_data else despesas_no_periodo(user, inicio, fim)
     por_tipo = {"Variáveis": Decimal("0.00"), "Fixas": Decimal("0.00"), "Parceladas": Decimal("0.00")}
     por_categoria = {}
+
     for item in despesas_periodo:
         despesa = item["despesa"]
         valor = item["valor"]
@@ -204,26 +257,26 @@ def _dados_graficos_periodo(user, inicio, fim, evolucao):
             por_tipo["Variáveis"] += valor
         categoria = despesa.categoria or "Sem categoria"
         por_categoria[categoria] = por_categoria.get(categoria, Decimal("0.00")) + valor
+
     total_tipo = sum(por_tipo.values(), Decimal("0.00"))
     total_categoria = sum(por_categoria.values(), Decimal("0.00"))
-    maior_categoria = max(por_categoria.values(), default=Decimal("0.00")) or Decimal("1.00")
+    maior_categoria = max(por_categoria.values(), default=Decimal("1.00")) or Decimal("1.00")
     maior_evolucao = Decimal("1.00")
     evolucao_itens = []
+
     for item_evolucao in evolucao:
-        inicio_item = item_evolucao["inicio"]
-        fim_item = item_evolucao["fim"]
-        ocorrencias = _despesas_no_periodo(user, inicio_item, fim_item)
-        gasto = arredondar(sum((item["valor"] for item in ocorrencias), Decimal("0.00")))
+        ocorrencias = (
+            _despesas_por_data_no_periodo(user, item_evolucao["inicio"], item_evolucao["fim"])
+            if usar_data
+            else despesas_no_periodo(user, item_evolucao["inicio"], item_evolucao["fim"])
+        )
+        gasto = _somar_ocorrencias(ocorrencias)
         evolucao_itens.append({**item_evolucao, "valor": gasto})
         maior_evolucao = max(maior_evolucao, gasto)
 
     tipo_percentuais = []
     cursor = Decimal("0.00")
-    cores_tipo = {
-        "Variáveis": "#2f7d69",
-        "Fixas": "#8b6f47",
-        "Parceladas": "#c65f46",
-    }
+    cores_tipo = {"Variáveis": "#2f7d69", "Fixas": "#8b6f47", "Parceladas": "#c65f46"}
     for chave, valor in por_tipo.items():
         percentual = Decimal("0.00") if not total_tipo else (valor / total_tipo) * Decimal("100")
         inicio_percentual = cursor
@@ -280,7 +333,7 @@ def dados_graficos_dashboard(user, referencia):
         }
         for indice in range(5)
     ]
-    return _dados_graficos_periodo(user, inicio, inicio + timedelta(days=6), evolucao)
+    return _dados_graficos_periodo(user, inicio, inicio + timedelta(days=6), evolucao, usar_data=True)
 
 
 def dados_graficos_mensal(user, referencia):
@@ -289,11 +342,10 @@ def dados_graficos_mensal(user, referencia):
     evolucao = []
     for indice in range(5):
         inicio_item = adicionar_meses_data(primeiro_mes, indice)
-        fim_item = fim_do_mes(inicio_item)
         evolucao.append(
             {
                 "inicio": inicio_item,
-                "fim": fim_item,
+                "fim": fim_do_mes(inicio_item),
                 "rotulo": f"{inicio_item:%m/%y}",
                 "semana_atual": inicio_item == inicio,
             }

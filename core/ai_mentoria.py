@@ -6,7 +6,8 @@ from urllib import error, request
 from django.conf import settings
 from django.utils import timezone
 
-from financeiro.models import Despesa, MentoriaFinanceiraIA, Receita, Reserva, arredondar
+from financeiro.models import MentoriaFinanceiraIA, Reserva, arredondar
+from financeiro.planejamento import resumo_fluxo_periodo
 
 
 def _decimal_para_json(valor):
@@ -28,30 +29,24 @@ def _mapear_valores(itens, chave_func):
 def coletar_dados_mentoria(user, referencia=None):
     fim = referencia or timezone.localdate()
     inicio = fim - timedelta(days=30)
-    receitas = Receita.objects.filter(criado_por=user, data__range=(inicio, fim))
-    despesas = Despesa.objects.filter(criado_por=user).exclude(status="cancelada")
-    reservas = Reserva.objects.filter(criado_por=user)
-    ocorrencias = []
+    fluxo = resumo_fluxo_periodo(user, inicio, fim)
+    receitas = fluxo["receitas"]
+    reservas = Reserva.objects.filter(criado_por=user, ativa=True)
+    ocorrencias = fluxo["despesas"]
 
-    for despesa in despesas:
-        for ocorrencia in despesa.ocorrencias(inicio, fim):
-            ocorrencias.append({"despesa": despesa, **ocorrencia})
-
-    receitas_recebidas = _somar(receita.valor for receita in receitas.filter(status="recebida"))
-    receitas_previstas = _somar(receita.valor for receita in receitas.filter(status="prevista"))
-    despesas_pagas = _somar(item["valor"] for item in ocorrencias if item["despesa"].status == "paga")
-    despesas_pendentes = _somar(item["valor"] for item in ocorrencias if item["despesa"].status == "pendente")
-    gastos_total = _somar(item["valor"] for item in ocorrencias)
+    receitas_recebidas = fluxo["receitas_recebidas"]
+    receitas_previstas = fluxo["receitas_previstas"]
+    despesas_total = fluxo["despesas_total"]
+    gastos_total = fluxo["despesas_total"]
 
     return {
         "periodo": {"inicio": inicio.isoformat(), "fim": fim.isoformat()},
         "resumo": {
             "receitas_recebidas": _decimal_para_json(receitas_recebidas),
             "receitas_previstas": _decimal_para_json(receitas_previstas),
-            "despesas_pagas": _decimal_para_json(despesas_pagas),
-            "despesas_pendentes": _decimal_para_json(despesas_pendentes),
+            "despesas_total": _decimal_para_json(despesas_total),
             "gastos_total": _decimal_para_json(gastos_total),
-            "resultado_recebido_menos_pago": _decimal_para_json(receitas_recebidas - despesas_pagas),
+            "resultado_recebido_menos_despesas": _decimal_para_json(receitas_recebidas - despesas_total),
         },
         "gastos_por_tipo": _mapear_valores(ocorrencias, lambda item: item["despesa"].get_tipo_display()),
         "gastos_por_categoria": _mapear_valores(ocorrencias, lambda item: item["despesa"].categoria or "Sem categoria"),
@@ -61,20 +56,33 @@ def coletar_dados_mentoria(user, referencia=None):
                 "descricao": item["despesa"].descricao,
                 "tipo": item["despesa"].get_tipo_display(),
                 "categoria": item["despesa"].categoria or "Sem categoria",
-                "status": item["despesa"].get_status_display(),
+                "status": f"Competência {item['competencia']:%m/%Y}",
                 "valor": _decimal_para_json(item["valor"]),
             }
             for item in sorted(ocorrencias, key=lambda item: item["valor"], reverse=True)[:12]
         ],
         "receitas": [
             {
-                "data": receita.data.isoformat(),
-                "descricao": receita.descricao,
-                "categoria": receita.categoria or "Sem categoria",
-                "status": receita.get_status_display(),
-                "valor": _decimal_para_json(receita.valor),
+                "data": receita["data"].isoformat(),
+                "descricao": receita["descricao"],
+                "categoria": receita["categoria"] or "Sem categoria",
+                "status": "Recebida" if receita["status"] == "recebida" else "Prevista",
+                "valor": _decimal_para_json(receita["valor"]),
             }
-            for receita in receitas.order_by("-valor", "-data")[:12]
+            for receita in sorted(
+                [
+                    {
+                        "data": item["data"],
+                        "descricao": item["receita"].descricao,
+                        "categoria": item["receita"].categoria,
+                        "status": item["status"],
+                        "valor": item["valor"],
+                    }
+                    for item in receitas
+                ],
+                key=lambda item: (item["valor"], item["data"]),
+                reverse=True,
+            )[:12]
         ],
         "metas_reservas": [
             {
