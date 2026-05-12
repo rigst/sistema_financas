@@ -27,6 +27,8 @@ staticfiles/
 # IDEs e editores
 .vscode/
 .idea/
+.codex
+.codex/
 
 # Sistema operacional
 .DS_Store
