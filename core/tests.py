@@ -11,7 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from core.formatting import parse_decimal_br
-from financeiro.models import Despesa, MentoriaFinanceiraIA, Receita
+from financeiro.models import CompartilhamentoDespesa, Despesa, MentoriaFinanceiraIA, ParticipanteCompartilhamentoDespesa, Receita
 
 
 class DashboardTests(TestCase):
@@ -81,6 +81,37 @@ class DashboardTests(TestCase):
         lancamentos = [item["descricao"] for item in response.context["ultimos_lancamentos"]]
         self.assertIn("Salário recente", lancamentos)
         self.assertNotIn("Compra cancelada", lancamentos)
+
+    def test_dashboard_resume_compartilhamentos(self):
+        outro = get_user_model().objects.create_user(username="dashboard_outro")
+        despesa = Despesa.objects.create(
+            descricao="Despesa dividida",
+            valor=Decimal("40.00"),
+            data=timezone.localdate(),
+            status="pendente",
+            tipo="variavel",
+            categoria="Casa",
+            criado_por=outro,
+        )
+        compartilhamento = CompartilhamentoDespesa.objects.create(
+            despesa=despesa,
+            criado_por=outro,
+            valor_total=Decimal("80.00"),
+            pagador=outro,
+        )
+        ParticipanteCompartilhamentoDespesa.objects.create(
+            compartilhamento=compartilhamento,
+            usuario=self.user,
+            valor=Decimal("40.00"),
+            status="pendente",
+        )
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Compartilhamentos")
+        self.assertContains(response, "R$ 40,00")
+        self.assertEqual(response.context["compartilhadas_dashboard"]["pendentes"], 1)
 
     def test_dashboard_limita_ultimos_lancamentos_a_cinco(self):
         hoje = timezone.localdate()
@@ -185,6 +216,7 @@ class DashboardTests(TestCase):
         self.assertContains(response, "Receitas")
         self.assertContains(response, "Despesas")
         self.assertContains(response, "Controle")
+        self.assertContains(response, "compartilhados")
 
     def test_manual_exibe_legenda_de_icones_sem_textos_longos(self):
         response = self.client.get(reverse("manual"))

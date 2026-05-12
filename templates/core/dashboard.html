@@ -63,6 +63,21 @@
                 </dl>
             </article>
         </div>
+        {% if compartilhadas_dashboard.pendentes or compartilhadas_dashboard.criadas %}
+            <div class="shared-dashboard-panel">
+                <div>
+                    <span class="label">Compartilhamentos</span>
+                    <strong>{{ compartilhadas_dashboard.valor_pendente|brl }}</strong>
+                    <span>pendente de aceite para você</span>
+                </div>
+                <dl>
+                    <div><dt>Convites</dt><dd>{{ compartilhadas_dashboard.pendentes }}</dd></div>
+                    <div><dt>Criadas</dt><dd>{{ compartilhadas_dashboard.criadas }}</dd></div>
+                    <div><dt>Aguardando</dt><dd>{{ compartilhadas_dashboard.aguardando }}</dd></div>
+                </dl>
+                <a class="btn btn-secondary" href="{% url 'financeiro:despesa_lista' %}"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M15 12H3"/><path d="m8 7-5 5 5 5"/><path d="M21 5v14"/></svg><span>Ver despesas</span></a>
+            </div>
+        {% endif %}
     </div>
 
         <div class="dashboard-chart-grid">

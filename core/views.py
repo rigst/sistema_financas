@@ -14,7 +14,7 @@ from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
 
 from core.ai_mentoria import gerar_mentoria_financeira
-from financeiro.models import Despesa, MentoriaFinanceiraIA, Receita, Reserva, arredondar
+from financeiro.models import CompartilhamentoDespesa, Despesa, MentoriaFinanceiraIA, ParticipanteCompartilhamentoDespesa, Receita, Reserva, arredondar
 from financeiro.planejamento import (
     calcular_planejamento_semanal,
     dados_graficos_dashboard,
@@ -47,6 +47,17 @@ def dashboard(request):
     graficos = dados_graficos_dashboard(request.user, referencia)
     mes_resumo = resumo_mensal(request.user, referencia)
     graficos_mes = dados_graficos_mensal(request.user, referencia)
+    compartilhadas_pendentes = ParticipanteCompartilhamentoDespesa.objects.filter(usuario=request.user, status="pendente")
+    compartilhadas_criadas = CompartilhamentoDespesa.objects.filter(criado_por=request.user)
+    compartilhadas_dashboard = {
+        "pendentes": compartilhadas_pendentes.count(),
+        "valor_pendente": arredondar(sum((item.valor for item in compartilhadas_pendentes), Decimal("0.00"))),
+        "criadas": compartilhadas_criadas.count(),
+        "aguardando": ParticipanteCompartilhamentoDespesa.objects.filter(
+            compartilhamento__criado_por=request.user,
+            status="pendente",
+        ).count(),
+    }
 
     if periodo != "todos":
         try:
@@ -132,6 +143,7 @@ def dashboard(request):
         "semana_nav": navegacao_semanal(referencia),
         "incluir_previstos_mes": incluir_previstos_mes,
         "mentoria_ia": mentoria_ia,
+        "compartilhadas_dashboard": compartilhadas_dashboard,
     }
     return render(request, "core/dashboard.html", context)
 

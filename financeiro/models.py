@@ -201,6 +201,23 @@ class Despesa(models.Model):
     def __str__(self):
         return self.descricao
 
+    def deve_computar(self):
+        try:
+            compartilhamento = self.compartilhamento
+        except CompartilhamentoDespesa.DoesNotExist:
+            compartilhamento = None
+        if compartilhamento and not compartilhamento.pronto_para_computar:
+            return False
+
+        try:
+            participacao = self.participacao_compartilhada
+        except ParticipanteCompartilhamentoDespesa.DoesNotExist:
+            participacao = None
+        if participacao and (participacao.status != "aceito" or not participacao.compartilhamento.pronto_para_computar):
+            return False
+
+        return True
+
     def clean(self):
         if self.tipo != "parcelada" and self.parcelas != 1:
             raise ValidationError({"parcelas": "Use parcelas apenas para despesa parcelada."})
@@ -228,7 +245,7 @@ class Despesa(models.Model):
         return arredondar(self.valor / Decimal(self.parcelas))
 
     def ocorrencias(self, inicio, fim):
-        if self.status == "cancelada":
+        if self.status == "cancelada" or not self.deve_computar():
             return []
         if self.tipo == "fixa":
             ocorrencias = []
@@ -282,6 +299,79 @@ class Despesa(models.Model):
         if meses_decorridos < 0:
             return self.parcela_atual
         return min(self.parcela_atual + meses_decorridos, self.parcelas)
+
+
+class CompartilhamentoDespesa(models.Model):
+    MODO_CHOICES = [
+        ("igual", "Partes iguais"),
+        ("fixo", "Valores definidos"),
+    ]
+
+    despesa = models.OneToOneField(Despesa, on_delete=models.CASCADE, related_name="compartilhamento")
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="compartilhamentos_despesas_criados")
+    valor_total = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
+    modo_divisao = models.CharField(max_length=20, choices=MODO_CHOICES, default="igual")
+    pagador = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="compartilhamentos_despesas_pagador")
+    recusado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="compartilhamentos_despesas_recusados", null=True, blank=True)
+    data_prevista_ressarcimento = models.DateField(null=True, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-atualizado_em", "-id"]
+
+    def __str__(self):
+        return f"Compartilhamento de {self.despesa}"
+
+    @property
+    def participantes_ativos(self):
+        return self.participantes.exclude(status="recusado")
+
+    @property
+    def status_geral(self):
+        status = list(self.participantes.values_list("status", flat=True))
+        if not status:
+            return ""
+        if "recusado" in status:
+            return "recusado"
+        if "pendente" in status:
+            return "aguardando"
+        return "aceito"
+
+    @property
+    def pronto_para_computar(self):
+        return self.status_geral == "aceito"
+
+
+class ParticipanteCompartilhamentoDespesa(models.Model):
+    STATUS_CHOICES = [
+        ("pendente", "Pendente"),
+        ("aceito", "Aceito"),
+        ("recusado", "Recusado"),
+    ]
+
+    compartilhamento = models.ForeignKey(CompartilhamentoDespesa, on_delete=models.CASCADE, related_name="participantes")
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="compartilhamentos_despesas_recebidos")
+    valor = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pendente")
+    despesa_gerada = models.OneToOneField(Despesa, on_delete=models.SET_NULL, null=True, blank=True, related_name="participacao_compartilhada")
+    ressarcimento_confirmado = models.BooleanField(default=False)
+    data_aceite = models.DateTimeField(null=True, blank=True)
+    data_confirmacao_ressarcimento = models.DateTimeField(null=True, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["status", "usuario__username"]
+        constraints = [
+            models.UniqueConstraint(fields=["compartilhamento", "usuario"], name="comp_despesa_usuario_uniq"),
+        ]
+        indexes = [
+            models.Index(fields=["usuario", "status"], name="comp_part_user_status_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.usuario} em {self.compartilhamento}"
 
 
 class Reserva(models.Model):

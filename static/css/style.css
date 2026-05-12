@@ -1353,6 +1353,235 @@ button:focus-visible {
   font-weight: 600;
 }
 
+.nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  min-height: 1.35rem;
+  margin-left: 0.35rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: #be4444;
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.field-help {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.shared-expense-fields {
+  margin-top: 1rem;
+}
+
+.shared-expense-section {
+  margin-bottom: 1rem;
+}
+
+.shared-expense-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 48px;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.shared-expense-summary::-webkit-details-marker {
+  display: none;
+}
+
+.shared-expense-summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.shared-expense-summary em {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.45rem;
+  min-height: 1.45rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: #be4444;
+  color: #ffffff;
+  font-style: normal;
+  font-size: 0.78rem;
+}
+
+.shared-expense-section[open] .shared-expense-summary {
+  margin-bottom: 0.8rem;
+}
+
+.shared-expense-section[open] .shared-expense-summary svg {
+  transform: rotate(180deg);
+}
+
+.shared-expense-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.shared-expense-card {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.9rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.shared-expense-card-pending {
+  border-color: rgba(139, 111, 71, 0.45);
+  background: #fffaf2;
+}
+
+.shared-status-aguardando {
+  border-color: rgba(139, 111, 71, 0.45);
+  background: #fffaf2;
+}
+
+.shared-expense-card-rejected,
+.shared-status-recusado {
+  border-color: rgba(190, 68, 68, 0.45);
+  background: #fff1f1;
+}
+
+.shared-expense-card-main,
+.shared-expense-card-meta,
+.shared-expense-card-foot {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.shared-expense-card-main,
+.shared-expense-card-foot {
+  flex-wrap: wrap;
+}
+
+.shared-expense-card-main span,
+.shared-expense-card-foot {
+  color: var(--text-soft);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.shared-expense-actions {
+  justify-content: flex-end;
+}
+
+.shared-summary-pill {
+  flex-wrap: wrap;
+}
+
+.shared-rejection-message {
+  flex-basis: 100%;
+  color: #be4444 !important;
+}
+
+.shared-summary-actions {
+  margin-left: auto;
+}
+
+.shared-summary-actions form {
+  display: inline-flex;
+}
+
+.shared-pill-participants {
+  flex-basis: 100%;
+  font-size: 0.82rem;
+}
+
+.shared-participant {
+  display: inline-flex;
+  margin: 0.12rem 0.25rem 0.12rem 0;
+  padding: 0.28rem 0.45rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--text-soft);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.shared-participant-recusado {
+  border-color: rgba(190, 68, 68, 0.32);
+  background: #fff1f1;
+  color: #be4444;
+}
+
+.shared-participant-pendente {
+  border-color: rgba(139, 111, 71, 0.32);
+  background: #fffaf2;
+}
+
+.status-aguardando {
+  color: #8b6f47;
+}
+
+.table-mainline,
+.table-subline-muted,
+.table-subline-warning {
+  display: block;
+}
+
+.shared-dashboard-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(260px, 1.4fr) auto;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.shared-dashboard-panel strong {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--text);
+  font-size: 1.45rem;
+}
+
+.shared-dashboard-panel span,
+.shared-dashboard-panel dt {
+  color: var(--text-soft);
+  font-weight: 700;
+}
+
+.shared-dashboard-panel dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0;
+}
+
+.shared-dashboard-panel div {
+  min-width: 0;
+}
+
+.shared-dashboard-panel dd {
+  margin: 0.18rem 0 0;
+  color: var(--text);
+  font-weight: 900;
+}
+
 .table-sort-button {
   display: inline-flex;
   align-items: center;
@@ -3124,4 +3353,21 @@ tr:hover td {
   height: 100%;
   background: linear-gradient(90deg, #2f7d69, #5da891);
   transition: width 180ms ease;
+}
+
+@media (max-width: 760px) {
+  .shared-dashboard-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .shared-dashboard-panel dl {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .shared-expense-card-main,
+  .shared-expense-card-meta,
+  .shared-expense-card-foot {
+    display: grid;
+    justify-content: stretch;
+  }
 }

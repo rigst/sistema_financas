@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import NoReverseMatch, reverse
 
-from .models import Despesa, Receita, Reserva
+from .models import CompartilhamentoDespesa, Despesa, ParticipanteCompartilhamentoDespesa, Receita, Reserva
 from .planejamento import calcular_planejamento_semanal, resumo_fluxo_periodo, resumo_mensal
 
 
@@ -155,10 +155,52 @@ class FinanceiroSimplificadoModelTests(TestCase):
         self.assertEqual(mensal["parcelas"], Decimal("100.00"))
         self.assertEqual(mensal["despesas_pendentes"], Decimal("100.00"))
 
+    def test_despesa_compartilhada_so_computa_quando_todos_aceitam(self):
+        outro = get_user_model().objects.create_user(username="outro_model")
+        terceiro = get_user_model().objects.create_user(username="terceiro_model")
+        despesa = Despesa.objects.create(
+            tipo="variavel",
+            descricao="Compra compartilhada",
+            valor=Decimal("100.00"),
+            data=date(2026, 4, 10),
+            categoria="Casa",
+            status="pendente",
+            criado_por=self.user,
+        )
+        compartilhamento = CompartilhamentoDespesa.objects.create(
+            despesa=despesa,
+            criado_por=self.user,
+            valor_total=Decimal("300.00"),
+            modo_divisao="igual",
+            pagador=self.user,
+        )
+        participante_1 = ParticipanteCompartilhamentoDespesa.objects.create(
+            compartilhamento=compartilhamento,
+            usuario=outro,
+            valor=Decimal("100.00"),
+            status="aceito",
+        )
+        ParticipanteCompartilhamentoDespesa.objects.create(
+            compartilhamento=compartilhamento,
+            usuario=terceiro,
+            valor=Decimal("100.00"),
+            status="pendente",
+        )
+
+        fluxo_criador = resumo_fluxo_periodo(self.user, date(2026, 4, 1), date(2026, 4, 30))
+        fluxo_participante = resumo_fluxo_periodo(outro, date(2026, 4, 1), date(2026, 4, 30))
+
+        self.assertEqual(compartilhamento.status_geral, "aguardando")
+        self.assertEqual(fluxo_criador["despesas_pendentes"], Decimal("0.00"))
+        self.assertEqual(fluxo_participante["despesas_pendentes"], Decimal("0.00"))
+        self.assertEqual(participante_1.despesa_gerada, None)
+
 
 class FinanceiroSimplificadoViewTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(username="fin_view", password="senha-forte-123")
+        self.outro_user = get_user_model().objects.create_user(username="outro_fin", password="senha-forte-123")
+        self.terceiro_user = get_user_model().objects.create_user(username="terceiro_fin", password="senha-forte-123")
         self.client.force_login(self.user)
 
     def test_fluxo_de_receita_despesa_reserva_e_controle(self):
@@ -316,6 +358,389 @@ class FinanceiroSimplificadoViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Aluguel")
         self.assertNotContains(response, "Padaria")
+
+    def test_despesa_compartilhada_fica_pendente_ate_aceite(self):
+        response = self.client.post(
+            reverse("financeiro:despesa_criar"),
+            {
+                "tipo": "parcelada",
+                "descricao": "Viagem",
+                "valor": "900,00",
+                "data": "2026-04-20",
+                "competencia": "2026-04",
+                "categoria": "Lazer",
+                "parcelas": "3",
+                "parcela_atual": "1",
+                "status": "pendente",
+                "observacoes": "",
+                "compartilhar": "on",
+                "participantes": "outro_fin",
+                "modo_divisao": "igual",
+                "valores_participantes": "",
+                "pagador": "fin_view",
+                "data_prevista_ressarcimento": "2026-05-10",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        despesa = Despesa.objects.get(descricao="Viagem", criado_por=self.user)
+        compartilhamento = CompartilhamentoDespesa.objects.get(despesa=despesa)
+        participante = ParticipanteCompartilhamentoDespesa.objects.get(compartilhamento=compartilhamento, usuario=self.outro_user)
+        self.assertEqual(compartilhamento.valor_total, Decimal("900.00"))
+        self.assertEqual(despesa.valor, Decimal("450.00"))
+        self.assertEqual(participante.valor, Decimal("450.00"))
+        self.assertEqual(participante.status, "pendente")
+        self.assertIsNone(participante.despesa_gerada)
+
+        self.client.force_login(self.outro_user)
+        response_lista = self.client.get(reverse("financeiro:despesa_lista"))
+        self.assertContains(response_lista, "Nenhuma despesa encontrada.")
+        self.assertFalse(Despesa.objects.filter(descricao="Viagem", criado_por=self.outro_user).exists())
+        response_notificacao = self.client.get(reverse("financeiro:despesa_lista"))
+        self.assertContains(response_notificacao, "Viagem")
+        self.assertContains(response_notificacao, "450,00")
+        self.assertContains(response_notificacao, "Compartilhadas com você")
+
+        response_aceite = self.client.post(reverse("financeiro:despesa_compartilhada_aceitar", args=[participante.pk]))
+        participante.refresh_from_db()
+        self.assertEqual(response_aceite.status_code, 302)
+        self.assertEqual(participante.status, "aceito")
+        self.assertIsNotNone(participante.despesa_gerada)
+        self.assertEqual(participante.despesa_gerada.valor, Decimal("450.00"))
+        self.assertEqual(participante.despesa_gerada.parcelas, 3)
+
+    def test_edicao_de_compartilhada_atualiza_despesa_aceita(self):
+        despesa = Despesa.objects.create(
+            tipo="fixa",
+            descricao="Internet",
+            valor=Decimal("50.00"),
+            data=date(2026, 4, 10),
+            categoria="Casa",
+            status="pendente",
+            criado_por=self.user,
+        )
+        compartilhamento = CompartilhamentoDespesa.objects.create(
+            despesa=despesa,
+            criado_por=self.user,
+            valor_total=Decimal("100.00"),
+            modo_divisao="igual",
+            pagador=self.user,
+            data_prevista_ressarcimento=date(2026, 5, 5),
+        )
+        participante = ParticipanteCompartilhamentoDespesa.objects.create(
+            compartilhamento=compartilhamento,
+            usuario=self.outro_user,
+            valor=Decimal("50.00"),
+            status="aceito",
+        )
+        self.client.force_login(self.outro_user)
+        self.client.post(reverse("financeiro:despesa_compartilhada_aceitar", args=[participante.pk]))
+        participante.refresh_from_db()
+
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("financeiro:despesa_editar", args=[despesa.pk]),
+            {
+                "tipo": "fixa",
+                "descricao": "Internet fibra",
+                "valor": "120,00",
+                "data": "2026-04-10",
+                "competencia": "2026-04",
+                "categoria": "Casa",
+                "status": "pendente",
+                "observacoes": "",
+                "compartilhar": "on",
+                "participantes": "outro_fin",
+                "modo_divisao": "fixo",
+                "valores_participantes": "70,00",
+                "pagador": "outro_fin",
+                "data_prevista_ressarcimento": "2026-05-20",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        despesa.refresh_from_db()
+        participante.refresh_from_db()
+        participante.despesa_gerada.refresh_from_db()
+        compartilhamento.refresh_from_db()
+        self.assertEqual(despesa.descricao, "Internet fibra")
+        self.assertEqual(despesa.valor, Decimal("50.00"))
+        self.assertEqual(compartilhamento.valor_total, Decimal("120.00"))
+        self.assertEqual(compartilhamento.pagador, self.outro_user)
+        self.assertEqual(participante.valor, Decimal("70.00"))
+        self.assertEqual(participante.despesa_gerada.descricao, "Internet fibra")
+        self.assertEqual(participante.despesa_gerada.valor, Decimal("70.00"))
+
+        response_pagar = self.client.post(reverse("financeiro:despesa_marcar_paga", args=[despesa.pk]))
+        self.assertEqual(response_pagar.status_code, 302)
+        participante.despesa_gerada.refresh_from_db()
+        self.assertEqual(participante.despesa_gerada.status, "paga")
+
+    def test_menu_mostra_pendencias_na_aba_de_despesas(self):
+        despesa = Despesa.objects.create(
+            tipo="variavel",
+            descricao="Jantar",
+            valor=Decimal("80.00"),
+            data=date(2026, 4, 10),
+            categoria="Lazer",
+            status="pendente",
+            criado_por=self.user,
+        )
+        compartilhamento = CompartilhamentoDespesa.objects.create(
+            despesa=despesa,
+            criado_por=self.user,
+            valor_total=Decimal("160.00"),
+            modo_divisao="igual",
+            pagador=self.user,
+        )
+        ParticipanteCompartilhamentoDespesa.objects.create(
+            compartilhamento=compartilhamento,
+            usuario=self.outro_user,
+            valor=Decimal("80.00"),
+            status="pendente",
+        )
+
+        self.client.force_login(self.outro_user)
+        response = self.client.get(reverse("financeiro:despesa_lista"))
+
+        self.assertContains(response, "Despesas<span class=\"nav-badge\">1</span>", html=True)
+        self.assertNotContains(response, 'href="/financeiro/despesas/compartilhadas/"')
+
+    def test_formulario_de_despesa_oculta_campos_de_compartilhamento_por_padrao(self):
+        response = self.client.get(reverse("financeiro:despesa_criar"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "data-shared-toggle")
+        self.assertContains(response, "data-shared-fields")
+        self.assertContains(response, "data-shared-values-field")
+        self.assertContains(response, "usuarios-sistema")
+
+    def test_compartilhamento_confirmado_nao_fica_em_destaque_na_lista(self):
+        despesa = Despesa.objects.create(
+            tipo="variavel",
+            descricao="Mercado dividido",
+            valor=Decimal("60.00"),
+            data=date(2026, 4, 10),
+            categoria="Casa",
+            status="pendente",
+            criado_por=self.user,
+        )
+        compartilhamento = CompartilhamentoDespesa.objects.create(
+            despesa=despesa,
+            criado_por=self.user,
+            valor_total=Decimal("120.00"),
+            modo_divisao="igual",
+            pagador=self.user,
+        )
+        ParticipanteCompartilhamentoDespesa.objects.create(
+            compartilhamento=compartilhamento,
+            usuario=self.outro_user,
+            valor=Decimal("60.00"),
+            status="aceito",
+            ressarcimento_confirmado=True,
+        )
+
+        self.client.force_login(self.outro_user)
+        response = self.client.get(reverse("financeiro:despesa_lista"))
+
+        self.assertNotContains(response, "Compartilhadas com você")
+        self.assertNotContains(response, "Mercado dividido")
+
+    def test_recusa_notifica_criador_e_edicao_reenvia_convite(self):
+        despesa = Despesa.objects.create(
+            tipo="variavel",
+            descricao="Conta dividida",
+            valor=Decimal("50.00"),
+            data=date(2026, 4, 10),
+            categoria="Casa",
+            status="pendente",
+            criado_por=self.user,
+        )
+        compartilhamento = CompartilhamentoDespesa.objects.create(
+            despesa=despesa,
+            criado_por=self.user,
+            valor_total=Decimal("100.00"),
+            modo_divisao="igual",
+            pagador=self.user,
+        )
+        participante = ParticipanteCompartilhamentoDespesa.objects.create(
+            compartilhamento=compartilhamento,
+            usuario=self.outro_user,
+            valor=Decimal("50.00"),
+            status="pendente",
+        )
+
+        self.client.force_login(self.outro_user)
+        response_recusa = self.client.post(reverse("financeiro:despesa_compartilhada_recusar", args=[participante.pk]))
+        self.assertEqual(response_recusa.status_code, 302)
+        participante.refresh_from_db()
+        compartilhamento.refresh_from_db()
+        self.assertEqual(participante.status, "recusado")
+        self.assertEqual(compartilhamento.recusado_por, self.outro_user)
+
+        self.client.force_login(self.user)
+        response_lista = self.client.get(reverse("financeiro:despesa_lista"))
+        self.assertContains(response_lista, "Despesas<span class=\"nav-badge\">1</span>", html=True)
+        self.assertContains(response_lista, "shared-status-recusado")
+        self.assertContains(response_lista, "Recusado")
+        self.assertContains(response_lista, "outro_fin recusou o compartilhamento.")
+        self.assertContains(response_lista, "Editar e reenviar")
+        self.assertContains(response_lista, "Excluir")
+
+        response_edicao = self.client.post(
+            reverse("financeiro:despesa_editar", args=[despesa.pk]),
+            {
+                "tipo": "variavel",
+                "descricao": "Conta dividida ajustada",
+                "valor": "120,00",
+                "data": "2026-04-10",
+                "competencia": "2026-04",
+                "categoria": "Casa",
+                "status": "pendente",
+                "observacoes": "",
+                "compartilhar": "on",
+                "participantes": "outro_fin",
+                "modo_divisao": "igual",
+                "pagador": "fin_view",
+            },
+        )
+
+        self.assertEqual(response_edicao.status_code, 302)
+        participante.refresh_from_db()
+        compartilhamento.refresh_from_db()
+        self.assertEqual(participante.status, "pendente")
+        self.assertEqual(participante.valor, Decimal("60.00"))
+        self.assertIsNone(compartilhamento.recusado_por)
+
+    def test_recusa_de_um_participante_recusa_para_todos(self):
+        despesa = Despesa.objects.create(
+            tipo="variavel",
+            descricao="Pizza compartilhada",
+            valor=Decimal("30.00"),
+            data=date(2026, 4, 10),
+            categoria="Lazer",
+            status="pendente",
+            criado_por=self.user,
+        )
+        compartilhamento = CompartilhamentoDespesa.objects.create(
+            despesa=despesa,
+            criado_por=self.user,
+            valor_total=Decimal("90.00"),
+            modo_divisao="igual",
+            pagador=self.user,
+        )
+        recusador = ParticipanteCompartilhamentoDespesa.objects.create(
+            compartilhamento=compartilhamento,
+            usuario=self.outro_user,
+            valor=Decimal("30.00"),
+            status="pendente",
+        )
+        outro_participante = ParticipanteCompartilhamentoDespesa.objects.create(
+            compartilhamento=compartilhamento,
+            usuario=self.terceiro_user,
+            valor=Decimal("30.00"),
+            status="pendente",
+        )
+
+        self.client.force_login(self.outro_user)
+        response_recusa = self.client.post(reverse("financeiro:despesa_compartilhada_recusar", args=[recusador.pk]))
+
+        self.assertEqual(response_recusa.status_code, 302)
+        recusador.refresh_from_db()
+        outro_participante.refresh_from_db()
+        compartilhamento.refresh_from_db()
+        self.assertEqual(recusador.status, "recusado")
+        self.assertEqual(outro_participante.status, "recusado")
+        self.assertEqual(compartilhamento.recusado_por, self.outro_user)
+
+        self.client.force_login(self.terceiro_user)
+        response_terceiro = self.client.get(reverse("financeiro:despesa_lista"))
+
+        self.assertContains(response_terceiro, "outro_fin recusou o compartilhamento.")
+        self.assertContains(response_terceiro, "Pizza compartilhada")
+
+    def test_aceite_parcial_de_multiplos_participantes_fica_aguardando(self):
+        despesa = Despesa.objects.create(
+            tipo="variavel",
+            descricao="Hospedagem",
+            valor=Decimal("100.00"),
+            data=date(2026, 4, 10),
+            categoria="Viagem",
+            status="pendente",
+            criado_por=self.user,
+        )
+        compartilhamento = CompartilhamentoDespesa.objects.create(
+            despesa=despesa,
+            criado_por=self.user,
+            valor_total=Decimal("300.00"),
+            modo_divisao="igual",
+            pagador=self.user,
+        )
+        participante_1 = ParticipanteCompartilhamentoDespesa.objects.create(
+            compartilhamento=compartilhamento,
+            usuario=self.outro_user,
+            valor=Decimal("100.00"),
+            status="pendente",
+        )
+        participante_2 = ParticipanteCompartilhamentoDespesa.objects.create(
+            compartilhamento=compartilhamento,
+            usuario=self.terceiro_user,
+            valor=Decimal("100.00"),
+            status="pendente",
+        )
+
+        self.client.force_login(self.outro_user)
+        self.client.post(reverse("financeiro:despesa_compartilhada_aceitar", args=[participante_1.pk]))
+        participante_1.refresh_from_db()
+        compartilhamento.refresh_from_db()
+
+        self.assertEqual(compartilhamento.status_geral, "aguardando")
+        self.assertIsNone(participante_1.despesa_gerada)
+        self.client.force_login(self.user)
+        response_criador = self.client.get(reverse("financeiro:despesa_lista"))
+        self.assertContains(response_criador, "Aguardando")
+
+        self.client.force_login(self.terceiro_user)
+        self.client.post(reverse("financeiro:despesa_compartilhada_aceitar", args=[participante_2.pk]))
+        participante_1.refresh_from_db()
+        participante_2.refresh_from_db()
+        compartilhamento.refresh_from_db()
+
+        self.assertEqual(compartilhamento.status_geral, "aceito")
+        self.assertIsNotNone(participante_1.despesa_gerada)
+        self.assertIsNotNone(participante_2.despesa_gerada)
+
+    def test_lista_filtra_apenas_despesas_compartilhadas(self):
+        Despesa.objects.create(
+            tipo="variavel",
+            descricao="Padaria comum",
+            valor=Decimal("30.00"),
+            data=date(2026, 4, 10),
+            status="pendente",
+            criado_por=self.user,
+        )
+        compartilhada = Despesa.objects.create(
+            tipo="variavel",
+            descricao="Assinatura dividida",
+            valor=Decimal("40.00"),
+            data=date(2026, 4, 11),
+            status="pendente",
+            criado_por=self.user,
+        )
+        CompartilhamentoDespesa.objects.create(
+            despesa=compartilhada,
+            criado_por=self.user,
+            valor_total=Decimal("80.00"),
+            modo_divisao="igual",
+            pagador=self.user,
+        )
+
+        response = self.client.get(reverse("financeiro:despesa_lista"), {"compartilhamento": "compartilhadas"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Assinatura dividida")
+        self.assertNotContains(response, "Padaria comum")
+        self.assertContains(response, '<option value="compartilhadas" selected>Compartilhadas</option>', html=False)
 
     def test_rotas_burocraticas_foram_removidas(self):
         nomes_removidos = [

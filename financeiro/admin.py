@@ -2,7 +2,7 @@ from django.contrib import admin
 
 from core.admin_permissions import PerfilAdminPermissionMixin
 
-from .models import Despesa, MentoriaFinanceiraIA, Receita, Reserva
+from .models import CompartilhamentoDespesa, Despesa, MentoriaFinanceiraIA, ParticipanteCompartilhamentoDespesa, Receita, Reserva
 
 
 class FinanceiroAdminMixin(PerfilAdminPermissionMixin):
@@ -48,6 +48,22 @@ class ReservaAdmin(FinanceiroAdminMixin, admin.ModelAdmin):
         if not obj.pk:
             obj.criado_por = request.user
         super().save_model(request, obj, form, change)
+
+
+class ParticipanteCompartilhamentoDespesaInline(admin.TabularInline):
+    model = ParticipanteCompartilhamentoDespesa
+    extra = 0
+    autocomplete_fields = ("usuario", "despesa_gerada")
+    readonly_fields = ("data_aceite", "data_confirmacao_ressarcimento")
+
+
+@admin.register(CompartilhamentoDespesa)
+class CompartilhamentoDespesaAdmin(FinanceiroAdminMixin, admin.ModelAdmin):
+    list_display = ("despesa", "valor_total", "modo_divisao", "pagador", "data_prevista_ressarcimento", "criado_por")
+    list_filter = ("modo_divisao", "data_prevista_ressarcimento")
+    search_fields = ("despesa__descricao", "criado_por__username", "pagador__username")
+    autocomplete_fields = ("despesa", "criado_por", "pagador")
+    inlines = (ParticipanteCompartilhamentoDespesaInline,)
 
 
 @admin.register(MentoriaFinanceiraIA)

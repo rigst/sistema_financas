@@ -2,6 +2,8 @@ import csv
 from decimal import Decimal
 
 from django.contrib import messages
+from django.db import transaction
+from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -14,7 +16,7 @@ from django.contrib.auth.decorators import login_required
 from core.query import paginate_queryset
 from core.search import filter_ranked_search
 from .forms import DespesaSimplificadaForm, ReceitaSimplificadaForm, ReservaForm
-from .models import Despesa, Receita, Reserva, arredondar
+from .models import CompartilhamentoDespesa, Despesa, ParticipanteCompartilhamentoDespesa, Receita, Reserva, arredondar
 from .planejamento import calcular_planejamento_semanal, navegacao_semanal
 
 
@@ -44,6 +46,113 @@ def _voltar_para(request, fallback):
 
 def _referencia_semanal(request):
     return parse_date(request.GET.get("semana", "")) or timezone.localdate()
+
+
+def _obter_compartilhamento(despesa):
+    try:
+        return despesa.compartilhamento
+    except CompartilhamentoDespesa.DoesNotExist:
+        return None
+
+
+def _sincronizar_despesa_compartilhada(participante):
+    origem = participante.compartilhamento.despesa
+    if participante.status != "aceito" or not participante.compartilhamento.pronto_para_computar:
+        if participante.despesa_gerada:
+            participante.despesa_gerada.status = "cancelada"
+            participante.despesa_gerada.save(update_fields=["status", "atualizado_em"])
+        return
+    dados = {
+        "tipo": origem.tipo,
+        "descricao": origem.descricao,
+        "valor": participante.valor,
+        "data": origem.data,
+        "competencia": origem.competencia,
+        "categoria": origem.categoria,
+        "parcelas": origem.parcelas,
+        "parcela_atual": origem.parcela_atual,
+        "status": origem.status if origem.status != "cancelada" else "cancelada",
+        "observacoes": origem.observacoes,
+        "criado_por": participante.usuario,
+    }
+    if participante.despesa_gerada_id:
+        despesa = participante.despesa_gerada
+        for campo, valor in dados.items():
+            setattr(despesa, campo, valor)
+        despesa.save()
+    else:
+        participante.despesa_gerada = Despesa.objects.create(**dados)
+        participante.save(update_fields=["despesa_gerada", "atualizado_em"])
+
+
+def _sincronizar_participantes_compartilhamento(despesa):
+    compartilhamento = _obter_compartilhamento(despesa)
+    if not compartilhamento:
+        return
+    for participante in compartilhamento.participantes.filter(status="aceito").select_related("despesa_gerada", "usuario"):
+        _sincronizar_despesa_compartilhada(participante)
+
+
+def _status_compartilhamento(compartilhamento):
+    return compartilhamento.status_geral
+
+
+def _salvar_compartilhamento_despesa(despesa, form, user):
+    compartilhar = form.cleaned_data.get("compartilhar")
+    compartilhamento = _obter_compartilhamento(despesa)
+    if not compartilhar:
+        if compartilhamento:
+            for participante in compartilhamento.participantes.filter(status="aceito").select_related("despesa_gerada"):
+                if participante.despesa_gerada:
+                    participante.despesa_gerada.status = "cancelada"
+                    participante.despesa_gerada.save(update_fields=["status", "atualizado_em"])
+            compartilhamento.delete()
+        return
+
+    valor_total = form.cleaned_data["valor"]
+    despesa.valor = form.cleaned_data["valor_criador_compartilhado"]
+    despesa.save(update_fields=["valor", "atualizado_em"])
+    compartilhamento, _created = CompartilhamentoDespesa.objects.update_or_create(
+        despesa=despesa,
+        defaults={
+            "criado_por": user,
+            "valor_total": valor_total,
+            "modo_divisao": form.cleaned_data.get("modo_divisao") or "igual",
+            "pagador": form.cleaned_data["pagador_resolvido"],
+            "recusado_por": None,
+            "data_prevista_ressarcimento": form.cleaned_data.get("data_prevista_ressarcimento"),
+        },
+    )
+    participantes_form = dict(form.cleaned_data["participantes_resolvidos"])
+    ids_atuais = []
+    for usuario, valor in participantes_form.items():
+        participante, _created = ParticipanteCompartilhamentoDespesa.objects.update_or_create(
+            compartilhamento=compartilhamento,
+            usuario=usuario,
+            defaults={"valor": valor},
+        )
+        if participante.status == "recusado":
+            participante.status = "pendente"
+            participante.ressarcimento_confirmado = False
+            participante.data_aceite = None
+            participante.data_confirmacao_ressarcimento = None
+            participante.save(
+                update_fields=[
+                    "status",
+                    "ressarcimento_confirmado",
+                    "data_aceite",
+                    "data_confirmacao_ressarcimento",
+                    "atualizado_em",
+                ]
+            )
+        ids_atuais.append(participante.pk)
+        _sincronizar_despesa_compartilhada(participante)
+    removidos = compartilhamento.participantes.exclude(pk__in=ids_atuais)
+    for participante in removidos.select_related("despesa_gerada"):
+        if participante.despesa_gerada:
+            participante.despesa_gerada.status = "cancelada"
+            participante.despesa_gerada.save(update_fields=["status", "atualizado_em"])
+    removidos.delete()
 
 
 @login_required
@@ -114,22 +223,48 @@ def receita_excluir(request, pk):
 def despesa_lista(request):
     despesas, busca, _status, mostrar_inativos = _queryset_simples(Despesa, request)
     tipo = request.GET.get("tipo", "").strip()
+    compartilhamento_filtro = request.GET.get("compartilhamento", "").strip()
     tipos_validos = {choice[0] for choice in Despesa.TIPO_CHOICES}
     if tipo in tipos_validos:
         despesas = despesas.filter(tipo=tipo)
-    fixas = Despesa.objects.filter(criado_por=request.user, tipo="fixa").exclude(status="cancelada").order_by("-valor", "descricao")
-    parceladas = list(
-        Despesa.objects.filter(criado_por=request.user, tipo="parcelada")
-        .exclude(status="cancelada")
-        .order_by("descricao")
-    )
+    filtrar_compartilhadas = compartilhamento_filtro == "compartilhadas"
+    if filtrar_compartilhadas:
+        despesas = despesas.filter(Q(compartilhamento__isnull=False) | Q(participacao_compartilhada__isnull=False)).distinct()
+    fixas = Despesa.objects.filter(criado_por=request.user, tipo="fixa").exclude(status="cancelada")
+    parceladas_qs = Despesa.objects.filter(criado_por=request.user, tipo="parcelada").exclude(status="cancelada")
+    if filtrar_compartilhadas:
+        fixas = fixas.filter(Q(compartilhamento__isnull=False) | Q(participacao_compartilhada__isnull=False)).distinct()
+        parceladas_qs = parceladas_qs.filter(Q(compartilhamento__isnull=False) | Q(participacao_compartilhada__isnull=False)).distinct()
+    fixas = [item for item in fixas.order_by("-valor", "descricao") if item.deve_computar()]
+    parceladas = list(parceladas_qs.order_by("descricao"))
     page_obj = paginate_queryset(request, despesas, per_page=25)
     hoje = timezone.localdate()
     parceladas.sort(key=lambda item: (item.valor_parcela, item.valor), reverse=True)
     for item in parceladas:
         item.parcela_exibicao = item.parcela_na_data(hoje)
+    parceladas = [item for item in parceladas if item.deve_computar()]
     for item in page_obj.object_list:
         item.parcela_exibicao = item.parcela_na_data(hoje) if item.tipo == "parcelada" else None
+        item.compartilhamento_info = _obter_compartilhamento(item)
+        try:
+            item.participacao_info = item.participacao_compartilhada
+        except ParticipanteCompartilhamentoDespesa.DoesNotExist:
+            item.participacao_info = None
+    compartilhadas_recebidas = (
+        ParticipanteCompartilhamentoDespesa.objects.filter(usuario=request.user)
+        .filter(Q(status="pendente") | Q(status="recusado") | Q(status="aceito", ressarcimento_confirmado=False))
+        .select_related("compartilhamento__despesa", "compartilhamento__criado_por", "compartilhamento__pagador", "compartilhamento__recusado_por", "despesa_gerada")
+        .order_by("status", "-criado_em")
+    )
+    compartilhadas_criadas = (
+        CompartilhamentoDespesa.objects.filter(criado_por=request.user)
+        .exclude(despesa__status="cancelada")
+        .select_related("despesa", "pagador", "recusado_por")
+        .prefetch_related("participantes__usuario")
+    )
+    compartilhadas_alertas_count = len(compartilhadas_recebidas) + sum(
+        1 for compartilhamento in compartilhadas_criadas if compartilhamento.status_geral != "aceito"
+    )
     return render(
         request,
         "financeiro/despesa_lista.html",
@@ -138,10 +273,14 @@ def despesa_lista(request):
             "page_obj": page_obj,
             "busca": busca,
             "tipo": tipo,
+            "compartilhamento_filtro": compartilhamento_filtro,
             "fixas": fixas,
             "parceladas": parceladas,
             "hoje": hoje,
             "mostrar_inativos": mostrar_inativos,
+            "compartilhadas_recebidas": compartilhadas_recebidas,
+            "compartilhadas_criadas": compartilhadas_criadas,
+            "compartilhadas_alertas_count": compartilhadas_alertas_count,
         },
     )
 
@@ -151,9 +290,11 @@ def despesa_criar(request):
     if request.method == "POST":
         form = DespesaSimplificadaForm(request.POST, user=request.user)
         if form.is_valid():
-            despesa = form.save(commit=False)
-            despesa.criado_por = request.user
-            despesa.save()
+            with transaction.atomic():
+                despesa = form.save(commit=False)
+                despesa.criado_por = request.user
+                despesa.save()
+                _salvar_compartilhamento_despesa(despesa, form, request.user)
             messages.success(request, "Despesa salva com sucesso.")
             return redirect("financeiro:despesa_lista")
     else:
@@ -167,7 +308,9 @@ def despesa_editar(request, pk):
     if request.method == "POST":
         form = DespesaSimplificadaForm(request.POST, instance=despesa, user=request.user)
         if form.is_valid():
-            form.save()
+            with transaction.atomic():
+                despesa = form.save()
+                _salvar_compartilhamento_despesa(despesa, form, request.user)
             messages.success(request, "Despesa atualizada com sucesso.")
             return redirect("financeiro:despesa_lista")
     else:
@@ -181,6 +324,7 @@ def despesa_marcar_paga(request, pk):
     despesa = get_object_or_404(Despesa.objects.filter(criado_por=request.user).exclude(status="cancelada"), pk=pk)
     despesa.status = "paga"
     despesa.save(update_fields=["status", "atualizado_em"])
+    _sincronizar_participantes_compartilhamento(despesa)
     messages.success(request, "Despesa marcada como paga.")
     return _voltar_para(request, "financeiro:despesa_lista")
 
@@ -191,7 +335,55 @@ def despesa_cancelar(request, pk):
     despesa = get_object_or_404(Despesa.objects.filter(criado_por=request.user), pk=pk)
     despesa.status = "cancelada"
     despesa.save(update_fields=["status", "atualizado_em"])
+    _sincronizar_participantes_compartilhamento(despesa)
     messages.success(request, "Despesa cancelada.")
+    return _voltar_para(request, "financeiro:despesa_lista")
+
+
+@login_required
+def despesas_compartilhadas(request):
+    return redirect("financeiro:despesa_lista")
+
+
+@require_POST
+@login_required
+def despesa_compartilhada_aceitar(request, pk):
+    participante = get_object_or_404(ParticipanteCompartilhamentoDespesa.objects.filter(usuario=request.user), pk=pk)
+    if participante.status != "aceito":
+        participante.status = "aceito"
+        participante.data_aceite = timezone.now()
+        participante.save(update_fields=["status", "data_aceite", "atualizado_em"])
+    _sincronizar_participantes_compartilhamento(participante.compartilhamento.despesa)
+    messages.success(request, "Despesa compartilhada aceita.")
+    return _voltar_para(request, "financeiro:despesa_lista")
+
+
+@require_POST
+@login_required
+def despesa_compartilhada_recusar(request, pk):
+    participante = get_object_or_404(ParticipanteCompartilhamentoDespesa.objects.filter(usuario=request.user), pk=pk)
+    compartilhamento = participante.compartilhamento
+    compartilhamento.recusado_por = request.user
+    compartilhamento.save(update_fields=["recusado_por", "atualizado_em"])
+    for item in compartilhamento.participantes.select_related("despesa_gerada"):
+        item.status = "recusado"
+        item.ressarcimento_confirmado = False
+        item.save(update_fields=["status", "ressarcimento_confirmado", "atualizado_em"])
+        if item.despesa_gerada:
+            item.despesa_gerada.status = "cancelada"
+            item.despesa_gerada.save(update_fields=["status", "atualizado_em"])
+    messages.success(request, "Despesa compartilhada recusada.")
+    return _voltar_para(request, "financeiro:despesa_lista")
+
+
+@require_POST
+@login_required
+def despesa_compartilhada_confirmar_ressarcimento(request, pk):
+    participante = get_object_or_404(ParticipanteCompartilhamentoDespesa.objects.filter(usuario=request.user, status="aceito"), pk=pk)
+    participante.ressarcimento_confirmado = True
+    participante.data_confirmacao_ressarcimento = timezone.now()
+    participante.save(update_fields=["ressarcimento_confirmado", "data_confirmacao_ressarcimento", "atualizado_em"])
+    messages.success(request, "Ressarcimento confirmado.")
     return _voltar_para(request, "financeiro:despesa_lista")
 
 

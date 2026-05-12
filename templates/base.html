@@ -43,7 +43,7 @@
                         <ul class="nav-links">
                             <li><a href="{% url 'dashboard' %}" {% if request.resolver_match.url_name == 'dashboard' %}class="active"{% endif %}>Dashboard</a></li>
                             <li><a href="{% url 'financeiro:receita_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'receita' in request.resolver_match.url_name %}class="active"{% endif %}>Receitas</a></li>
-                            <li><a href="{% url 'financeiro:despesa_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'despesa' in request.resolver_match.url_name %}class="active"{% endif %}>Despesas</a></li>
+                            <li><a href="{% url 'financeiro:despesa_lista' %}" {% if request.resolver_match.namespace == 'financeiro' and 'despesa' in request.resolver_match.url_name %}class="active"{% endif %}>Despesas{% if compartilhamentos_pendentes_count %}<span class="nav-badge">{{ compartilhamentos_pendentes_count }}</span>{% endif %}</a></li>
                             <li><a href="{% url 'financeiro:controle' %}" {% if request.resolver_match.namespace == 'financeiro' and request.resolver_match.url_name == 'controle' or request.resolver_match.namespace == 'financeiro' and 'reserva' in request.resolver_match.url_name %}class="active"{% endif %}>Controle</a></li>
                             <li><a href="{% url 'manual' %}" {% if request.resolver_match.url_name == 'manual' %}class="active"{% endif %}>Manual</a></li>
                         </ul>
@@ -622,6 +622,35 @@
         });
       };
 
+      const bindSharedExpenseForms = (scope = document) => {
+        scope.querySelectorAll("[data-shared-toggle]").forEach((toggle) => {
+          if (toggle.dataset.sharedBound === "1") return;
+          toggle.dataset.sharedBound = "1";
+          const form = toggle.form;
+          const fields = form ? form.querySelector("[data-shared-fields]") : null;
+          const mode = form ? form.querySelector("[data-shared-mode]") : null;
+          const valuesField = form ? form.querySelector("[data-shared-values-field]") : null;
+          const valuesInput = form ? form.querySelector("[data-shared-values]") : null;
+          if (!fields) return;
+
+          const sync = () => {
+            const enabled = toggle.checked;
+            fields.hidden = !enabled;
+            fields.querySelectorAll("input, select, textarea").forEach((field) => {
+              field.disabled = !enabled;
+            });
+
+            const fixedValues = enabled && mode && mode.value === "fixo";
+            if (valuesField) valuesField.hidden = !fixedValues;
+            if (valuesInput) valuesInput.disabled = !fixedValues;
+          };
+
+          toggle.addEventListener("change", sync);
+          if (mode) mode.addEventListener("change", sync);
+          sync();
+        });
+      };
+
       const showGlobalSaveErrorNotice = () => {
         const hasFormErrors = document.querySelector(".errorlist, .form-errors");
         if (!hasFormErrors) return;
@@ -737,6 +766,7 @@
       bindAutoSubmitControls();
       bindConfirmForms();
       bindExpenseInstallments();
+      bindSharedExpenseForms();
       bindMobileHeaderToggle();
       setTableCardLabels();
       document.addEventListener("codex:refresh-decimals", (event) => {
@@ -746,6 +776,7 @@
         bindAutoSubmitControls(event.detail?.scope || document);
         bindConfirmForms(event.detail?.scope || document);
         bindExpenseInstallments(event.detail?.scope || document);
+        bindSharedExpenseForms(event.detail?.scope || document);
         bindMobileHeaderToggle();
         setTableCardLabels(event.detail?.scope || document);
       });
