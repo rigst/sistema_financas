@@ -16,7 +16,16 @@ from django.contrib.auth.decorators import login_required
 from core.query import paginate_queryset
 from core.search import filter_ranked_search
 from .forms import DespesaSimplificadaForm, ReceitaSimplificadaForm, ReservaForm
-from .models import CompartilhamentoDespesa, Despesa, ParticipanteCompartilhamentoDespesa, Receita, Reserva, arredondar
+from .models import (
+    CompartilhamentoDespesa,
+    Despesa,
+    PagamentoDespesa,
+    ParticipanteCompartilhamentoDespesa,
+    Receita,
+    RecebimentoReceita,
+    Reserva,
+    arredondar,
+)
 from .planejamento import calcular_planejamento_semanal, navegacao_semanal
 
 
@@ -48,11 +57,38 @@ def _referencia_semanal(request):
     return parse_date(request.GET.get("semana", "")) or timezone.localdate()
 
 
+def _parse_competencia(valor):
+    texto = (valor or "").strip()
+    if len(texto) == 7:
+        texto = f"{texto}-01"
+    data = parse_date(texto)
+    return data.replace(day=1) if data else None
+
+
+def _competencia_do_post(request):
+    return _parse_competencia(request.POST.get("competencia")) or timezone.localdate().replace(day=1)
+
+
 def _obter_compartilhamento(despesa):
     try:
         return despesa.compartilhamento
     except CompartilhamentoDespesa.DoesNotExist:
         return None
+
+
+def _sincronizar_pagamentos_compartilhados(origem, gerada):
+    if origem.tipo == "variavel" or gerada.status == "cancelada":
+        return
+    pagamentos_origem = {item.competencia: item.data_pagamento for item in origem.pagamentos.all()}
+    gerada.pagamentos.exclude(competencia__in=pagamentos_origem.keys()).delete()
+    existentes = set(gerada.pagamentos.values_list("competencia", flat=True))
+    PagamentoDespesa.objects.bulk_create(
+        [
+            PagamentoDespesa(despesa=gerada, competencia=competencia, data_pagamento=data_pagamento)
+            for competencia, data_pagamento in pagamentos_origem.items()
+            if competencia not in existentes
+        ]
+    )
 
 
 def _sincronizar_despesa_compartilhada(participante):
@@ -68,6 +104,7 @@ def _sincronizar_despesa_compartilhada(participante):
         "valor": participante.valor,
         "data": origem.data,
         "competencia": origem.competencia,
+        "data_fim": origem.data_fim,
         "categoria": origem.categoria,
         "parcelas": origem.parcelas,
         "parcela_atual": origem.parcela_atual,
@@ -83,6 +120,7 @@ def _sincronizar_despesa_compartilhada(participante):
     else:
         participante.despesa_gerada = Despesa.objects.create(**dados)
         participante.save(update_fields=["despesa_gerada", "atualizado_em"])
+    _sincronizar_pagamentos_compartilhados(origem, participante.despesa_gerada)
 
 
 def _sincronizar_participantes_compartilhamento(despesa):
@@ -155,6 +193,23 @@ def _salvar_compartilhamento_despesa(despesa, form, user):
     removidos.delete()
 
 
+def _anotar_referencia_mensal(itens, hoje, modelo_registro, campo_fk):
+    """Anota itens de série (fixa/parcelada) com a competência de referência e se ela está quitada."""
+    series_ids = [item.pk for item in itens if item.tipo != "variavel"]
+    quitadas = (
+        set(modelo_registro.objects.filter(**{f"{campo_fk}_id__in": series_ids}).values_list(f"{campo_fk}_id", "competencia"))
+        if series_ids
+        else set()
+    )
+    for item in itens:
+        if item.tipo == "variavel":
+            item.competencia_ref = None
+            item.quitada_na_referencia = False
+        else:
+            item.competencia_ref = item.competencia_de_referencia(hoje)
+            item.quitada_na_referencia = (item.pk, item.competencia_ref) in quitadas
+
+
 @login_required
 def receita_lista(request):
     receitas, busca, status, mostrar_inativos = _queryset_simples(Receita, request)
@@ -162,6 +217,7 @@ def receita_lista(request):
     hoje = timezone.localdate()
     for item in page_obj.object_list:
         item.parcela_exibicao = item.parcela_na_data(hoje) if item.tipo == "parcelada" else None
+    _anotar_referencia_mensal(page_obj.object_list, hoje, RecebimentoReceita, "receita")
     return render(
         request,
         "financeiro/receita_lista.html",
@@ -202,10 +258,38 @@ def receita_editar(request, pk):
 @login_required
 def receita_marcar_recebida(request, pk):
     receita = get_object_or_404(Receita.objects.filter(criado_por=request.user, ativa=True), pk=pk)
-    receita.status = "recebida"
-    receita.data_recebimento = timezone.localdate()
-    receita.save(update_fields=["status", "data_recebimento", "atualizado_em"])
-    messages.success(request, "Receita marcada como recebida.")
+    if receita.tipo == "variavel":
+        receita.status = "recebida"
+        receita.data_recebimento = timezone.localdate()
+        receita.save(update_fields=["status", "data_recebimento", "atualizado_em"])
+        messages.success(request, "Receita marcada como recebida.")
+    else:
+        competencia = _competencia_do_post(request)
+        if not receita.competencia_valida(competencia):
+            messages.error(request, "Competência fora do período desta receita.")
+            return _voltar_para(request, "financeiro:receita_lista")
+        RecebimentoReceita.objects.get_or_create(
+            receita=receita,
+            competencia=competencia,
+            defaults={"data_recebimento": timezone.localdate()},
+        )
+        messages.success(request, f"Receita marcada como recebida em {competencia:%m/%Y}.")
+    return _voltar_para(request, "financeiro:receita_lista")
+
+
+@require_POST
+@login_required
+def receita_desmarcar_recebida(request, pk):
+    receita = get_object_or_404(Receita.objects.filter(criado_por=request.user, ativa=True), pk=pk)
+    if receita.tipo == "variavel":
+        receita.status = "prevista"
+        receita.data_recebimento = None
+        receita.save(update_fields=["status", "data_recebimento", "atualizado_em"])
+        messages.success(request, "Receita marcada como prevista.")
+    else:
+        competencia = _competencia_do_post(request)
+        RecebimentoReceita.objects.filter(receita=receita, competencia=competencia).delete()
+        messages.success(request, f"Recebimento de {competencia:%m/%Y} desfeito.")
     return _voltar_para(request, "financeiro:receita_lista")
 
 
@@ -250,6 +334,7 @@ def despesa_lista(request):
             item.participacao_info = item.participacao_compartilhada
         except ParticipanteCompartilhamentoDespesa.DoesNotExist:
             item.participacao_info = None
+    _anotar_referencia_mensal(page_obj.object_list, hoje, PagamentoDespesa, "despesa")
     compartilhadas_recebidas = (
         ParticipanteCompartilhamentoDespesa.objects.filter(usuario=request.user)
         .filter(Q(status="pendente") | Q(status="recusado") | Q(status="aceito", ressarcimento_confirmado=False))
@@ -322,10 +407,38 @@ def despesa_editar(request, pk):
 @login_required
 def despesa_marcar_paga(request, pk):
     despesa = get_object_or_404(Despesa.objects.filter(criado_por=request.user).exclude(status="cancelada"), pk=pk)
-    despesa.status = "paga"
-    despesa.save(update_fields=["status", "atualizado_em"])
+    if despesa.tipo == "variavel":
+        despesa.status = "paga"
+        despesa.save(update_fields=["status", "atualizado_em"])
+        messages.success(request, "Despesa marcada como paga.")
+    else:
+        competencia = _competencia_do_post(request)
+        if not despesa.competencia_valida(competencia):
+            messages.error(request, "Competência fora do período desta despesa.")
+            return _voltar_para(request, "financeiro:despesa_lista")
+        PagamentoDespesa.objects.get_or_create(
+            despesa=despesa,
+            competencia=competencia,
+            defaults={"data_pagamento": timezone.localdate()},
+        )
+        messages.success(request, f"Despesa marcada como paga em {competencia:%m/%Y}.")
     _sincronizar_participantes_compartilhamento(despesa)
-    messages.success(request, "Despesa marcada como paga.")
+    return _voltar_para(request, "financeiro:despesa_lista")
+
+
+@require_POST
+@login_required
+def despesa_desmarcar_paga(request, pk):
+    despesa = get_object_or_404(Despesa.objects.filter(criado_por=request.user).exclude(status="cancelada"), pk=pk)
+    if despesa.tipo == "variavel":
+        despesa.status = "pendente"
+        despesa.save(update_fields=["status", "atualizado_em"])
+        messages.success(request, "Despesa marcada como pendente.")
+    else:
+        competencia = _competencia_do_post(request)
+        PagamentoDespesa.objects.filter(despesa=despesa, competencia=competencia).delete()
+        messages.success(request, f"Pagamento de {competencia:%m/%Y} desfeito.")
+    _sincronizar_participantes_compartilhamento(despesa)
     return _voltar_para(request, "financeiro:despesa_lista")
 
 

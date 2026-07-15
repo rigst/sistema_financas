@@ -126,15 +126,35 @@
                             <td data-sort="{{ despesa.descricao|lower }}"><span class="table-mainline">{{ despesa.descricao }}</span>{% if despesa.compartilhamento_info %}<span class="table-subline-muted">Compartilhada · {{ despesa.compartilhamento_info.status_geral|title }} · total {{ despesa.compartilhamento_info.valor_total|brl }}</span>{% if despesa.compartilhamento_info.status_geral == "aguardando" %}<span class="table-subline-warning">Aguardando aceite de todos para computar</span>{% endif %}{% elif despesa.participacao_info %}<span class="table-subline-muted">Parte compartilhada por {{ despesa.participacao_info.compartilhamento.criado_por.username }} · {{ despesa.participacao_info.compartilhamento.status_geral|title }}</span>{% if despesa.participacao_info.compartilhamento.status_geral == "aguardando" %}<span class="table-subline-warning">Aguardando aceite de todos para computar</span>{% endif %}{% endif %}{% if despesa.status == "cancelada" %}<span class="table-subline-muted">Inativa</span>{% endif %}</td>
                             <td data-sort="{{ despesa.get_tipo_display|lower }}{% if despesa.tipo == 'parcelada' %} {{ despesa.parcela_exibicao }}/{{ despesa.parcelas }}{% endif %}">{{ despesa.get_tipo_display }}{% if despesa.tipo == "parcelada" %} · {{ despesa.parcela_exibicao }}/{{ despesa.parcelas }}{% endif %}</td>
                             <td data-sort="{{ despesa.categoria|default:''|lower }}">{% if despesa.categoria %}<span class="category-with-icon">{% include "partials/category_icon.html" with icon=despesa.categoria|categoria_icone %}{{ despesa.categoria }}</span>{% else %}-{% endif %}</td>
-                            <td data-sort="{{ despesa.get_status_display|lower }}"><span class="badge status-{{ despesa.status }}">{{ despesa.get_status_display }}</span></td>
+                            <td data-sort="{% if despesa.tipo == 'variavel' or despesa.status == 'cancelada' %}{{ despesa.get_status_display|lower }}{% elif despesa.quitada_na_referencia %}paga{% else %}pendente{% endif %}">{% if despesa.tipo == "variavel" or despesa.status == "cancelada" %}<span class="badge status-{{ despesa.status }}">{{ despesa.get_status_display }}</span>{% elif despesa.quitada_na_referencia %}<span class="badge status-paga">Paga ({{ despesa.competencia_ref|date:"m/Y" }})</span>{% else %}<span class="badge status-pendente">Pendente ({{ despesa.competencia_ref|date:"m/Y" }})</span>{% endif %}</td>
                             <td class="money" data-sort="{{ despesa.valor }}">{{ despesa.valor|brl }}</td>
                             <td class="actions-col">
                                 <div class="actions-stack actions-stack-inline">
-                                    {% if despesa.status == "pendente" %}
+                                    {% if despesa.tipo == "variavel" and despesa.status == "pendente" %}
                                         <form method="post" action="{% url 'financeiro:despesa_marcar_paga' despesa.pk %}">
                                             {% csrf_token %}
                                             <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                             <button class="btn btn-status-approved btn-icon-action" type="submit" title="Marcar como paga" aria-label="Marcar despesa como paga"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M20 7 9 18l-5-5"/></svg><span class="visually-hidden">Marcar como paga</span></button>
+                                        </form>
+                                    {% elif despesa.tipo == "variavel" and despesa.status == "paga" %}
+                                        <form method="post" action="{% url 'financeiro:despesa_desmarcar_paga' despesa.pk %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            <button class="btn btn-secondary btn-icon-action" type="submit" title="Desfazer pagamento" aria-label="Desfazer pagamento"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg><span class="visually-hidden">Desfazer pagamento</span></button>
+                                        </form>
+                                    {% elif despesa.status != "cancelada" and not despesa.quitada_na_referencia %}
+                                        <form method="post" action="{% url 'financeiro:despesa_marcar_paga' despesa.pk %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            <input type="hidden" name="competencia" value="{{ despesa.competencia_ref|date:'Y-m-d' }}">
+                                            <button class="btn btn-status-approved btn-icon-action" type="submit" title="Marcar {{ despesa.competencia_ref|date:'m/Y' }} como paga" aria-label="Marcar {{ despesa.competencia_ref|date:'m/Y' }} como paga"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M20 7 9 18l-5-5"/></svg><span class="visually-hidden">Marcar como paga</span></button>
+                                        </form>
+                                    {% elif despesa.status != "cancelada" and despesa.quitada_na_referencia %}
+                                        <form method="post" action="{% url 'financeiro:despesa_desmarcar_paga' despesa.pk %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            <input type="hidden" name="competencia" value="{{ despesa.competencia_ref|date:'Y-m-d' }}">
+                                            <button class="btn btn-secondary btn-icon-action" type="submit" title="Desfazer pagamento de {{ despesa.competencia_ref|date:'m/Y' }}" aria-label="Desfazer pagamento de {{ despesa.competencia_ref|date:'m/Y' }}"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg><span class="visually-hidden">Desfazer pagamento</span></button>
                                         </form>
                                     {% endif %}
                                     <a class="btn btn-secondary btn-icon-action" href="{% url 'financeiro:despesa_editar' despesa.pk %}" title="Editar despesa" aria-label="Editar despesa"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M4 20l4.5-1 9.2-9.2a1.8 1.8 0 0 0 0-2.6l-.9-.9a1.8 1.8 0 0 0-2.6 0L5 15.5 4 20Z"/><path d="M13.5 7.5l3 3"/></svg><span class="visually-hidden">Editar</span></a>

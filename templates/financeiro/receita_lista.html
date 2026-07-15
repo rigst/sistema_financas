@@ -37,15 +37,35 @@
                             <td>{{ receita.descricao }}{% if not receita.ativa %}<span class="table-subline-muted">Inativa</span>{% endif %}</td>
                             <td>{{ receita.get_tipo_display }}{% if receita.tipo == "parcelada" %} · {{ receita.parcela_exibicao }}/{{ receita.parcelas }}{% endif %}</td>
                             <td>{% if receita.categoria %}<span class="category-with-icon">{% include "partials/category_icon.html" with icon=receita.categoria|categoria_icone %}{{ receita.categoria }}</span>{% else %}-{% endif %}</td>
-                            <td><span class="badge status-{{ receita.status }}">{{ receita.get_status_display }}</span></td>
+                            <td>{% if receita.tipo == "variavel" %}<span class="badge status-{{ receita.status }}">{{ receita.get_status_display }}</span>{% elif receita.quitada_na_referencia %}<span class="badge status-recebida">Recebida ({{ receita.competencia_ref|date:"m/Y" }})</span>{% else %}<span class="badge status-prevista">Prevista ({{ receita.competencia_ref|date:"m/Y" }})</span>{% endif %}</td>
                             <td class="money">{{ receita.valor|brl }}</td>
                             <td class="actions-col">
                                 <div class="actions-stack actions-stack-inline">
-                                    {% if receita.ativa and receita.status == "prevista" %}
+                                    {% if receita.ativa and receita.tipo == "variavel" and receita.status == "prevista" %}
                                         <form method="post" action="{% url 'financeiro:receita_marcar_recebida' receita.pk %}">
                                             {% csrf_token %}
                                             <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                             <button class="btn btn-status-approved btn-icon-action" type="submit" title="Marcar como recebida" aria-label="Marcar receita como recebida"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M20 7 9 18l-5-5"/></svg><span class="visually-hidden">Marcar como recebida</span></button>
+                                        </form>
+                                    {% elif receita.ativa and receita.tipo == "variavel" and receita.status == "recebida" %}
+                                        <form method="post" action="{% url 'financeiro:receita_desmarcar_recebida' receita.pk %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            <button class="btn btn-secondary btn-icon-action" type="submit" title="Desfazer recebimento" aria-label="Desfazer recebimento"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg><span class="visually-hidden">Desfazer recebimento</span></button>
+                                        </form>
+                                    {% elif receita.ativa and not receita.quitada_na_referencia %}
+                                        <form method="post" action="{% url 'financeiro:receita_marcar_recebida' receita.pk %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            <input type="hidden" name="competencia" value="{{ receita.competencia_ref|date:'Y-m-d' }}">
+                                            <button class="btn btn-status-approved btn-icon-action" type="submit" title="Marcar {{ receita.competencia_ref|date:'m/Y' }} como recebida" aria-label="Marcar {{ receita.competencia_ref|date:'m/Y' }} como recebida"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M20 7 9 18l-5-5"/></svg><span class="visually-hidden">Marcar como recebida</span></button>
+                                        </form>
+                                    {% elif receita.ativa and receita.quitada_na_referencia %}
+                                        <form method="post" action="{% url 'financeiro:receita_desmarcar_recebida' receita.pk %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            <input type="hidden" name="competencia" value="{{ receita.competencia_ref|date:'Y-m-d' }}">
+                                            <button class="btn btn-secondary btn-icon-action" type="submit" title="Desfazer recebimento de {{ receita.competencia_ref|date:'m/Y' }}" aria-label="Desfazer recebimento de {{ receita.competencia_ref|date:'m/Y' }}"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg><span class="visually-hidden">Desfazer recebimento</span></button>
                                         </form>
                                     {% endif %}
                                     <a class="btn btn-secondary btn-icon-action" href="{% url 'financeiro:receita_editar' receita.pk %}" title="Editar receita" aria-label="Editar receita"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M4 20l4.5-1 9.2-9.2a1.8 1.8 0 0 0 0-2.6l-.9-.9a1.8 1.8 0 0 0-2.6 0L5 15.5 4 20Z"/><path d="M13.5 7.5l3 3"/></svg><span class="visually-hidden">Editar</span></a>

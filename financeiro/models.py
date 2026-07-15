@@ -1,5 +1,4 @@
 import calendar
-from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
@@ -8,6 +7,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Case, DecimalField, Q, Sum, Value, When
 from django.db.models.functions import Coalesce
+from django.utils import timezone
 
 DUAS_CASAS = Decimal("0.01")
 
@@ -30,7 +30,38 @@ def normalizar_competencia(valor):
     return valor.replace(day=1)
 
 
-class Receita(models.Model):
+LIMITE_MESES_FIXA = 120
+
+
+class SerieCompetenciaMixin:
+    """Helpers de série mensal para Receita/Despesa (tipos fixa e parcelada)."""
+
+    def competencia_final(self):
+        if self.tipo == "parcelada":
+            return adicionar_meses_data(self.competencia, self.parcelas - self.parcela_atual)
+        if self.tipo == "fixa":
+            limite = adicionar_meses_data(self.competencia, LIMITE_MESES_FIXA - 1)
+            if self.data_fim and self.data_fim < limite:
+                return self.data_fim
+            return limite
+        return self.competencia
+
+    def competencia_valida(self, competencia):
+        if not competencia:
+            return False
+        competencia = normalizar_competencia(competencia)
+        return self.competencia <= competencia <= self.competencia_final()
+
+    def competencia_de_referencia(self, referencia=None):
+        """Competência da série mais próxima do mês de referência (default: mês atual)."""
+        referencia = normalizar_competencia(referencia or timezone.localdate())
+        if referencia < self.competencia:
+            return self.competencia
+        final = self.competencia_final()
+        return final if referencia > final else referencia
+
+
+class Receita(SerieCompetenciaMixin, models.Model):
     TIPO_CHOICES = [
         ("variavel", "Variável"),
         ("fixa", "Fixa"),
@@ -44,8 +75,9 @@ class Receita(models.Model):
     descricao = models.CharField(max_length=255)
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default="variavel")
     valor = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
-    data = models.DateField(default=date.today)
+    data = models.DateField(default=timezone.localdate)
     competencia = models.DateField()
+    data_fim = models.DateField(null=True, blank=True)
     categoria = models.CharField(max_length=120, blank=True)
     parcelas = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(120)])
     parcela_atual = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(120)])
@@ -79,6 +111,16 @@ class Receita(models.Model):
         if not self.competencia:
             self.competencia = self.data
         self.competencia = normalizar_competencia(self.competencia)
+        if self.data_fim:
+            if self.tipo != "fixa":
+                raise ValidationError({"data_fim": "Use a data final apenas para receita fixa."})
+            self.data_fim = normalizar_competencia(self.data_fim)
+            if self.data_fim < self.competencia:
+                raise ValidationError({"data_fim": "A data final não pode ser anterior à competência inicial."})
+        if self.tipo != "variavel":
+            if self.status == "recebida":
+                raise ValidationError({"status": "Para receitas fixas ou parceladas, o recebimento é registrado mês a mês."})
+            self.data_recebimento = None
         if self.status == "recebida" and not self.data_recebimento:
             self.data_recebimento = self.data
         if self.status == "prevista":
@@ -97,31 +139,36 @@ class Receita(models.Model):
             return arredondar(self.valor)
         return arredondar(self.valor / Decimal(self.parcelas))
 
+    def _mapa_recebimentos(self):
+        return {item.competencia: item.data_recebimento for item in self.recebimentos.all()}
+
     def ocorrencias(self, inicio, fim):
-        data_recebimento = self.data_recebimento or self.data
         if self.tipo == "fixa":
+            mapa = self._mapa_recebimentos()
             ocorrencias = []
             indice = 0
-            while indice < 120:
+            while indice < LIMITE_MESES_FIXA:
                 competencia_ocorrencia = adicionar_meses_data(self.competencia, indice)
                 if competencia_ocorrencia > fim:
                     break
+                if self.data_fim and competencia_ocorrencia > self.data_fim:
+                    break
                 if competencia_ocorrencia >= inicio:
-                    data_ocorrencia = adicionar_meses_data(self.data, indice)
-                    recebida = self.status == "recebida" and data_ocorrencia <= data_recebimento
+                    data_recebimento = mapa.get(competencia_ocorrencia)
                     ocorrencias.append(
                         {
-                            "data": data_ocorrencia,
+                            "data": adicionar_meses_data(self.data, indice),
                             "competencia": competencia_ocorrencia,
                             "valor": arredondar(self.valor),
                             "parcela": None,
-                            "status": "recebida" if recebida else "prevista",
-                            "data_recebimento": data_recebimento if recebida else None,
+                            "status": "recebida" if data_recebimento else "prevista",
+                            "data_recebimento": data_recebimento,
                         }
                     )
                 indice += 1
             return ocorrencias
         if self.tipo == "parcelada":
+            mapa = self._mapa_recebimentos()
             ocorrencias = []
             inicio_indice = self.parcela_atual - 1
             for indice in range(inicio_indice, self.parcelas):
@@ -129,16 +176,15 @@ class Receita(models.Model):
                 competencia_ocorrencia = adicionar_meses_data(self.competencia, incremento)
                 if not inicio <= competencia_ocorrencia <= fim:
                     continue
-                data_ocorrencia = adicionar_meses_data(self.data, incremento)
-                recebida = self.status == "recebida" and data_ocorrencia <= data_recebimento
+                data_recebimento = mapa.get(competencia_ocorrencia)
                 ocorrencias.append(
                     {
-                        "data": data_ocorrencia,
+                        "data": adicionar_meses_data(self.data, incremento),
                         "competencia": competencia_ocorrencia,
                         "valor": self.valor_parcela,
                         "parcela": indice + 1,
-                        "status": "recebida" if recebida else "prevista",
-                        "data_recebimento": data_recebimento if recebida else None,
+                        "status": "recebida" if data_recebimento else "prevista",
+                        "data_recebimento": data_recebimento,
                     }
                 )
             return ocorrencias
@@ -156,7 +202,7 @@ class Receita(models.Model):
         return []
 
     def parcela_na_data(self, referencia=None):
-        referencia = referencia or date.today()
+        referencia = referencia or timezone.localdate()
         if self.tipo != "parcelada":
             return None
         meses_decorridos = (referencia.year - self.competencia.year) * 12 + (referencia.month - self.competencia.month)
@@ -165,7 +211,7 @@ class Receita(models.Model):
         return min(self.parcela_atual + meses_decorridos, self.parcelas)
 
 
-class Despesa(models.Model):
+class Despesa(SerieCompetenciaMixin, models.Model):
     TIPO_CHOICES = [
         ("variavel", "Variável"),
         ("fixa", "Fixa"),
@@ -180,8 +226,9 @@ class Despesa(models.Model):
     descricao = models.CharField(max_length=255)
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default="variavel")
     valor = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
-    data = models.DateField(default=date.today)
+    data = models.DateField(default=timezone.localdate)
     competencia = models.DateField()
+    data_fim = models.DateField(null=True, blank=True)
     categoria = models.CharField(max_length=120, blank=True)
     parcelas = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(120)])
     parcela_atual = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(120)])
@@ -230,6 +277,14 @@ class Despesa(models.Model):
         if not self.competencia:
             self.competencia = self.data
         self.competencia = normalizar_competencia(self.competencia)
+        if self.data_fim:
+            if self.tipo != "fixa":
+                raise ValidationError({"data_fim": "Use a data final apenas para despesa fixa."})
+            self.data_fim = normalizar_competencia(self.data_fim)
+            if self.data_fim < self.competencia:
+                raise ValidationError({"data_fim": "A data final não pode ser anterior à competência inicial."})
+        if self.tipo != "variavel" and self.status == "paga":
+            raise ValidationError({"status": "Para despesas fixas ou parceladas, o pagamento é registrado mês a mês."})
 
     def save(self, *args, **kwargs):
         if not self.competencia:
@@ -244,41 +299,57 @@ class Despesa(models.Model):
             return arredondar(self.valor)
         return arredondar(self.valor / Decimal(self.parcelas))
 
+    def _mapa_pagamentos(self):
+        return {item.competencia: item.data_pagamento for item in self.pagamentos.all()}
+
     def ocorrencias(self, inicio, fim):
         if self.status == "cancelada" or not self.deve_computar():
             return []
         if self.tipo == "fixa":
+            mapa = self._mapa_pagamentos()
             ocorrencias = []
             indice = 0
-            while indice < 120:
+            while indice < LIMITE_MESES_FIXA:
                 competencia_ocorrencia = adicionar_meses_data(self.competencia, indice)
                 if competencia_ocorrencia > fim:
                     break
+                if self.data_fim and competencia_ocorrencia > self.data_fim:
+                    break
                 if competencia_ocorrencia >= inicio:
+                    data_pagamento = mapa.get(competencia_ocorrencia)
                     ocorrencias.append(
                         {
                             "data": adicionar_meses_data(self.data, indice),
                             "competencia": competencia_ocorrencia,
                             "valor": arredondar(self.valor),
                             "parcela": None,
-                            "status": self.status,
+                            "status": "paga" if data_pagamento else "pendente",
+                            "data_pagamento": data_pagamento,
                         }
                     )
                 indice += 1
             return ocorrencias
         if self.tipo == "parcelada":
+            mapa = self._mapa_pagamentos()
             inicio_indice = self.parcela_atual - 1
-            return [
-                {
-                    "data": adicionar_meses_data(self.data, indice - inicio_indice),
-                    "competencia": adicionar_meses_data(self.competencia, indice - inicio_indice),
-                    "valor": self.valor_parcela,
-                    "parcela": indice + 1,
-                    "status": self.status,
-                }
-                for indice in range(inicio_indice, self.parcelas)
-                if inicio <= adicionar_meses_data(self.competencia, indice - inicio_indice) <= fim
-            ]
+            ocorrencias = []
+            for indice in range(inicio_indice, self.parcelas):
+                incremento = indice - inicio_indice
+                competencia_ocorrencia = adicionar_meses_data(self.competencia, incremento)
+                if not inicio <= competencia_ocorrencia <= fim:
+                    continue
+                data_pagamento = mapa.get(competencia_ocorrencia)
+                ocorrencias.append(
+                    {
+                        "data": adicionar_meses_data(self.data, incremento),
+                        "competencia": competencia_ocorrencia,
+                        "valor": self.valor_parcela,
+                        "parcela": indice + 1,
+                        "status": "paga" if data_pagamento else "pendente",
+                        "data_pagamento": data_pagamento,
+                    }
+                )
+            return ocorrencias
         if inicio <= self.competencia <= fim:
             return [
                 {
@@ -292,13 +363,51 @@ class Despesa(models.Model):
         return []
 
     def parcela_na_data(self, referencia=None):
-        referencia = referencia or date.today()
+        referencia = referencia or timezone.localdate()
         if self.tipo != "parcelada":
             return None
         meses_decorridos = (referencia.year - self.competencia.year) * 12 + (referencia.month - self.competencia.month)
         if meses_decorridos < 0:
             return self.parcela_atual
         return min(self.parcela_atual + meses_decorridos, self.parcelas)
+
+
+class RecebimentoReceita(models.Model):
+    receita = models.ForeignKey(Receita, on_delete=models.CASCADE, related_name="recebimentos")
+    competencia = models.DateField()
+    data_recebimento = models.DateField(default=timezone.localdate)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-competencia"]
+        constraints = [models.UniqueConstraint(fields=["receita", "competencia"], name="receb_receita_comp_uniq")]
+        indexes = [models.Index(fields=["receita", "competencia"], name="receb_receita_comp_idx")]
+
+    def __str__(self):
+        return f"{self.receita} · {self.competencia:%m/%Y}"
+
+    def save(self, *args, **kwargs):
+        self.competencia = normalizar_competencia(self.competencia)
+        super().save(*args, **kwargs)
+
+
+class PagamentoDespesa(models.Model):
+    despesa = models.ForeignKey(Despesa, on_delete=models.CASCADE, related_name="pagamentos")
+    competencia = models.DateField()
+    data_pagamento = models.DateField(default=timezone.localdate)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-competencia"]
+        constraints = [models.UniqueConstraint(fields=["despesa", "competencia"], name="pag_despesa_comp_uniq")]
+        indexes = [models.Index(fields=["despesa", "competencia"], name="pag_despesa_comp_idx")]
+
+    def __str__(self):
+        return f"{self.despesa} · {self.competencia:%m/%Y}"
+
+    def save(self, *args, **kwargs):
+        self.competencia = normalizar_competencia(self.competencia)
+        super().save(*args, **kwargs)
 
 
 class CompartilhamentoDespesa(models.Model):
@@ -751,7 +860,7 @@ class LancamentoCartao(models.Model):
     categoria = models.ForeignKey(CategoriaFinanceira, on_delete=models.PROTECT, related_name="lancamentos_cartao")
     descricao = models.CharField(max_length=255)
     valor = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
-    data_compra = models.DateField(default=date.today)
+    data_compra = models.DateField(default=timezone.localdate)
     parcela_numero = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1)])
     parcela_total = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1)])
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ativo")

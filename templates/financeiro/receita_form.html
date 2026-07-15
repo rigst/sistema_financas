@@ -18,6 +18,7 @@
                 <div class="full"><label for="{{ form.descricao.id_for_label }}">Descrição</label>{{ form.descricao }}{{ form.descricao.errors }}</div>
                 <div><label for="{{ form.data.id_for_label }}">Data</label>{{ form.data }}{{ form.data.errors }}</div>
                 <div><label for="{{ form.competencia.id_for_label }}">Competência</label>{{ form.competencia }}{{ form.competencia.errors }}</div>
+                <div data-fixed-field><label for="{{ form.data_fim.id_for_label }}">Repetir até (opcional)</label>{{ form.data_fim }}{{ form.data_fim.errors }}</div>
                 <div data-installments-field><label for="{{ form.parcelas.id_for_label }}">Total de parcelas</label>{{ form.parcelas }}{{ form.parcelas.errors }}</div>
                 <div data-installments-field><label for="{{ form.parcela_atual.id_for_label }}">Parcela atual</label>{{ form.parcela_atual }}{{ form.parcela_atual.errors }}</div>
                 <div data-installments-field><label for="{{ form.valor_parcela.id_for_label }}">Valor da parcela</label>{{ form.valor_parcela }}{{ form.valor_parcela.errors }}</div>

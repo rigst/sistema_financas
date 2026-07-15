@@ -5,7 +5,18 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import NoReverseMatch, reverse
 
-from .models import CompartilhamentoDespesa, Despesa, ParticipanteCompartilhamentoDespesa, Receita, Reserva
+from django.core.exceptions import ValidationError
+from django.utils import timezone
+
+from .models import (
+    CompartilhamentoDespesa,
+    Despesa,
+    PagamentoDespesa,
+    ParticipanteCompartilhamentoDespesa,
+    Receita,
+    RecebimentoReceita,
+    Reserva,
+)
 from .planejamento import calcular_planejamento_semanal, resumo_fluxo_periodo, resumo_mensal
 
 
@@ -471,10 +482,18 @@ class FinanceiroSimplificadoViewTests(TestCase):
         self.assertEqual(participante.despesa_gerada.descricao, "Internet fibra")
         self.assertEqual(participante.despesa_gerada.valor, Decimal("70.00"))
 
-        response_pagar = self.client.post(reverse("financeiro:despesa_marcar_paga", args=[despesa.pk]))
+        response_pagar = self.client.post(
+            reverse("financeiro:despesa_marcar_paga", args=[despesa.pk]), {"competencia": "2026-04"}
+        )
         self.assertEqual(response_pagar.status_code, 302)
+        despesa.refresh_from_db()
         participante.despesa_gerada.refresh_from_db()
-        self.assertEqual(participante.despesa_gerada.status, "paga")
+        self.assertEqual(despesa.status, "pendente")
+        self.assertEqual(participante.despesa_gerada.status, "pendente")
+        self.assertTrue(PagamentoDespesa.objects.filter(despesa=despesa, competencia=date(2026, 4, 1)).exists())
+        self.assertTrue(
+            PagamentoDespesa.objects.filter(despesa=participante.despesa_gerada, competencia=date(2026, 4, 1)).exists()
+        )
 
     def test_menu_mostra_pendencias_na_aba_de_despesas(self):
         despesa = Despesa.objects.create(
@@ -742,6 +761,141 @@ class FinanceiroSimplificadoViewTests(TestCase):
         self.assertNotContains(response, "Padaria comum")
         self.assertContains(response, '<option value="compartilhadas" selected>Compartilhadas</option>', html=False)
 
+    def test_marcar_paga_de_fixa_cria_registro_da_competencia(self):
+        despesa = Despesa.objects.create(
+            tipo="fixa",
+            descricao="Academia",
+            valor=Decimal("120.00"),
+            data=date(2026, 4, 5),
+            status="pendente",
+            criado_por=self.user,
+        )
+
+        response = self.client.post(
+            reverse("financeiro:despesa_marcar_paga", args=[despesa.pk]), {"competencia": "2026-05"}
+        )
+
+        despesa.refresh_from_db()
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(despesa.status, "pendente")
+        self.assertTrue(PagamentoDespesa.objects.filter(despesa=despesa, competencia=date(2026, 5, 1)).exists())
+        self.assertFalse(PagamentoDespesa.objects.filter(despesa=despesa, competencia=date(2026, 4, 1)).exists())
+
+        response_desfazer = self.client.post(
+            reverse("financeiro:despesa_desmarcar_paga", args=[despesa.pk]), {"competencia": "2026-05"}
+        )
+        self.assertEqual(response_desfazer.status_code, 302)
+        self.assertFalse(PagamentoDespesa.objects.filter(despesa=despesa).exists())
+
+    def test_marcar_paga_de_fixa_sem_competencia_usa_mes_atual(self):
+        despesa = Despesa.objects.create(
+            tipo="fixa",
+            descricao="Streaming",
+            valor=Decimal("40.00"),
+            data=date(2020, 1, 5),
+            status="pendente",
+            criado_por=self.user,
+        )
+
+        response = self.client.post(reverse("financeiro:despesa_marcar_paga", args=[despesa.pk]))
+
+        self.assertEqual(response.status_code, 302)
+        mes_atual = timezone.localdate().replace(day=1)
+        self.assertTrue(PagamentoDespesa.objects.filter(despesa=despesa, competencia=mes_atual).exists())
+
+    def test_marcar_paga_com_competencia_fora_da_serie_nao_cria_registro(self):
+        despesa = Despesa.objects.create(
+            tipo="fixa",
+            descricao="Seguro",
+            valor=Decimal("200.00"),
+            data=date(2026, 4, 5),
+            status="pendente",
+            criado_por=self.user,
+        )
+
+        response = self.client.post(
+            reverse("financeiro:despesa_marcar_paga", args=[despesa.pk]), {"competencia": "2020-01"}
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(PagamentoDespesa.objects.filter(despesa=despesa).exists())
+
+    def test_marcar_paga_nao_afeta_despesa_de_outro_usuario(self):
+        despesa = Despesa.objects.create(
+            tipo="fixa",
+            descricao="Aluguel alheio",
+            valor=Decimal("900.00"),
+            data=date(2026, 4, 5),
+            status="pendente",
+            criado_por=self.outro_user,
+        )
+
+        response = self.client.post(
+            reverse("financeiro:despesa_marcar_paga", args=[despesa.pk]), {"competencia": "2026-04"}
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(PagamentoDespesa.objects.filter(despesa=despesa).exists())
+
+    def test_marcar_recebida_de_fixa_cria_registro_da_competencia(self):
+        receita = Receita.objects.create(
+            tipo="fixa",
+            descricao="Salário",
+            valor=Decimal("3000.00"),
+            data=date(2026, 4, 5),
+            status="prevista",
+            criado_por=self.user,
+        )
+
+        response = self.client.post(
+            reverse("financeiro:receita_marcar_recebida", args=[receita.pk]), {"competencia": "2026-05"}
+        )
+
+        receita.refresh_from_db()
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(receita.status, "prevista")
+        self.assertTrue(RecebimentoReceita.objects.filter(receita=receita, competencia=date(2026, 5, 1)).exists())
+
+        response_desfazer = self.client.post(
+            reverse("financeiro:receita_desmarcar_recebida", args=[receita.pk]), {"competencia": "2026-05"}
+        )
+        self.assertEqual(response_desfazer.status_code, 302)
+        self.assertFalse(RecebimentoReceita.objects.filter(receita=receita).exists())
+
+    def test_desmarcar_recebida_de_variavel_volta_para_prevista(self):
+        receita = Receita.objects.create(
+            descricao="Freela",
+            valor=Decimal("500.00"),
+            data=date(2026, 4, 5),
+            status="recebida",
+            criado_por=self.user,
+        )
+
+        response = self.client.post(reverse("financeiro:receita_desmarcar_recebida", args=[receita.pk]))
+
+        receita.refresh_from_db()
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(receita.status, "prevista")
+        self.assertIsNone(receita.data_recebimento)
+
+    def test_lista_de_despesas_mostra_situacao_da_competencia_atual(self):
+        despesa = Despesa.objects.create(
+            tipo="fixa",
+            descricao="Energia",
+            valor=Decimal("180.00"),
+            data=date(2026, 1, 5),
+            status="pendente",
+            criado_por=self.user,
+        )
+        mes_atual = timezone.localdate().replace(day=1)
+        PagamentoDespesa.objects.create(despesa=despesa, competencia=mes_atual)
+
+        response = self.client.get(reverse("financeiro:despesa_lista"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f"Paga ({mes_atual:%m/%Y})")
+        self.assertContains(response, "Desfazer pagamento")
+
     def test_rotas_burocraticas_foram_removidas(self):
         nomes_removidos = [
             "conta_lista",
@@ -760,3 +914,214 @@ class FinanceiroSimplificadoViewTests(TestCase):
             with self.subTest(nome=nome):
                 with self.assertRaises(NoReverseMatch):
                     reverse(f"financeiro:{nome}")
+
+
+class PagamentoPorCompetenciaModelTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="fin_comp", password="senha-forte-123")
+
+    def test_pagamento_de_fixa_afeta_apenas_a_competencia_marcada(self):
+        despesa = Despesa.objects.create(
+            tipo="fixa",
+            descricao="Aluguel",
+            valor=Decimal("900.00"),
+            data=date(2026, 4, 10),
+            status="pendente",
+            criado_por=self.user,
+        )
+        PagamentoDespesa.objects.create(despesa=despesa, competencia=date(2026, 5, 1), data_pagamento=date(2026, 5, 12))
+
+        ocorrencias = despesa.ocorrencias(date(2026, 4, 1), date(2026, 6, 30))
+        fluxo_abril = resumo_fluxo_periodo(self.user, date(2026, 4, 1), date(2026, 4, 30))
+        fluxo_maio = resumo_fluxo_periodo(self.user, date(2026, 5, 1), date(2026, 5, 31))
+
+        self.assertEqual([item["status"] for item in ocorrencias], ["pendente", "paga", "pendente"])
+        self.assertEqual(ocorrencias[1]["data_pagamento"], date(2026, 5, 12))
+        self.assertEqual(fluxo_abril["despesas_pagas"], Decimal("0.00"))
+        self.assertEqual(fluxo_abril["despesas_pendentes"], Decimal("900.00"))
+        self.assertEqual(fluxo_maio["despesas_pagas"], Decimal("900.00"))
+        self.assertEqual(fluxo_maio["despesas_pendentes"], Decimal("0.00"))
+
+    def test_pagamento_de_parcela_nao_afeta_as_demais(self):
+        despesa = Despesa.objects.create(
+            tipo="parcelada",
+            descricao="Sofá",
+            valor=Decimal("600.00"),
+            data=date(2026, 4, 10),
+            parcelas=3,
+            status="pendente",
+            criado_por=self.user,
+        )
+        PagamentoDespesa.objects.create(despesa=despesa, competencia=date(2026, 5, 1))
+
+        ocorrencias = despesa.ocorrencias(date(2026, 4, 1), date(2026, 6, 30))
+        fluxo_maio = resumo_fluxo_periodo(self.user, date(2026, 5, 1), date(2026, 5, 31))
+        fluxo_junho = resumo_fluxo_periodo(self.user, date(2026, 6, 1), date(2026, 6, 30))
+
+        self.assertEqual([item["status"] for item in ocorrencias], ["pendente", "paga", "pendente"])
+        self.assertEqual(fluxo_maio["despesas_pagas"], Decimal("200.00"))
+        self.assertEqual(fluxo_junho["despesas_pagas"], Decimal("0.00"))
+        self.assertEqual(fluxo_junho["despesas_pendentes"], Decimal("200.00"))
+
+    def test_receita_fixa_usa_data_de_recebimento_de_cada_mes(self):
+        receita = Receita.objects.create(
+            tipo="fixa",
+            descricao="Salário",
+            valor=Decimal("3000.00"),
+            data=date(2026, 4, 5),
+            status="prevista",
+            criado_por=self.user,
+        )
+        RecebimentoReceita.objects.create(receita=receita, competencia=date(2026, 4, 1), data_recebimento=date(2026, 4, 6))
+        RecebimentoReceita.objects.create(receita=receita, competencia=date(2026, 5, 1), data_recebimento=date(2026, 5, 7))
+
+        ocorrencias = receita.ocorrencias(date(2026, 4, 1), date(2026, 6, 30))
+
+        self.assertEqual([item["status"] for item in ocorrencias], ["recebida", "recebida", "prevista"])
+        self.assertEqual(ocorrencias[0]["data_recebimento"], date(2026, 4, 6))
+        self.assertEqual(ocorrencias[1]["data_recebimento"], date(2026, 5, 7))
+        self.assertIsNone(ocorrencias[2]["data_recebimento"])
+
+    def test_data_fim_encerra_despesa_fixa(self):
+        despesa = Despesa.objects.create(
+            tipo="fixa",
+            descricao="Assinatura",
+            valor=Decimal("50.00"),
+            data=date(2026, 1, 10),
+            data_fim=date(2026, 3, 15),
+            status="pendente",
+            criado_por=self.user,
+        )
+
+        despesa.refresh_from_db()
+        ocorrencias = despesa.ocorrencias(date(2026, 1, 1), date(2026, 12, 31))
+
+        self.assertEqual(despesa.data_fim, date(2026, 3, 1))
+        self.assertEqual(len(ocorrencias), 3)
+        self.assertEqual(ocorrencias[-1]["competencia"], date(2026, 3, 1))
+
+    def test_data_fim_invalida_e_rejeitada(self):
+        with self.assertRaises(ValidationError):
+            Despesa.objects.create(
+                tipo="fixa",
+                descricao="Assinatura",
+                valor=Decimal("50.00"),
+                data=date(2026, 4, 10),
+                data_fim=date(2026, 1, 1),
+                status="pendente",
+                criado_por=self.user,
+            )
+        with self.assertRaises(ValidationError):
+            Despesa.objects.create(
+                tipo="variavel",
+                descricao="Mercado",
+                valor=Decimal("50.00"),
+                data=date(2026, 4, 10),
+                data_fim=date(2026, 6, 1),
+                status="pendente",
+                criado_por=self.user,
+            )
+
+    def test_competencia_valida_respeita_limites_da_serie(self):
+        fixa = Despesa.objects.create(
+            tipo="fixa",
+            descricao="Aluguel",
+            valor=Decimal("900.00"),
+            data=date(2026, 4, 10),
+            data_fim=date(2026, 8, 1),
+            status="pendente",
+            criado_por=self.user,
+        )
+        parcelada = Despesa.objects.create(
+            tipo="parcelada",
+            descricao="Notebook",
+            valor=Decimal("1200.00"),
+            data=date(2026, 4, 10),
+            parcelas=12,
+            parcela_atual=5,
+            status="pendente",
+            criado_por=self.user,
+        )
+        variavel = Despesa.objects.create(
+            tipo="variavel",
+            descricao="Mercado",
+            valor=Decimal("100.00"),
+            data=date(2026, 4, 10),
+            status="pendente",
+            criado_por=self.user,
+        )
+
+        self.assertFalse(fixa.competencia_valida(date(2026, 3, 1)))
+        self.assertTrue(fixa.competencia_valida(date(2026, 4, 1)))
+        self.assertTrue(fixa.competencia_valida(date(2026, 8, 1)))
+        self.assertFalse(fixa.competencia_valida(date(2026, 9, 1)))
+        self.assertTrue(parcelada.competencia_valida(date(2026, 11, 1)))
+        self.assertFalse(parcelada.competencia_valida(date(2026, 12, 1)))
+        self.assertTrue(variavel.competencia_valida(date(2026, 4, 15)))
+        self.assertFalse(variavel.competencia_valida(date(2026, 5, 1)))
+
+    def test_series_nao_aceitam_status_quitado_no_registro(self):
+        with self.assertRaises(ValidationError):
+            Despesa.objects.create(
+                tipo="fixa",
+                descricao="Aluguel",
+                valor=Decimal("900.00"),
+                data=date(2026, 4, 10),
+                status="paga",
+                criado_por=self.user,
+            )
+        with self.assertRaises(ValidationError):
+            Receita.objects.create(
+                tipo="parcelada",
+                descricao="Acordo",
+                valor=Decimal("600.00"),
+                data=date(2026, 4, 10),
+                parcelas=3,
+                status="recebida",
+                criado_por=self.user,
+            )
+
+
+class PlanejamentoSemanalCorrigidoTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="fin_plan", password="senha-forte-123")
+
+    def test_semana_de_borda_mostra_lancamentos_do_mes_vizinho(self):
+        Despesa.objects.create(
+            tipo="variavel",
+            descricao="Jantar de fim de mês",
+            valor=Decimal("111.00"),
+            data=date(2026, 3, 31),
+            status="paga",
+            criado_por=self.user,
+        )
+
+        planejamento = calcular_planejamento_semanal(self.user, date(2026, 4, 16))
+        primeira_semana = planejamento["semanas"][0]
+
+        self.assertEqual(primeira_semana["inicio"], date(2026, 3, 30))
+        self.assertEqual(primeira_semana["gastos_pagos"], Decimal("111.00"))
+        self.assertEqual(planejamento["base_mes"]["gastos_variaveis"], Decimal("0.00"))
+
+    def test_cota_usa_receita_planejada_do_mes_inteiro(self):
+        Receita.objects.create(
+            descricao="Salário",
+            valor=Decimal("2000.00"),
+            data=date(2026, 4, 25),
+            status="prevista",
+            criado_por=self.user,
+        )
+        Despesa.objects.create(
+            tipo="fixa",
+            descricao="Aluguel",
+            valor=Decimal("900.00"),
+            data=date(2026, 4, 17),
+            status="pendente",
+            criado_por=self.user,
+        )
+
+        planejamento = calcular_planejamento_semanal(self.user, date(2026, 4, 2))
+        primeira_semana = planejamento["semanas"][0]
+
+        self.assertEqual(primeira_semana["cota_semana"], Decimal("220.00"))
+        self.assertGreater(primeira_semana["cota_semana"], Decimal("0.00"))

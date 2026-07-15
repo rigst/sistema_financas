@@ -62,10 +62,11 @@ class CompetenciaField(forms.DateField):
 class ReceitaSimplificadaForm(OptimisticLockModelFormMixin, forms.ModelForm):
     valor_parcela = forms.DecimalField(max_digits=14, decimal_places=2, required=False, label="Valor da parcela")
     competencia = CompetenciaField(label="Competência", required=False)
+    data_fim = CompetenciaField(label="Repetir até", required=False)
 
     class Meta:
         model = Receita
-        fields = ["tipo", "descricao", "valor", "data", "competencia", "categoria", "parcelas", "parcela_atual", "status", "observacoes"]
+        fields = ["tipo", "descricao", "valor", "data", "competencia", "data_fim", "categoria", "parcelas", "parcela_atual", "status", "observacoes"]
         widgets = {
             "tipo": forms.Select(attrs={"data-expense-type": "1", "data-income-type": "1"}),
             "data": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
@@ -113,12 +114,19 @@ class ReceitaSimplificadaForm(OptimisticLockModelFormMixin, forms.ModelForm):
         if not cleaned.get("competencia"):
             cleaned["competencia"] = cleaned.get("data")
         cleaned["competencia"] = normalizar_competencia(cleaned.get("competencia"))
+        if tipo != "fixa":
+            cleaned["data_fim"] = None
+        elif cleaned.get("data_fim") and cleaned.get("competencia") and cleaned["data_fim"] < cleaned["competencia"]:
+            self.add_error("data_fim", "A data final não pode ser anterior à competência inicial.")
+        if tipo != "variavel":
+            cleaned["status"] = "prevista"
         return cleaned
 
 
 class DespesaSimplificadaForm(OptimisticLockModelFormMixin, forms.ModelForm):
     valor_parcela = forms.DecimalField(max_digits=14, decimal_places=2, required=False, label="Valor da parcela")
     competencia = CompetenciaField(label="Competência", required=False)
+    data_fim = CompetenciaField(label="Repetir até", required=False)
     compartilhar = forms.BooleanField(required=False, label="Compartilhar despesa")
     participantes = forms.CharField(required=False, label="Compartilhar com", help_text="Separe usuários por vírgula.")
     modo_divisao = forms.ChoiceField(choices=CompartilhamentoDespesa.MODO_CHOICES, required=False, label="Divisão")
@@ -132,7 +140,7 @@ class DespesaSimplificadaForm(OptimisticLockModelFormMixin, forms.ModelForm):
 
     class Meta:
         model = Despesa
-        fields = ["tipo", "descricao", "valor", "data", "competencia", "categoria", "parcelas", "parcela_atual", "status", "observacoes"]
+        fields = ["tipo", "descricao", "valor", "data", "competencia", "data_fim", "categoria", "parcelas", "parcela_atual", "status", "observacoes"]
         widgets = {
             "tipo": forms.Select(attrs={"data-expense-type": "1"}),
             "data": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
@@ -227,7 +235,13 @@ class DespesaSimplificadaForm(OptimisticLockModelFormMixin, forms.ModelForm):
         if not cleaned.get("competencia"):
             cleaned["competencia"] = cleaned.get("data")
         cleaned["competencia"] = normalizar_competencia(cleaned.get("competencia"))
+        if tipo != "fixa":
+            cleaned["data_fim"] = None
+        elif cleaned.get("data_fim") and cleaned.get("competencia") and cleaned["data_fim"] < cleaned["competencia"]:
+            self.add_error("data_fim", "A data final não pode ser anterior à competência inicial.")
         if not cleaned.get("status"):
+            cleaned["status"] = "pendente"
+        if tipo != "variavel" and cleaned.get("status") != "cancelada":
             cleaned["status"] = "pendente"
         self._clean_compartilhamento(cleaned)
         return cleaned

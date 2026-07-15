@@ -2,11 +2,35 @@ from django.contrib import admin
 
 from core.admin_permissions import PerfilAdminPermissionMixin
 
-from .models import CompartilhamentoDespesa, Despesa, MentoriaFinanceiraIA, ParticipanteCompartilhamentoDespesa, Receita, Reserva
+from .models import (
+    CompartilhamentoDespesa,
+    Despesa,
+    MentoriaFinanceiraIA,
+    PagamentoDespesa,
+    ParticipanteCompartilhamentoDespesa,
+    Receita,
+    RecebimentoReceita,
+    Reserva,
+)
 
 
 class FinanceiroAdminMixin(PerfilAdminPermissionMixin):
     pass
+
+
+class FinanceiroInlineAdminMixin(PerfilAdminPermissionMixin):
+    def has_add_permission(self, request, obj=None):
+        return self._has_admin_access(request)
+
+
+class RecebimentoReceitaInline(FinanceiroInlineAdminMixin, admin.TabularInline):
+    model = RecebimentoReceita
+    extra = 0
+
+
+class PagamentoDespesaInline(FinanceiroInlineAdminMixin, admin.TabularInline):
+    model = PagamentoDespesa
+    extra = 0
 
 
 @admin.register(Receita)
@@ -16,6 +40,7 @@ class ReceitaAdmin(FinanceiroAdminMixin, admin.ModelAdmin):
     list_filter = ("tipo", "status", "ativa", "competencia", "data")
     search_fields = ("descricao", "categoria", "observacoes")
     date_hierarchy = "data"
+    inlines = (RecebimentoReceitaInline,)
 
     def save_model(self, request, obj, form, change):
         if not obj.pk:
@@ -30,6 +55,7 @@ class DespesaAdmin(FinanceiroAdminMixin, admin.ModelAdmin):
     list_filter = ("tipo", "competencia", "data", "status")
     search_fields = ("descricao", "categoria", "observacoes")
     date_hierarchy = "data"
+    inlines = (PagamentoDespesaInline,)
 
     def save_model(self, request, obj, form, change):
         if not obj.pk:

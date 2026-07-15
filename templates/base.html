@@ -545,6 +545,7 @@
           select.dataset.installmentsBound = "1";
           const form = select.form;
           const fields = form ? Array.from(form.querySelectorAll("[data-installments-field]")) : [];
+          const fixedFields = form ? Array.from(form.querySelectorAll("[data-fixed-field]")) : [];
           const countInput = form ? form.querySelector("[data-installments-input]") : null;
           const currentInput = form ? form.querySelector("[data-installments-current]") : null;
           const totalInput = form ? form.querySelector("[data-installments-total]") : null;
@@ -581,6 +582,9 @@
             const isInstallment = select.value === "parcelada";
             fields.forEach((field) => {
               field.hidden = !isInstallment;
+            });
+            fixedFields.forEach((field) => {
+              field.hidden = select.value !== "fixa";
             });
             countInput.disabled = !isInstallment;
             if (currentInput) currentInput.disabled = !isInstallment;

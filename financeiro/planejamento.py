@@ -50,7 +50,7 @@ def _somar_ocorrencias(ocorrencias, *, filtro=None):
 
 def receitas_no_periodo(user, inicio, fim):
     ocorrencias = []
-    for receita in Receita.objects.filter(criado_por=user, ativa=True):
+    for receita in Receita.objects.filter(criado_por=user, ativa=True).prefetch_related("recebimentos"):
         for ocorrencia in receita.ocorrencias(inicio, fim):
             ocorrencias.append({"receita": receita, **ocorrencia})
     return ocorrencias
@@ -58,7 +58,7 @@ def receitas_no_periodo(user, inicio, fim):
 
 def despesas_no_periodo(user, inicio, fim):
     ocorrencias = []
-    for despesa in Despesa.objects.filter(criado_por=user).exclude(status="cancelada"):
+    for despesa in Despesa.objects.filter(criado_por=user).exclude(status="cancelada").prefetch_related("pagamentos"):
         for ocorrencia in despesa.ocorrencias(inicio, fim):
             ocorrencias.append({"despesa": despesa, **ocorrencia})
     return ocorrencias
@@ -131,16 +131,31 @@ def calcular_planejamento_semanal(user, referencia, quantidade=5, incluir_previs
     semanas_mes = _semanas_do_mes(referencia)
     semanas = []
 
+    # As semanas exibidas podem transbordar para os meses vizinhos; a grade
+    # busca também as ocorrências desses dias para que cada semana mostre o
+    # fluxo real completo. A cota e os agregados mensais seguem usando apenas
+    # o mês de referência (fluxo_mes).
+    inicio_grade = semanas_mes[0][0]
+    fim_grade = semanas_mes[-1][1]
+    receitas_grade = fluxo_mes["receitas"]
+    despesas_grade = fluxo_mes["despesas"]
+    if inicio_grade < inicio_mes or fim_grade > fim_mes:
+        receitas_grade = receitas_no_periodo(user, inicio_do_mes(inicio_grade), fim_do_mes(fim_grade))
+        despesas_grade = despesas_no_periodo(user, inicio_do_mes(inicio_grade), fim_do_mes(fim_grade))
+
     for indice, (inicio, fim) in enumerate(semanas_mes):
-        receitas_semana = [item for item in fluxo_mes["receitas"] if inicio <= _data_fluxo_receita(item) <= fim]
-        despesas_semana = [item for item in fluxo_mes["despesas"] if inicio <= item["data"] <= fim]
+        receitas_semana = [item for item in receitas_grade if inicio <= _data_fluxo_receita(item) <= fim]
+        despesas_semana = [item for item in despesas_grade if inicio <= item["data"] <= fim]
         variaveis_anteriores = _somar_ocorrencias(
             fluxo_mes["despesas"],
             filtro=lambda item: item["despesa"].tipo == "variavel"
             and item["data"] < inicio
             and (incluir_previstos or item["status"] == "paga"),
         )
-        receitas_base = fluxo_mes["receitas_total"] if incluir_previstos else _receitas_confirmadas_ate(fluxo_mes["receitas"], fim)
+        # Cota orçamentária: renda planejada do mês inteiro menos compromissos
+        # do mês inteiro — horizontes iguais, cota estável a semana toda.
+        # incluir_previstos controla apenas se variáveis pendentes contam como gasto.
+        receitas_base = fluxo_mes["receitas_total"]
         semanas_restantes = len(semanas_mes) - indice
         base_livre_confirmada = arredondar(
             receitas_base - fluxo_mes["fixos"] - fluxo_mes["parcelas"] - variaveis_anteriores
