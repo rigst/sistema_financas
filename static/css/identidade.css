@@ -1,0 +1,832 @@
+/* =========================================================================
+   Finanças — identidade "Carnê"
+   Camada de personalidade carregada por último, sobre o style.css base.
+
+   Conceito: o carnê de pagamento brasileiro, modernizado. Cada competência
+   é uma folha destacável — pagar é destacar a folha. Tinta verde-cédula
+   profunda e azul-carbono (a via carbonada) impressas sobre papel reciclado;
+   valores em mono de impresso; o picote como assinatura visual.
+
+   Tipos: Archivo (texto e display, variável com largura) · Chivo Mono
+   (valores, datas, competências) — dupla da Omnibus-Type, self-hosted.
+   ========================================================================= */
+
+@font-face {
+  font-family: "Archivo";
+  src: url("../fonts/archivo-var.woff2") format("woff2");
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Chivo Mono";
+  src: url("../fonts/chivo-mono-var.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+/* ---- Tokens ----------------------------------------------------------- */
+
+:root {
+  /* papel e folhas */
+  --papel: #ecede3;
+  --folha: #ffffff;
+  --folha-2: #f5f6ea;
+
+  /* tintas */
+  --tinta: #12382b;        /* verde-cédula profundo: capa, marca, ação primária */
+  --tinta-2: #1c4a39;
+  --cedula: #1b7a4b;       /* verde-nota: positivo, confirmar */
+  --carbono: #33518f;      /* azul-carbono: via de informação, links */
+  --menta: #9fd8b7;        /* tinta clara sobre a capa escura */
+
+  --texto-tinta: #212b23;
+  --texto-suave-2: #545e53;
+  --mudo-2: #6f786c;
+
+  --linha: rgba(18, 56, 43, 0.16);
+  --linha-forte: rgba(18, 56, 43, 0.28);
+
+  --vencido: #b23a31;
+  --aviso: #91650f;
+
+  /* sobrescreve os tokens do style.css base */
+  --bg: var(--papel);
+  --bg-soft: var(--folha-2);
+  --surface: var(--folha);
+  --surface-2: var(--folha-2);
+  --surface-strong: var(--folha);
+  --surface-strong-2: var(--folha-2);
+  --border: var(--linha);
+  --border-strong: var(--linha-forte);
+  --text: var(--texto-tinta);
+  --text-soft: var(--texto-suave-2);
+  --muted: var(--mudo-2);
+  --accent: var(--cedula);
+  --accent-2: var(--carbono);
+  --success: var(--cedula);
+  --danger: var(--vencido);
+  --warning: var(--aviso);
+  --shadow: 0 10px 24px rgba(18, 56, 43, 0.1);
+  --radius-xl: 16px;
+  --radius-lg: 14px;
+  --radius-md: 12px;
+  --radius-sm: 10px;
+
+  --fonte-texto: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --fonte-mono: "Chivo Mono", ui-monospace, "Cascadia Mono", monospace;
+
+  /* picote: furos da folha destacável */
+  --picote: radial-gradient(circle, var(--papel) 0 2px, transparent 2.5px);
+}
+
+/* ---- Base ------------------------------------------------------------- */
+
+body {
+  font-family: var(--fonte-texto);
+  background: var(--papel);
+  line-height: 1.6;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--fonte-texto);
+  font-stretch: 112%;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--texto-tinta);
+}
+
+/* Valores, datas e competências: colunas de números do carnê */
+.money,
+.stat-card .value,
+.available-panel > strong,
+.week-available,
+.big-money,
+.week-breakdown dd,
+.available-panel dd,
+.chart-legend em,
+.trend-column em,
+.shared-dashboard-panel strong,
+.shared-dashboard-panel dd,
+.shared-expense-card-meta .money,
+.pagination-summary {
+  font-family: var(--fonte-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+.available-panel > strong,
+.week-available,
+.big-money,
+.stat-card .value {
+  font-weight: 600;
+}
+
+/* ---- Capa (header) ----------------------------------------------------- */
+
+.site-header {
+  background: var(--tinta);
+  border-bottom: none;
+  box-shadow: 0 8px 20px rgba(18, 56, 43, 0.22);
+  backdrop-filter: none;
+}
+
+/* o picote da capa: fileira de furos na borda inferior */
+.site-header::after {
+  content: "";
+  display: block;
+  height: 7px;
+  background-image: var(--picote);
+  background-size: 13px 7px;
+  background-position: center bottom 1px;
+  background-repeat: repeat-x;
+  background-color: var(--tinta);
+}
+
+.brand {
+  color: #ffffff;
+  font-stretch: 118%;
+  font-weight: 800;
+  font-size: 1.12rem;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+.brand span {
+  color: var(--menta);
+}
+
+.nav-links {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.nav-links a {
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.nav-links a:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.nav-links a.active {
+  color: var(--tinta);
+  background: var(--papel);
+}
+
+.nav-badge {
+  background: var(--menta);
+  color: var(--tinta);
+  font-family: var(--fonte-mono);
+  font-weight: 700;
+}
+
+.header-user-greeting {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.nav-logout {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 8px;
+}
+
+.nav-logout:hover {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.nav-toggle {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: transparent;
+}
+
+.nav-toggle-bar {
+  background: #ffffff;
+}
+
+/* ---- Rótulos e cabeçalhos de seção ------------------------------------ */
+
+.eyebrow,
+.stat-card .label,
+.available-panel .label,
+.shared-dashboard-panel .label {
+  font-family: var(--fonte-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--carbono);
+}
+
+.section-heading h2 {
+  font-stretch: 115%;
+}
+
+.section-heading p {
+  color: var(--texto-suave-2);
+}
+
+/* ---- Botões ------------------------------------------------------------ */
+
+.btn {
+  border-radius: var(--radius-sm);
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.btn:hover {
+  transform: none;
+}
+
+.btn:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
+  outline: 3px solid rgba(27, 122, 75, 0.45);
+  outline-offset: 2px;
+}
+
+.btn-primary,
+.auth-submit {
+  background: var(--tinta);
+  border-color: var(--tinta);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.btn-primary:hover,
+.auth-submit:hover {
+  background: var(--tinta-2);
+  border-color: var(--tinta-2);
+  box-shadow: none;
+}
+
+.btn-primary-lite,
+.btn-soft {
+  background: rgba(27, 122, 75, 0.1);
+  border-color: rgba(27, 122, 75, 0.28);
+  color: #14603b;
+}
+
+.btn-primary-lite:hover,
+.btn-soft:hover {
+  background: rgba(27, 122, 75, 0.16);
+}
+
+.btn-secondary {
+  background: var(--folha);
+  border-color: var(--linha-forte);
+  color: var(--texto-tinta);
+}
+
+.btn-secondary:hover {
+  border-color: rgba(18, 56, 43, 0.45);
+}
+
+.btn-dashboard-expense,
+.dashboard-main-actions .btn-dashboard-expense {
+  background: var(--tinta);
+  border-color: var(--tinta);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.btn-dashboard-expense:hover,
+.dashboard-main-actions .btn-dashboard-expense:hover {
+  background: var(--tinta-2);
+  border-color: var(--tinta-2);
+  box-shadow: none;
+}
+
+.btn-dashboard-income,
+.dashboard-main-actions .btn-dashboard-income {
+  background: var(--cedula);
+  border-color: var(--cedula);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.btn-dashboard-income:hover,
+.dashboard-main-actions .btn-dashboard-income:hover {
+  background: #166a41;
+  border-color: #166a41;
+  box-shadow: none;
+}
+
+.btn-status-approved {
+  background: rgba(27, 122, 75, 0.12);
+  border-color: rgba(27, 122, 75, 0.32);
+  color: #14603b;
+}
+
+.btn-status-approved:hover {
+  background: rgba(27, 122, 75, 0.2);
+}
+
+.btn-danger {
+  background: rgba(178, 58, 49, 0.08);
+  border-color: rgba(178, 58, 49, 0.28);
+  color: var(--vencido);
+}
+
+.btn-danger:hover {
+  background: rgba(178, 58, 49, 0.15);
+}
+
+.quiet-link {
+  color: var(--carbono);
+}
+
+.quiet-link:hover {
+  color: var(--tinta);
+}
+
+/* ---- Painéis do dashboard ---------------------------------------------- */
+
+.available-panel {
+  border: 1px solid var(--linha-forte);
+  border-radius: var(--radius-md);
+  background: var(--folha);
+  box-shadow: 0 6px 16px rgba(18, 56, 43, 0.06);
+}
+
+.available-panel-soft {
+  background: var(--folha-2);
+}
+
+.available-panel dl div {
+  border-bottom: 1px dotted var(--linha);
+  padding-bottom: 0.3rem;
+}
+
+.available-panel dl div:last-child {
+  border-bottom: none;
+}
+
+.shared-dashboard-panel,
+.panel,
+.chart-card,
+.form-panel,
+.ai-mentor-panel {
+  border: 1px solid var(--linha-forte);
+  border-radius: var(--radius-md);
+  background: var(--folha);
+  box-shadow: 0 6px 16px rgba(18, 56, 43, 0.05);
+}
+
+.stat-card {
+  border: 1px solid var(--linha-forte);
+  border-radius: var(--radius-md);
+  background: var(--folha);
+  padding: 1rem 1rem 0.9rem;
+}
+
+.stat-card-primary {
+  border-color: var(--cedula);
+  border-width: 1.5px;
+  background: var(--folha);
+  position: relative;
+}
+
+.stat-card-primary::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  background: var(--cedula);
+}
+
+/* ---- Folhas do carnê: semanas ------------------------------------------ */
+
+.week-card {
+  position: relative;
+  border: 1px solid var(--linha-forte);
+  border-radius: 6px 6px var(--radius-md) var(--radius-md);
+  background: var(--folha);
+  padding: 1.15rem 1rem 1rem;
+  overflow: hidden;
+}
+
+/* picote no topo de cada folha semanal */
+.week-card::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background-image: var(--picote);
+  background-size: 12px 6px;
+  background-position: center;
+  background-repeat: repeat-x;
+}
+
+.week-card-current {
+  border-color: var(--tinta);
+  border-width: 1.5px;
+  box-shadow: 0 10px 24px rgba(18, 56, 43, 0.16);
+}
+
+.week-card-header strong {
+  font-family: var(--fonte-mono);
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--texto-suave-2);
+}
+
+.week-card-current .week-card-header strong {
+  color: var(--tinta);
+}
+
+.week-card .badge {
+  background: var(--tinta);
+  border-color: var(--tinta);
+  color: var(--menta);
+}
+
+.week-breakdown div {
+  border-bottom: 1px dotted var(--linha);
+  padding-bottom: 0.28rem;
+}
+
+.week-breakdown div:last-child {
+  border-bottom: none;
+}
+
+/* ---- Badges: canhotos de situação -------------------------------------- */
+
+.badge {
+  position: relative;
+  border-radius: 6px;
+  padding: 0.32rem 0.62rem 0.32rem 0.95rem;
+  font-family: var(--fonte-mono);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: var(--folha-2);
+  border: 1px solid var(--linha-forte);
+  color: var(--texto-suave-2);
+}
+
+/* a linha de destaque do canhoto */
+.badge::before {
+  content: "";
+  position: absolute;
+  left: 0.42rem;
+  top: 18%;
+  bottom: 18%;
+  border-left: 2px dotted currentColor;
+  opacity: 0.5;
+}
+
+.badge.status-paga,
+.badge.status-recebida,
+.badge-success {
+  background: rgba(27, 122, 75, 0.1);
+  border-color: rgba(27, 122, 75, 0.34);
+  color: #14603b;
+}
+
+.badge.status-pendente,
+.badge.status-prevista,
+.badge-warning {
+  background: rgba(145, 101, 15, 0.08);
+  border-color: rgba(145, 101, 15, 0.32);
+  color: var(--aviso);
+}
+
+.badge.status-cancelada,
+.badge.status-cancelado,
+.badge.status-recusado {
+  background: rgba(111, 120, 108, 0.08);
+  border-color: rgba(111, 120, 108, 0.3);
+  color: var(--mudo-2);
+}
+
+.badge.status-aguardando,
+.badge-info {
+  background: rgba(51, 81, 143, 0.08);
+  border-color: rgba(51, 81, 143, 0.3);
+  color: var(--carbono);
+}
+
+.badge-danger,
+.badge-danger-soft {
+  background: rgba(178, 58, 49, 0.08);
+  border-color: rgba(178, 58, 49, 0.32);
+  color: var(--vencido);
+}
+
+.status-paga,
+.status-recebida,
+.status-pago,
+.status-aprovado { color: #14603b; }
+
+.status-pendente,
+.status-prevista { color: var(--aviso); }
+
+.status-cancelado,
+.status-cancelada { color: var(--mudo-2); }
+
+/* ---- Tabelas: o miolo do carnê ------------------------------------------ */
+
+.table-wrap {
+  border-radius: var(--radius-md);
+}
+
+table {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--linha-forte);
+  background: var(--folha);
+}
+
+th {
+  background: var(--folha-2);
+  font-family: var(--fonte-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--texto-suave-2);
+  border-bottom: 2px solid var(--linha-forte);
+}
+
+th .table-sort-button {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+}
+
+th,
+td {
+  border-bottom: 1px solid var(--linha);
+  padding: 0.78rem 0.9rem;
+}
+
+tbody tr:nth-child(even) td {
+  background: rgba(18, 56, 43, 0.025);
+}
+
+tr:hover td {
+  background: rgba(27, 122, 75, 0.055);
+}
+
+td.money {
+  text-align: right;
+  color: var(--texto-tinta);
+}
+
+.table-mainline {
+  font-weight: 600;
+  color: var(--texto-tinta);
+}
+
+/* ---- Formulários -------------------------------------------------------- */
+
+input,
+select,
+textarea {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--linha-forte);
+  background: var(--folha);
+  font-family: var(--fonte-texto);
+}
+
+input[type="date"],
+input[type="month"],
+input[inputmode="decimal"],
+input[inputmode="numeric"] {
+  font-family: var(--fonte-mono);
+  letter-spacing: -0.02em;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--mudo-2);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--cedula);
+  box-shadow: 0 0 0 3px rgba(27, 122, 75, 0.16);
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--cedula);
+}
+
+label {
+  font-weight: 600;
+  color: var(--texto-suave-2);
+}
+
+.form-panel fieldset {
+  border-color: var(--linha);
+  border-radius: var(--radius-md);
+}
+
+.field-help {
+  color: var(--mudo-2);
+}
+
+/* ---- Mensagens ----------------------------------------------------------- */
+
+.flash-message {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--linha-forte);
+  background: var(--folha);
+  font-weight: 550;
+}
+
+.flash-message.flash-success {
+  border-color: rgba(27, 122, 75, 0.4);
+  background: rgba(27, 122, 75, 0.08);
+  color: #14603b;
+}
+
+.flash-message.flash-warning {
+  border-color: rgba(145, 101, 15, 0.4);
+  background: rgba(145, 101, 15, 0.07);
+  color: var(--aviso);
+}
+
+.flash-message.flash-error,
+.flash-message.flash-danger {
+  border-color: rgba(178, 58, 49, 0.4);
+  background: rgba(178, 58, 49, 0.07);
+  color: var(--vencido);
+}
+
+.form-errors {
+  border-radius: var(--radius-sm);
+  border-color: rgba(178, 58, 49, 0.35);
+  background: rgba(178, 58, 49, 0.06);
+  color: var(--vencido);
+}
+
+/* ---- Gráficos ------------------------------------------------------------ */
+
+.pie-chart {
+  border-color: var(--linha-forte);
+}
+
+.pie-chart::after {
+  background: var(--folha);
+  border-color: var(--linha);
+}
+
+.trend-bar {
+  border-radius: 4px 4px 0 0;
+  background: var(--carbono);
+}
+
+.trend-column-current .trend-bar {
+  background: var(--cedula);
+}
+
+.trend-column strong {
+  font-family: var(--fonte-mono);
+  font-size: 0.78rem;
+}
+
+.chart-legend li > span {
+  border-radius: 2px;
+}
+
+/* ---- Pills de fixas/parceladas e compartilhadas --------------------------- */
+
+.fixed-expense-pill {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--linha-forte);
+  background: var(--folha);
+}
+
+.fixed-expense-pill span {
+  font-family: var(--fonte-mono);
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: var(--texto-suave-2);
+}
+
+.fixed-expense-pill strong {
+  color: var(--texto-tinta);
+}
+
+.shared-expense-card {
+  border: 1px solid var(--linha-forte);
+  border-radius: var(--radius-md);
+  background: var(--folha);
+}
+
+.shared-expense-card-pending {
+  border-color: rgba(145, 101, 15, 0.45);
+}
+
+.shared-expense-card-rejected {
+  border-color: rgba(178, 58, 49, 0.4);
+}
+
+/* ---- Login: a capa do carnê ------------------------------------------------ */
+
+.auth-card {
+  position: relative;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--linha-forte);
+  background: var(--folha);
+  box-shadow: 0 18px 40px rgba(18, 56, 43, 0.16);
+  overflow: hidden;
+  padding-top: 2.6rem;
+}
+
+/* lombada com picote no topo do cartão de login */
+.auth-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 14px;
+  background-color: var(--tinta);
+  background-image: radial-gradient(circle, var(--folha) 0 2px, transparent 2.5px);
+  background-size: 13px 7px;
+  background-position: center bottom 1px;
+  background-repeat: repeat-x;
+}
+
+.auth-disclaimer {
+  border-radius: var(--radius-sm);
+  border-color: var(--linha);
+  background: var(--folha-2);
+}
+
+/* ---- Miudezas -------------------------------------------------------------- */
+
+.empty-state {
+  color: var(--mudo-2);
+  border: 1px dashed var(--linha-forte);
+  border-radius: var(--radius-md);
+  padding: 1.1rem 1.2rem;
+  background: transparent;
+}
+
+.pagination a,
+.pagination span {
+  border-radius: var(--radius-sm);
+  font-family: var(--fonte-mono);
+  font-size: 0.85rem;
+}
+
+.inactive-row {
+  opacity: 0.55;
+}
+
+.ai-progress-bar {
+  background: var(--cedula);
+}
+
+.forecast-toggle.active {
+  color: var(--cedula);
+  font-weight: 650;
+}
+
+.category-chip {
+  border-radius: 6px;
+}
+
+::selection {
+  background: rgba(27, 122, 75, 0.25);
+}
+
+/* ---- Acessibilidade ---------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .site-header::after {
+    height: 6px;
+    background-size: 11px 6px;
+  }
+}

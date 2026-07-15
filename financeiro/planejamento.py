@@ -291,7 +291,7 @@ def _dados_graficos_periodo(user, inicio, fim, evolucao, *, usar_data=False):
 
     tipo_percentuais = []
     cursor = Decimal("0.00")
-    cores_tipo = {"Variáveis": "#2f7d69", "Fixas": "#8b6f47", "Parceladas": "#c65f46"}
+    cores_tipo = {"Variáveis": "#1b7a4b", "Fixas": "#33518f", "Parceladas": "#b86b2e"}
     for chave, valor in por_tipo.items():
         percentual = Decimal("0.00") if not total_tipo else (valor / total_tipo) * Decimal("100")
         inicio_percentual = cursor
@@ -321,7 +321,7 @@ def _dados_graficos_periodo(user, inicio, fim, evolucao, *, usar_data=False):
                 "participacao": int(percentual),
                 "inicio": int(inicio_percentual),
                 "fim": int(cursor_categoria),
-                "cor": ["#2f7d69", "#8b6f47", "#c65f46", "#58726b", "#9a8b66", "#7f5d58"][indice],
+                "cor": ["#1b7a4b", "#33518f", "#b86b2e", "#12382b", "#7c5077", "#667c66"][indice],
             }
         )
 
