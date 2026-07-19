@@ -1,8 +1,8 @@
 import json
 from datetime import timedelta
 from decimal import Decimal
-from urllib import error, request
 
+import anthropic
 from django.conf import settings
 from django.utils import timezone
 
@@ -96,85 +96,65 @@ def coletar_dados_mentoria(user, referencia=None):
     }
 
 
-def _extrair_texto_openai(resposta):
-    if resposta.get("output_text"):
-        return str(resposta["output_text"]).strip()
-
-    partes = []
-    for item in resposta.get("output", []):
-        if item.get("type") != "message":
-            continue
-        for conteudo in item.get("content", []):
-            if conteudo.get("type") in {"output_text", "text"} and conteudo.get("text"):
-                partes.append(str(conteudo["text"]))
-    return "\n".join(partes).strip()
+INSTRUCOES_MENTORIA = (
+    "Você é uma mentora financeira objetiva para uma pessoa física. "
+    "Analise apenas os dados enviados, não invente valores e não dê aconselhamento de investimento. "
+    "Responda em português do Brasil, em no máximo 220 palavras. "
+    "Formato obrigatório: primeiro um parágrafo curto chamado 'Análise geral' sem citar números, valores, "
+    "percentuais ou datas; nele diga quais maiores gastos parecem ajustáveis e quais gastos recorrentes "
+    "tendem a se repetir. Depois faça uma lista numerada com exatamente 5 metas claras e objetivas. "
+    "Nas 5 metas, use valores em reais quando os dados permitirem, defina limites semanais ou mensais, "
+    "e diga exatamente o que fazer para gastar menos e avançar nas metas/reservas."
+)
 
 
-def _post_openai(payload):
-    requisicao = request.Request(
-        "https://api.openai.com/v1/responses",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
+def _chamar_anthropic(dados, modelo):
+    client = anthropic.Anthropic(
+        api_key=settings.ANTHROPIC_API_KEY,
+        timeout=settings.ANTHROPIC_TIMEOUT_SECONDS,
     )
-    with request.urlopen(requisicao, timeout=settings.OPENAI_TIMEOUT_SECONDS) as resposta:
-        return json.loads(resposta.read().decode("utf-8"))
+    return client.messages.create(
+        model=modelo,
+        max_tokens=4000,
+        system=INSTRUCOES_MENTORIA,
+        messages=[
+            {
+                "role": "user",
+                "content": "Dados financeiros dos últimos 30 dias em JSON:\n"
+                + json.dumps(dados, ensure_ascii=False),
+            }
+        ],
+    )
 
 
-def _erro_modelo_inexistente(exc, detalhe):
-    if exc.code != 400:
-        return False
-    return "model_not_found" in detalhe or "does not exist" in detalhe
-
-
-def _chamar_openai_com_fallback(payload, modelo):
-    try:
-        return _post_openai(payload), modelo
-    except error.HTTPError as exc:
-        detalhe = exc.read().decode("utf-8", errors="ignore")
-        fallback = getattr(settings, "OPENAI_MENTORIA_FALLBACK_MODEL", "").strip()
-        if fallback and fallback != modelo and _erro_modelo_inexistente(exc, detalhe):
-            payload = {**payload, "model": fallback}
-            try:
-                return _post_openai(payload), fallback
-            except error.HTTPError as fallback_exc:
-                detalhe_fallback = fallback_exc.read().decode("utf-8", errors="ignore")
-                raise RuntimeError(f"Erro da OpenAI ao gerar mentoria: {fallback_exc.code} {detalhe_fallback[:300]}") from fallback_exc
-        raise RuntimeError(f"Erro da OpenAI ao gerar mentoria: {exc.code} {detalhe[:300]}") from exc
+def _extrair_texto(resposta):
+    return "\n".join(
+        bloco.text for bloco in resposta.content if bloco.type == "text"
+    ).strip()
 
 
 def gerar_mentoria_financeira(user):
-    if not settings.OPENAI_API_KEY:
-        raise ValueError("Configure OPENAI_API_KEY para gerar a mentoria financeira da IA.")
+    if not settings.ANTHROPIC_API_KEY:
+        raise ValueError("Configure ANTHROPIC_API_KEY para gerar a mentoria financeira da IA.")
 
     dados = coletar_dados_mentoria(user)
-    modelo = settings.OPENAI_MENTORIA_MODEL or "gpt-5-mini"
-    payload = {
-        "model": modelo,
-        "instructions": (
-            "Você é uma mentora financeira objetiva para uma pessoa física. "
-            "Analise apenas os dados enviados, não invente valores e não dê aconselhamento de investimento. "
-            "Responda em português do Brasil, em no máximo 220 palavras. "
-            "Formato obrigatório: primeiro um parágrafo curto chamado 'Análise geral' sem citar números, valores, "
-            "percentuais ou datas; nele diga quais maiores gastos parecem ajustáveis e quais gastos recorrentes "
-            "tendem a se repetir. Depois faça uma lista numerada com exatamente 5 metas claras e objetivas. "
-            "Nas 5 metas, use valores em reais quando os dados permitirem, defina limites semanais ou mensais, "
-            "e diga exatamente o que fazer para gastar menos e avançar nas metas/reservas."
-        ),
-        "input": "Dados financeiros dos últimos 30 dias em JSON:\n" + json.dumps(dados, ensure_ascii=False),
-    }
+    modelo = settings.ANTHROPIC_MENTORIA_MODEL or "claude-opus-4-8"
 
     try:
-        resposta, modelo_usado = _chamar_openai_com_fallback(payload, modelo)
-    except error.URLError as exc:
-        raise RuntimeError("Não foi possível conectar à OpenAI para gerar a mentoria.") from exc
+        resposta = _chamar_anthropic(dados, modelo)
+    except anthropic.APIStatusError as exc:
+        raise RuntimeError(
+            f"Erro da Anthropic ao gerar mentoria: {exc.status_code} {str(exc.message)[:300]}"
+        ) from exc
+    except anthropic.APIConnectionError as exc:
+        raise RuntimeError("Não foi possível conectar à Anthropic para gerar a mentoria.") from exc
 
-    conteudo = _extrair_texto_openai(resposta)
+    if resposta.stop_reason == "refusal":
+        raise RuntimeError("A análise foi recusada pelos filtros de segurança do modelo.")
+
+    conteudo = _extrair_texto(resposta)
     if not conteudo:
-        raise RuntimeError("A OpenAI não retornou texto para a mentoria financeira.")
+        raise RuntimeError("A Anthropic não retornou texto para a mentoria financeira.")
 
     return MentoriaFinanceiraIA.objects.create(
         criado_por=user,
@@ -182,5 +162,5 @@ def gerar_mentoria_financeira(user):
         periodo_fim=dados["periodo"]["fim"],
         conteudo=conteudo,
         dados_enviados=dados,
-        modelo=modelo_usado,
+        modelo=resposta.model,
     )

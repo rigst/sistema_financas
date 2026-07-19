@@ -36,9 +36,8 @@ python manage.py runserver
 Para habilitar a mentoria financeira da IA, configure:
 
 ```bash
-OPENAI_API_KEY=...
-OPENAI_MENTORIA_MODEL=gpt-5-mini
-OPENAI_MENTORIA_FALLBACK_MODEL=gpt-4.1-mini
+ANTHROPIC_API_KEY=...
+ANTHROPIC_MENTORIA_MODEL=claude-opus-4-8
 ```
 
 ## Uso local
