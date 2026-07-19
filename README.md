@@ -102,3 +102,7 @@ Quando criar o repositório remoto:
 git remote add origin git@github.com:SEU_USUARIO/sistema_financas.git
 git push -u origin main
 ```
+
+## Licença
+
+Este projeto é distribuído sob a **GNU Affero General Public License v3.0** (ver [LICENSE](LICENSE)). Código-fonte: <https://github.com/rigst/sistema_financas>.

@@ -3355,6 +3355,12 @@ tr:hover td {
   transition: width 180ms ease;
 }
 
+.ai-mentor-disclosure {
+  margin: 0.75rem 0 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text-muted, #6b6b60);
+}
+
 @media (max-width: 760px) {
   .shared-dashboard-panel {
     grid-template-columns: 1fr;
