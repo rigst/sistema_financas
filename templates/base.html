@@ -70,6 +70,13 @@
         {% block content %}{% endblock %}
     </main>
 
+    <footer style="max-width:1200px;margin:2.5rem auto 1.5rem;padding:0 1rem;text-align:center;font-size:.8rem;opacity:.75">
+        Um app <a href="https://stolben.com/" target="_blank" rel="noopener">Stölben</a> · © 2026 ·
+        <a href="{% url 'privacidade' %}">Privacidade</a> ·
+        <a href="{% url 'termos' %}">Termos</a> ·
+        <a href="https://github.com/rigst/sistema_financas" target="_blank" rel="noopener">Código-fonte (AGPL-3.0)</a>
+    </footer>
+
     <script nonce="{{ request.csp_nonce }}">
     (() => {
       const DRAFT_STORAGE_PREFIX = "codex-draft:";

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Termos de Uso · StölbenFinanças{% endblock %}
+
+{% block content %}
+<div style="max-width:760px;margin:0 auto;padding:1.5rem 0 3rem">
+  <h1 style="margin-bottom:.25rem">Termos de Uso</h1>
+  <p style="opacity:.7;margin-bottom:1.5rem">Última atualização: 19 de julho de 2026</p>
+
+  <p>Ao usar o <strong>StölbenFinanças</strong> (financas.stolben.com), você concorda com estes termos.</p>
+
+  <h2>O serviço</h2>
+  <p>Ferramenta de organização financeira pessoal: registro de lançamentos, contas, cartões, metas e uma mentoria gerada por IA. É fornecida "como está", sem garantia formal de disponibilidade, e pode ser alterada ou descontinuada com aviso razoável.</p>
+
+  <h2>Não é consultoria financeira</h2>
+  <p><strong>Nada no sistema — incluindo a mentoria gerada por IA — constitui consultoria financeira, contábil ou de investimentos.</strong> As análises são geradas por modelos de linguagem, podem conter erros e servem apenas como apoio à sua própria organização. Decisões financeiras são suas.</p>
+
+  <h2>Conta e uso aceitável</h2>
+  <p>A conta é pessoal; mantenha sua senha em sigilo. Os dados que você registra devem ser seus (ou de despesas que você de fato compartilha com os demais participantes). É proibido usar o serviço para fins ilícitos ou sobrecarregar a infraestrutura.</p>
+
+  <h2>Responsabilidade e lei aplicável</h2>
+  <p>Na extensão máxima permitida pela lei, o serviço não responde por decisões tomadas com base nos registros ou nas análises, nem por indisponibilidade temporária. Nada aqui afasta direitos do Código de Defesa do Consumidor. Regem-se estes termos pelas leis brasileiras.</p>
+
+  <h2>Código aberto e contato</h2>
+  <p>O código-fonte é distribuído sob a licença <a href="https://github.com/rigst/sistema_financas" target="_blank" rel="noopener">AGPL-3.0</a>. Dúvidas e solicitações: <a href="mailto:rodrigo@stolben.com">rodrigo@stolben.com</a>. Veja também a <a href="{% url 'privacidade' %}">Política de Privacidade</a>.</p>
+</div>
+{% endblock %}

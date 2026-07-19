@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Política de Privacidade · StölbenFinanças{% endblock %}
+
+{% block content %}
+<div style="max-width:760px;margin:0 auto;padding:1.5rem 0 3rem">
+  <h1 style="margin-bottom:.25rem">Política de Privacidade</h1>
+  <p style="opacity:.7;margin-bottom:1.5rem">Última atualização: 19 de julho de 2026</p>
+
+  <p>Esta política descreve como o <strong>StölbenFinanças</strong> (financas.stolben.com) trata dados pessoais, em conformidade com a LGPD (Lei nº 13.709/2018). Controlador: Rodrigo Stölben — <a href="mailto:rodrigo@stolben.com">rodrigo@stolben.com</a>.</p>
+
+  <h2>O que coletamos</h2>
+  <ul>
+    <li><strong>Conta:</strong> nome de usuário, e-mail e senha (com hash). Base legal: execução de contrato.</li>
+    <li><strong>Dados financeiros que você registra:</strong> receitas, despesas, contas, cartões, faturas, metas, reservas e compartilhamentos de despesas com outros usuários. São usados exclusivamente para o funcionamento do próprio sistema — nunca para publicidade, crédito ou venda a terceiros.</li>
+    <li><strong>Registros de acesso:</strong> IP, data/hora e navegador (Marco Civil da Internet), com rotação automática.</li>
+  </ul>
+
+  <h2>Mentoria financeira com IA</h2>
+  <p>Ao clicar em <em>"Gerar análise"</em>, um resumo dos seus lançamentos dos últimos 30 dias (descrições, valores, categorias e metas — <strong>sem seu nome, e-mail ou dados de conta</strong>) é enviado à API do Claude (Anthropic, EUA) para produzir o texto da mentoria. Pelos termos comerciais da Anthropic, esses dados não são usados para treinar modelos. O envio configura transferência internacional (arts. 33–36 da LGPD) e só acontece quando você aciona o botão; o resumo enviado fica registrado junto à análise, para transparência.</p>
+
+  <h2>O que não fazemos</h2>
+  <p>Não há rastreadores, analytics ou cookies de terceiros — apenas cookies essenciais de sessão e CSRF. As fontes da página são servidas do próprio domínio. Nenhum dado é compartilhado além do descrito acima.</p>
+
+  <h2>Compartilhamento entre usuários</h2>
+  <p>Se você participa de uma despesa compartilhada, os demais participantes veem os dados daquela despesa (valores e divisão), e apenas dela.</p>
+
+  <h2>Retenção e seus direitos</h2>
+  <p>Seus dados são mantidos enquanto a conta existir. Você pode solicitar acesso, correção, portabilidade ou <strong>exclusão da conta e de todos os dados</strong> a qualquer momento: <a href="mailto:rodrigo@stolben.com">rodrigo@stolben.com</a> (LGPD, art. 18).</p>
+
+  <p style="margin-top:1.5rem"><a href="{% url 'termos' %}">Termos de Uso</a></p>
+</div>
+{% endblock %}
