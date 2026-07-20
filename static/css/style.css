@@ -1,20 +1,20 @@
 :root {
-  --bg: #f3f6f1;
-  --bg-soft: #f8faf7;
+  --bg: var(--ds-bg);
+  --bg-soft: var(--ds-panel);
   --surface: rgba(255, 255, 255, 0.82);
   --surface-2: rgba(250, 252, 250, 0.96);
   --surface-strong: #ffffff;
-  --surface-strong-2: #eef5f0;
+  --surface-strong-2: var(--ds-panel);
   --border: rgba(64, 86, 78, 0.14);
   --border-strong: rgba(64, 86, 78, 0.22);
   --text: #26312d;
   --text-soft: #586963;
   --muted: #72817b;
-  --accent: #2f7d69;
-  --accent-2: #8b6f47;
+  --accent: var(--ds-accent);
+  --accent-2: var(--ds-warn);
   --success: #4fa56a;
-  --danger: #d14545;
-  --warning: #a05f43;
+  --danger: var(--ds-danger);
+  --warning: var(--ds-warn);
   --shadow: 0 20px 48px rgba(45, 68, 60, 0.12);
   --radius-xl: 36px;
   --radius-lg: 24px;
@@ -38,8 +38,8 @@ body {
   font-family: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--text);
   background:
-    radial-gradient(circle at top, rgba(47, 125, 105, 0.16), transparent 28%),
-    linear-gradient(180deg, #fbfcfa 0%, #f3f6f1 48%, #e6eee8 100%);
+    radial-gradient(circle at top, color-mix(in srgb, var(--ds-accent) 16%, transparent), transparent 28%),
+    linear-gradient(180deg, var(--ds-panel) 0%, var(--ds-bg) 48%, var(--ds-bg) 100%);
   min-height: 100vh;
   line-height: 1.68;
   -webkit-font-smoothing: antialiased;
@@ -100,7 +100,7 @@ a {
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  border: 1px solid rgba(71, 101, 138, 0.2);
+  border: 1px solid color-mix(in srgb, var(--ds-t-500) 20%, transparent);
   background: rgba(255, 255, 255, 0.86);
   align-items: center;
   justify-content: center;
@@ -173,7 +173,7 @@ a {
   min-height: 32px;
   padding: 0.26rem 1.8rem 0.26rem 0.7rem;
   border-radius: 999px;
-  border: 1px solid rgba(71, 101, 138, 0.2);
+  border: 1px solid color-mix(in srgb, var(--ds-t-500) 20%, transparent);
   background-color: rgba(255, 255, 255, 0.74);
   color: var(--text-soft);
   font-size: 0.84rem;
@@ -182,8 +182,8 @@ a {
   appearance: none;
   -webkit-appearance: none;
   background-image:
-    linear-gradient(45deg, transparent 50%, rgba(71, 101, 138, 0.58) 50%),
-    linear-gradient(135deg, rgba(71, 101, 138, 0.58) 50%, transparent 50%);
+    linear-gradient(45deg, transparent 50%, color-mix(in srgb, var(--ds-t-500) 58%, transparent) 50%),
+    linear-gradient(135deg, color-mix(in srgb, var(--ds-t-500) 58%, transparent) 50%, transparent 50%);
   background-position:
     calc(100% - 0.95rem) 48%,
     calc(100% - 0.65rem) 48%;
@@ -192,13 +192,13 @@ a {
 }
 
 .header-company-select:hover {
-  border-color: rgba(71, 101, 138, 0.34);
+  border-color: color-mix(in srgb, var(--ds-t-500) 34%, transparent);
   color: var(--text);
 }
 
 .header-company-select:focus-visible {
-  border-color: rgba(47, 125, 105, 0.45);
-  box-shadow: 0 0 0 3px rgba(47, 125, 105, 0.12);
+  border-color: color-mix(in srgb, var(--ds-accent) 45%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-accent) 12%, transparent);
 }
 
 .header-company-select option {
@@ -230,11 +230,11 @@ a {
 .nav-links a:hover,
 .nav-links a.active {
   color: var(--text);
-  background: rgba(47, 125, 105, 0.1);
+  background: color-mix(in srgb, var(--ds-accent) 10%, transparent);
 }
 
 .nav-logout {
-  border: 1px solid rgba(71, 101, 138, 0.2);
+  border: 1px solid color-mix(in srgb, var(--ds-t-500) 20%, transparent);
   background: rgba(255, 255, 255, 0.82);
   color: var(--text-soft);
   font: inherit;
@@ -247,7 +247,7 @@ a {
 
 .nav-logout:hover {
   color: var(--text);
-  border-color: rgba(71, 101, 138, 0.3);
+  border-color: color-mix(in srgb, var(--ds-t-500) 30%, transparent);
 }
 
 main {
@@ -270,8 +270,8 @@ main {
 .flash-message {
   margin: 0;
   padding: 0.3rem 0 0.32rem 0.62rem;
-  border-left: 2px solid rgba(47, 125, 105, 0.4);
-  color: #8a6200;
+  border-left: 2px solid color-mix(in srgb, var(--ds-accent) 40%, transparent);
+  color: var(--ds-warn);
   font-size: 0.9rem;
   font-weight: 500;
   line-height: 1.45;
@@ -284,13 +284,13 @@ main {
 
 .flash-message.flash-warning {
   border-left-color: rgba(182, 120, 28, 0.5);
-  color: #966015;
+  color: var(--ds-warn);
 }
 
 .flash-message.flash-error,
 .flash-message.flash-danger {
-  border-left-color: rgba(209, 69, 69, 0.55);
-  color: #a33333;
+  border-left-color: color-mix(in srgb, var(--ds-danger) 55%, transparent);
+  color: var(--ds-danger);
 }
 
 section {
@@ -355,7 +355,7 @@ section {
   padding: 1.35rem 1.45rem;
   border-radius: 24px;
   border: 1px solid var(--border-strong);
-  background: linear-gradient(180deg, #ffffff, #f7faff);
+  background: linear-gradient(180deg, #ffffff, var(--ds-accent-50));
   box-shadow: var(--shadow);
 }
 
@@ -386,9 +386,9 @@ section {
   margin-top: 0.5rem;
   padding: 0.75rem 0.9rem;
   border-radius: 14px;
-  border: 1px solid rgba(209, 69, 69, 0.22);
-  background: rgba(209, 69, 69, 0.08);
-  color: #9f2e2e;
+  border: 1px solid color-mix(in srgb, var(--ds-danger) 22%, transparent);
+  background: color-mix(in srgb, var(--ds-danger) 8%, transparent);
+  color: var(--ds-danger);
   font-size: 0.92rem;
   line-height: 1.55;
 }
@@ -403,7 +403,7 @@ section {
 
 .form-submenu {
   margin-top: 1rem;
-  border: 1px solid rgba(71, 101, 138, 0.14);
+  border: 1px solid color-mix(in srgb, var(--ds-t-500) 14%, transparent);
   border-radius: 18px;
   background: linear-gradient(180deg, rgba(250, 252, 255, 0.98), rgba(244, 248, 255, 0.96));
   overflow: hidden;
@@ -499,28 +499,28 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 button:focus-visible {
-  outline: 3px solid rgba(47, 125, 105, 0.34);
+  outline: 3px solid color-mix(in srgb, var(--ds-accent) 34%, transparent);
   outline-offset: 2px;
 }
 
 .btn-primary {
   background: linear-gradient(180deg, rgba(239, 248, 243, 0.98) 0%, rgba(221, 239, 230, 0.98) 100%);
-  border-color: rgba(47, 125, 105, 0.18);
-  color: #2f6d5d;
-  box-shadow: 0 10px 24px rgba(47, 125, 105, 0.12);
+  border-color: color-mix(in srgb, var(--ds-accent) 18%, transparent);
+  color: var(--ds-accent-dark);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--ds-accent) 12%, transparent);
 }
 
 .btn-primary:hover {
   background: linear-gradient(180deg, rgba(232, 244, 238, 1) 0%, rgba(207, 230, 219, 1) 100%);
-  box-shadow: 0 12px 28px rgba(47, 125, 105, 0.16);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--ds-accent) 16%, transparent);
 }
 
 .btn-primary-lite {
   min-height: 40px;
   padding: 0 0.9rem;
   background: rgba(237, 246, 241, 0.96);
-  color: #2f6d5d;
-  border-color: rgba(47, 125, 105, 0.16);
+  color: var(--ds-accent-dark);
+  border-color: color-mix(in srgb, var(--ds-accent) 16%, transparent);
   box-shadow: none;
 }
 
@@ -533,8 +533,8 @@ button:focus-visible {
   min-height: 40px;
   padding: 0 0.95rem;
   background: rgba(248, 250, 247, 0.98);
-  color: #2f6d5d;
-  border-color: rgba(47, 125, 105, 0.14);
+  color: var(--ds-accent-dark);
+  border-color: color-mix(in srgb, var(--ds-accent) 14%, transparent);
   box-shadow: none;
 }
 
@@ -560,7 +560,7 @@ button:focus-visible {
 .btn-status-approved {
   min-height: 40px;
   background: rgba(61, 143, 86, 0.12);
-  color: #3d8f56;
+  color: var(--ds-success);
   border-color: rgba(61, 143, 86, 0.22);
   box-shadow: none;
 }
@@ -573,7 +573,7 @@ button:focus-visible {
 .btn-status-rejected {
   min-height: 40px;
   background: rgba(190, 68, 68, 0.12);
-  color: #be4444;
+  color: var(--ds-danger);
   border-color: rgba(190, 68, 68, 0.22);
   box-shadow: none;
 }
@@ -586,7 +586,7 @@ button:focus-visible {
 .btn-status-cancelled {
   min-height: 40px;
   background: rgba(96, 116, 136, 0.12);
-  color: #607488;
+  color: var(--ds-t-500);
   border-color: rgba(96, 116, 136, 0.22);
   box-shadow: none;
 }
@@ -621,7 +621,7 @@ button:focus-visible {
 .btn-secondary {
   background: rgba(255, 255, 255, 0.92);
   color: var(--text);
-  border-color: rgba(71, 101, 138, 0.22);
+  border-color: color-mix(in srgb, var(--ds-t-500) 22%, transparent);
 }
 
 .btn-compact {
@@ -632,9 +632,9 @@ button:focus-visible {
 }
 
 .btn-danger {
-  background: rgba(209, 69, 69, 0.1);
-  color: #b63e3e;
-  border-color: rgba(209, 69, 69, 0.18);
+  background: color-mix(in srgb, var(--ds-danger) 10%, transparent);
+  color: var(--ds-danger);
+  border-color: color-mix(in srgb, var(--ds-danger) 18%, transparent);
 }
 
 .stats-grid {
@@ -686,9 +686,9 @@ button:focus-visible {
 }
 
 .available-panel {
-  border: 1px solid rgba(47, 125, 105, 0.18);
+  border: 1px solid color-mix(in srgb, var(--ds-accent) 18%, transparent);
   border-radius: 14px;
-  background: linear-gradient(180deg, #ffffff, #f5faf7);
+  background: linear-gradient(180deg, #ffffff, var(--ds-panel));
   padding: 1.25rem;
   box-shadow: 0 12px 28px rgba(45, 68, 60, 0.06);
 }
@@ -718,14 +718,14 @@ button:focus-visible {
   padding: 0 0.45rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.68);
-  border: 1px solid rgba(71, 101, 138, 0.14);
+  border: 1px solid color-mix(in srgb, var(--ds-t-500) 14%, transparent);
   font-size: 0.78rem;
 }
 
 .forecast-toggle.active {
   color: var(--accent);
-  border-color: rgba(47, 125, 105, 0.2);
-  background: rgba(47, 125, 105, 0.08);
+  border-color: color-mix(in srgb, var(--ds-accent) 20%, transparent);
+  background: color-mix(in srgb, var(--ds-accent) 8%, transparent);
 }
 
 .available-panel dl {
@@ -784,14 +784,14 @@ button:focus-visible {
 
 .btn-dashboard-expense,
 .dashboard-main-actions .btn-dashboard-expense {
-  background: rgba(209, 69, 69, 0.12);
-  color: #b63e3e;
-  border-color: rgba(209, 69, 69, 0.2);
+  background: color-mix(in srgb, var(--ds-danger) 12%, transparent);
+  color: var(--ds-danger);
+  border-color: color-mix(in srgb, var(--ds-danger) 20%, transparent);
 }
 
 .dashboard-main-actions .btn-dashboard-income {
   background: rgba(79, 165, 106, 0.14);
-  color: #2f7d69;
+  color: var(--ds-accent);
   border-color: rgba(79, 165, 106, 0.22);
 }
 
@@ -802,7 +802,7 @@ button:focus-visible {
 
 .btn-dashboard-expense:hover,
 .dashboard-main-actions .btn-dashboard-expense:hover {
-  background: rgba(209, 69, 69, 0.18);
+  background: color-mix(in srgb, var(--ds-danger) 18%, transparent);
 }
 
 .dashboard-main-actions .btn-dashboard-income:hover {
@@ -940,11 +940,11 @@ button:focus-visible {
   width: 100%;
   min-height: 4px;
   border-radius: 12px 12px 4px 4px;
-  background: linear-gradient(180deg, #2f7d69, #58726b);
+  background: linear-gradient(180deg, var(--ds-accent), #58726b);
 }
 
 .trend-column-current .trend-bar {
-  background: linear-gradient(180deg, #c65f46, #8b6f47);
+  background: var(--ds-accent);
 }
 
 .trend-column strong {
@@ -1032,7 +1032,7 @@ button:focus-visible {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: rgba(47, 125, 105, 0.12);
+  background: color-mix(in srgb, var(--ds-accent) 12%, transparent);
   color: var(--accent);
   font-size: 0.9rem;
   font-weight: 900;
@@ -1107,8 +1107,8 @@ button:focus-visible {
 }
 
 .meta-pie-card:hover {
-  border-color: rgba(47, 125, 105, 0.35);
-  background: #f8fbf8;
+  border-color: color-mix(in srgb, var(--ds-accent) 35%, transparent);
+  background: var(--ds-panel);
 }
 
 .meta-pie {
@@ -1158,13 +1158,13 @@ button:focus-visible {
 .stat-card {
   border-radius: var(--radius-md);
   border: 1px solid var(--border-strong);
-  background: linear-gradient(180deg, #ffffff, #f7faf7);
+  background: linear-gradient(180deg, #ffffff, var(--ds-panel));
   padding: 1rem;
 }
 
 .stat-card-primary {
   border-color: rgba(79, 165, 106, 0.24);
-  background: linear-gradient(180deg, #ffffff, #f4fbf6);
+  background: linear-gradient(180deg, #ffffff, var(--ds-panel));
 }
 
 .stat-card .label {
@@ -1362,7 +1362,7 @@ button:focus-visible {
   margin-left: 0.35rem;
   padding: 0 0.35rem;
   border-radius: 999px;
-  background: #be4444;
+  background: var(--ds-danger);
   color: #ffffff;
   font-size: 0.78rem;
   font-weight: 800;
@@ -1414,7 +1414,7 @@ button:focus-visible {
   min-height: 1.45rem;
   padding: 0 0.4rem;
   border-radius: 999px;
-  background: #be4444;
+  background: var(--ds-danger);
   color: #ffffff;
   font-style: normal;
   font-size: 0.78rem;
@@ -1446,18 +1446,18 @@ button:focus-visible {
 
 .shared-expense-card-pending {
   border-color: rgba(139, 111, 71, 0.45);
-  background: #fffaf2;
+  background: var(--ds-warn-50);
 }
 
 .shared-status-aguardando {
   border-color: rgba(139, 111, 71, 0.45);
-  background: #fffaf2;
+  background: var(--ds-warn-50);
 }
 
 .shared-expense-card-rejected,
 .shared-status-recusado {
   border-color: rgba(190, 68, 68, 0.45);
-  background: #fff1f1;
+  background: var(--ds-danger-50);
 }
 
 .shared-expense-card-main,
@@ -1491,7 +1491,7 @@ button:focus-visible {
 
 .shared-rejection-message {
   flex-basis: 100%;
-  color: #be4444 !important;
+  color: var(--ds-danger) !important;
 }
 
 .shared-summary-actions {
@@ -1521,17 +1521,17 @@ button:focus-visible {
 
 .shared-participant-recusado {
   border-color: rgba(190, 68, 68, 0.32);
-  background: #fff1f1;
-  color: #be4444;
+  background: var(--ds-danger-50);
+  color: var(--ds-danger);
 }
 
 .shared-participant-pendente {
   border-color: rgba(139, 111, 71, 0.32);
-  background: #fffaf2;
+  background: var(--ds-warn-50);
 }
 
 .status-aguardando {
-  color: #8b6f47;
+  color: var(--ds-warn);
 }
 
 .table-mainline,
@@ -1618,7 +1618,7 @@ button:focus-visible {
 .chart-card {
   border: 1px solid var(--border-strong);
   border-radius: 18px;
-  background: linear-gradient(180deg, #ffffff, #eef5f0);
+  background: linear-gradient(180deg, #ffffff, var(--ds-panel));
   padding: 1rem;
 }
 
@@ -1636,7 +1636,7 @@ button:focus-visible {
   padding: 0.9rem;
   border-radius: 14px;
   background: rgba(237, 246, 241, 0.8);
-  border: 1px solid rgba(47, 125, 105, 0.14);
+  border: 1px solid color-mix(in srgb, var(--ds-accent) 14%, transparent);
 }
 
 .chart-metric span,
@@ -1669,7 +1669,7 @@ button:focus-visible {
 .bar-track {
   height: 12px;
   border-radius: 999px;
-  background: rgba(47, 125, 105, 0.12);
+  background: color-mix(in srgb, var(--ds-accent) 12%, transparent);
   overflow: hidden;
 }
 
@@ -1678,7 +1678,7 @@ button:focus-visible {
   height: 100%;
   min-width: 4px;
   border-radius: inherit;
-  background: linear-gradient(90deg, #8b6f47, #2f7d69);
+  background: linear-gradient(90deg, var(--ds-warn), var(--ds-accent));
 }
 
 .actions-menu {
@@ -1715,7 +1715,7 @@ button:focus-visible {
 }
 
 .actions-menu a:hover {
-  background: rgba(47, 125, 105, 0.08);
+  background: color-mix(in srgb, var(--ds-accent) 8%, transparent);
 }
 
 .form-grid {
@@ -1740,7 +1740,7 @@ label {
 }
 
 .required-mark {
-  color: #b63e3e;
+  color: var(--ds-danger);
   margin-left: 0.2rem;
 }
 
@@ -1769,15 +1769,15 @@ textarea {
 
 input::placeholder,
 textarea::placeholder {
-  color: #8aa0b8;
+  color: var(--ds-t-400);
 }
 
 input:focus,
 select:focus,
 textarea:focus {
   background: #ffffff;
-  border-color: rgba(47, 125, 105, 0.55);
-  box-shadow: 0 0 0 4px rgba(47, 125, 105, 0.14);
+  border-color: color-mix(in srgb, var(--ds-accent) 55%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ds-accent) 14%, transparent);
 }
 
 select option {
@@ -1847,14 +1847,14 @@ table {
 th,
 td {
   padding: 0.9rem;
-  border-bottom: 1px solid rgba(71, 101, 138, 0.12);
+  border-bottom: 1px solid color-mix(in srgb, var(--ds-t-500) 12%, transparent);
   text-align: left;
   vertical-align: top;
 }
 
 th {
   color: var(--text);
-  background: #f3f8ff;
+  background: var(--ds-accent-50);
   font-size: 0.92rem;
 }
 
@@ -1863,7 +1863,7 @@ td {
 }
 
 tr:hover td {
-  background: rgba(47, 125, 105, 0.04);
+  background: color-mix(in srgb, var(--ds-accent) 4%, transparent);
 }
 
 .money {
@@ -1877,8 +1877,8 @@ tr:hover td {
   justify-content: center;
   padding: 0.36rem 0.68rem;
   border-radius: 999px;
-  background: rgba(47, 125, 105, 0.08);
-  border: 1px solid rgba(47, 125, 105, 0.1);
+  background: color-mix(in srgb, var(--ds-accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ds-accent) 10%, transparent);
   color: var(--text);
   font-size: 0.82rem;
   line-height: 1.1;
@@ -1888,7 +1888,7 @@ tr:hover td {
 .badge-warning {
   background: rgba(182, 120, 28, 0.1);
   border-color: rgba(182, 120, 28, 0.14);
-  color: #925d16;
+  color: var(--ds-warn);
 }
 
 .badge-success {
@@ -1898,21 +1898,21 @@ tr:hover td {
 }
 
 .badge-info {
-  background: rgba(47, 125, 105, 0.1);
-  border-color: rgba(47, 125, 105, 0.14);
-  color: #2f6d5d;
+  background: color-mix(in srgb, var(--ds-accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--ds-accent) 14%, transparent);
+  color: var(--ds-accent-dark);
 }
 
 .badge-danger {
-  background: rgba(209, 69, 69, 0.12);
-  border-color: rgba(209, 69, 69, 0.18);
-  color: #b63e3e;
+  background: color-mix(in srgb, var(--ds-danger) 12%, transparent);
+  border-color: color-mix(in srgb, var(--ds-danger) 18%, transparent);
+  color: var(--ds-danger);
 }
 
 .badge-danger-soft {
-  background: rgba(209, 69, 69, 0.1);
-  border-color: rgba(209, 69, 69, 0.16);
-  color: #b63e3e;
+  background: color-mix(in srgb, var(--ds-danger) 10%, transparent);
+  border-color: color-mix(in srgb, var(--ds-danger) 16%, transparent);
+  color: var(--ds-danger);
 }
 
 .category-chip {
@@ -1921,8 +1921,8 @@ tr:hover td {
   gap: 0.45rem;
   padding: 0.34rem 0.62rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--category-color, #2f7d69) 12%, white);
-  border: 1px solid color-mix(in srgb, var(--category-color, #2f7d69) 18%, white);
+  background: color-mix(in srgb, var(--category-color, var(--ds-accent)) 12%, white);
+  border: 1px solid color-mix(in srgb, var(--category-color, var(--ds-accent)) 18%, white);
   color: var(--text);
   font-size: 0.82rem;
   line-height: 1.1;
@@ -1938,7 +1938,7 @@ tr:hover td {
   width: 0.72rem;
   height: 0.72rem;
   border-radius: 999px;
-  background: var(--category-color, #2f7d69);
+  background: var(--category-color, var(--ds-accent));
   flex: 0 0 auto;
 }
 
@@ -1947,7 +1947,7 @@ tr:hover td {
   width: 1rem;
   height: 1rem;
   border: 2px solid rgba(255, 255, 255, 0.75);
-  box-shadow: 0 0 0 1px rgba(71, 101, 138, 0.14);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ds-t-500) 14%, transparent);
 }
 
 .category-with-icon {
@@ -1966,8 +1966,8 @@ tr:hover td {
   place-items: center;
   flex: 0 0 auto;
   color: var(--accent);
-  background: rgba(47, 125, 105, 0.09);
-  border: 1px solid rgba(47, 125, 105, 0.12);
+  background: color-mix(in srgb, var(--ds-accent) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ds-accent) 12%, transparent);
 }
 
 .category-icon svg {
@@ -1981,21 +1981,21 @@ tr:hover td {
 }
 
 .status-rascunho { color: #445f7d; }
-.status-em_elaboracao { color: #8b6f47; }
-.status-enviado { color: #2f7d69; }
-.status-aprovado { color: #3d8f56; }
-.status-rejeitado { color: #be4444; }
+.status-em_elaboracao { color: var(--ds-warn); }
+.status-enviado { color: var(--ds-accent); }
+.status-aprovado { color: var(--ds-success); }
+.status-rejeitado { color: var(--ds-danger); }
 .status-cancelado,
-.status-cancelada { color: #607488; }
+.status-cancelada { color: var(--ds-t-500); }
 .status-paga,
-.status-recebida { color: #3d8f56; }
+.status-recebida { color: var(--ds-success); }
 .status-pendente,
-.status-prevista { color: #8b6f47; }
+.status-prevista { color: var(--ds-warn); }
 
 .modal-panel {
   margin-top: 1rem;
-  background: linear-gradient(180deg, #ffffff, #f7faf7);
-  border: 1px solid rgba(71, 101, 138, 0.16);
+  background: linear-gradient(180deg, #ffffff, var(--ds-panel));
+  border: 1px solid color-mix(in srgb, var(--ds-t-500) 16%, transparent);
   box-shadow: var(--shadow);
 }
 
@@ -2006,8 +2006,8 @@ tr:hover td {
   border-radius: 22px;
   border: 1px solid var(--border-strong);
   background:
-    radial-gradient(circle at top right, rgba(47, 125, 105, 0.08), transparent 35%),
-    linear-gradient(180deg, #ffffff, #f7faf7);
+    radial-gradient(circle at top right, color-mix(in srgb, var(--ds-accent) 8%, transparent), transparent 35%),
+    linear-gradient(180deg, #ffffff, var(--ds-panel));
   box-shadow: var(--shadow);
 }
 
@@ -2065,9 +2065,9 @@ tr:hover td {
 }
 
 .catalog-summary[data-category-active="1"] {
-  background: color-mix(in srgb, var(--category-color, #2f7d69) 12%, white);
-  border-color: color-mix(in srgb, var(--category-color, #2f7d69) 24%, white);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--category-color, #2f7d69) 10%, white);
+  background: color-mix(in srgb, var(--category-color, var(--ds-accent)) 12%, white);
+  border-color: color-mix(in srgb, var(--category-color, var(--ds-accent)) 24%, white);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--category-color, var(--ds-accent)) 10%, white);
 }
 
 .item-builder-preview strong,
@@ -2105,7 +2105,7 @@ tr:hover td {
 
 .item-block {
   padding: 0.9rem 0;
-  border-top: 1px solid rgba(71, 101, 138, 0.14);
+  border-top: 1px solid color-mix(in srgb, var(--ds-t-500) 14%, transparent);
   background: transparent;
 }
 
@@ -2221,7 +2221,7 @@ tr:hover td {
 
 .table-subline-warning {
   font-size: 0.83rem;
-  color: #8b6f47;
+  color: var(--ds-warn);
 }
 
 .budget-main-cell,
@@ -2298,7 +2298,7 @@ tr:hover td {
 .auth-visitor-section {
   margin-top: 1.25rem;
   padding-top: 1.1rem;
-  border-top: 1px solid rgba(71, 101, 138, 0.14);
+  border-top: 1px solid color-mix(in srgb, var(--ds-t-500) 14%, transparent);
 }
 
 .auth-visitor-section p {
@@ -2310,7 +2310,7 @@ tr:hover td {
   margin-top: 1.25rem;
   padding: 0.95rem 1rem;
   border-radius: 16px;
-  border: 1px solid rgba(71, 101, 138, 0.12);
+  border: 1px solid color-mix(in srgb, var(--ds-t-500) 12%, transparent);
   background: rgba(244, 248, 255, 0.86);
 }
 
@@ -2324,9 +2324,9 @@ tr:hover td {
   margin-bottom: 1rem;
   padding: 0.9rem 1rem;
   border-radius: 16px;
-  border: 1px solid rgba(209, 69, 69, 0.16);
-  background: rgba(209, 69, 69, 0.08);
-  color: #b63e3e;
+  border: 1px solid color-mix(in srgb, var(--ds-danger) 16%, transparent);
+  background: color-mix(in srgb, var(--ds-danger) 8%, transparent);
+  color: var(--ds-danger);
 }
 
 .form-errors p + p {
@@ -2351,7 +2351,7 @@ tr:hover td {
 }
 
 .preview-warning {
-  color: #ffd9a1;
+  color: var(--ds-warn-100);
 }
 
 .is-loading {
@@ -2427,8 +2427,8 @@ tr:hover td {
 
 .item-modal-content .item-entry-panel {
   border-radius: 24px;
-  border: 1px solid rgba(71, 101, 138, 0.18);
-  background: linear-gradient(180deg, #ffffff, #f7faff);
+  border: 1px solid color-mix(in srgb, var(--ds-t-500) 18%, transparent);
+  background: linear-gradient(180deg, #ffffff, var(--ds-accent-50));
   box-shadow: 0 24px 48px rgba(23, 48, 74, 0.18);
 }
 
@@ -2471,8 +2471,8 @@ tr:hover td {
 }
 
 .report-status-info {
-  border-color: rgba(47, 125, 105, 0.18);
-  background: rgba(47, 125, 105, 0.08);
+  border-color: color-mix(in srgb, var(--ds-accent) 18%, transparent);
+  background: color-mix(in srgb, var(--ds-accent) 8%, transparent);
 }
 
 .report-status-warning {
@@ -2481,8 +2481,8 @@ tr:hover td {
 }
 
 .report-status-danger {
-  border-color: rgba(209, 69, 69, 0.18);
-  background: rgba(209, 69, 69, 0.08);
+  border-color: color-mix(in srgb, var(--ds-danger) 18%, transparent);
+  background: color-mix(in srgb, var(--ds-danger) 8%, transparent);
 }
 
 .report-summary-grid {
@@ -2587,7 +2587,7 @@ tr:hover td {
   padding: 1rem 1.1rem;
   border-radius: 20px;
   border: 1px solid var(--border-strong);
-  background: linear-gradient(180deg, #ffffff, #f7faff);
+  background: linear-gradient(180deg, #ffffff, var(--ds-accent-50));
   box-shadow: var(--shadow);
 }
 
@@ -2605,7 +2605,7 @@ tr:hover td {
 }
 
 .totals-card-emphasis {
-  background: linear-gradient(180deg, #eef5ff, #deebff);
+  background: linear-gradient(180deg, var(--ds-accent-50), var(--ds-accent-100));
 }
 
 .actions-cluster {
@@ -2615,12 +2615,12 @@ tr:hover td {
 
 .actions-stack-status {
   padding-top: 0.65rem;
-  border-top: 1px solid rgba(71, 101, 138, 0.12);
+  border-top: 1px solid color-mix(in srgb, var(--ds-t-500) 12%, transparent);
 }
 
 .auth-error-text {
   margin-bottom: 1rem;
-  color: #c43d3d;
+  color: var(--ds-danger);
   font-size: 0.95rem;
   font-weight: 600;
 }
@@ -2865,7 +2865,7 @@ tr:hover td {
     text-align: center;
     gap: 0.3rem;
     padding: 0.7rem 0.8rem;
-    border: 1px solid rgba(71, 101, 138, 0.14);
+    border: 1px solid color-mix(in srgb, var(--ds-t-500) 14%, transparent);
     border-radius: 14px;
     background: rgba(255, 255, 255, 0.84);
   }
@@ -2928,7 +2928,7 @@ tr:hover td {
   .table-wrap > table:not(.items-compact-table) td {
     margin: 0;
     padding: 0.6rem 0.75rem;
-    border-bottom: 1px solid rgba(71, 101, 138, 0.1);
+    border-bottom: 1px solid color-mix(in srgb, var(--ds-t-500) 10%, transparent);
     text-align: left;
   }
 
@@ -2981,7 +2981,7 @@ tr:hover td {
   .table-wrap > table.items-compact-table td {
     margin: 0;
     padding: 0.6rem 0.75rem;
-    border-bottom: 1px solid rgba(71, 101, 138, 0.1);
+    border-bottom: 1px solid color-mix(in srgb, var(--ds-t-500) 10%, transparent);
     text-align: left;
   }
 
@@ -3283,8 +3283,8 @@ tr:hover td {
   min-width: 10ch !important;
   padding: 0.24rem 0.72rem !important;
   border-radius: 999px !important;
-  border: 1px solid rgba(71, 101, 138, 0.2) !important;
-  border-bottom: 1px solid rgba(71, 101, 138, 0.2) !important;
+  border: 1px solid color-mix(in srgb, var(--ds-t-500) 20%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--ds-t-500) 20%, transparent) !important;
   background: rgba(255, 255, 255, 0.88) !important;
   color: var(--text-soft) !important;
   font-size: 0.92em !important;
@@ -3309,14 +3309,14 @@ tr:hover td {
 }
 
 .header-user-meta .header-company-select:hover {
-  border-color: rgba(71, 101, 138, 0.34) !important;
+  border-color: color-mix(in srgb, var(--ds-t-500) 34%, transparent) !important;
   color: var(--text) !important;
 }
 
 .header-user-meta .header-company-select:focus,
 .header-user-meta .header-company-select:focus-visible {
-  border-color: rgba(47, 125, 105, 0.55) !important;
-  box-shadow: 0 0 0 3px rgba(47, 125, 105, 0.12) !important;
+  border-color: color-mix(in srgb, var(--ds-accent) 55%, transparent) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-accent) 12%, transparent) !important;
   background: rgba(255, 255, 255, 0.94) !important;
 }
 
@@ -3332,8 +3332,8 @@ tr:hover td {
   }
 }
 
-.status-pendente { color: #8b6f47; }
-.status-pago { color: #3d8f56; }
+.status-pendente { color: var(--ds-warn); }
+.status-pago { color: var(--ds-success); }
 .dashboard-focus-split {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -3342,7 +3342,7 @@ tr:hover td {
   width: 100%;
   height: 10px;
   margin: 1rem 0 0.5rem;
-  background: rgba(47, 125, 105, 0.12);
+  background: color-mix(in srgb, var(--ds-accent) 12%, transparent);
   border-radius: 999px;
   overflow: hidden;
 }
@@ -3351,7 +3351,7 @@ tr:hover td {
   display: block;
   width: 0;
   height: 100%;
-  background: linear-gradient(90deg, #2f7d69, #5da891);
+  background: linear-gradient(90deg, var(--ds-accent), #5da891);
   transition: width 180ms ease;
 }
 
@@ -3377,3 +3377,100 @@ tr:hover td {
     justify-content: stretch;
   }
 }
+
+
+/* =========================================================================
+   PONTE STÖLBEN UI (2026-07-20) — o app agora usa o DS PURO ("Infra
+   Premium": Inter/Manrope, acento azul, cinzas frios). A identidade "Carnê"
+   foi removida; este passe final faz os tokens locais derivarem de --ds-*
+   e alinha os componentes de destaque às receitas do DS. Novos estilos:
+   preferir componentes .ds-* direto nos templates.
+   ========================================================================= */
+
+:root {
+  --bg: var(--ds-bg);
+  --bg-soft: var(--ds-panel);
+  --surface: var(--ds-surface);
+  --surface-2: var(--ds-panel);
+  --surface-strong: var(--ds-surface);
+  --surface-strong-2: var(--ds-panel);
+  --border: var(--ds-line);
+  --border-strong: var(--ds-line-strong);
+  --text: var(--ds-t-900);
+  --text-soft: var(--ds-t-700);
+  --muted: var(--ds-t-500);
+  --accent: var(--ds-accent);
+  --accent-2: var(--ds-accent-dark);
+  --success: var(--ds-success);
+  --danger: var(--ds-danger);
+  --warning: var(--ds-warn);
+  --shadow: var(--ds-shadow-card);
+  --radius-xl: var(--ds-radius-xl);
+  --radius-lg: var(--ds-radius-lg);
+  --radius-md: var(--ds-radius-md);
+  --radius-sm: var(--ds-radius-sm);
+}
+
+/* Botões nas receitas do DS (solid / primary / ghost / subtle / danger) */
+.btn-primary,
+.auth-submit {
+  background: var(--ds-accent);
+  border-color: transparent;
+  color: var(--ds-on-accent);
+  box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--ds-accent) 60%, transparent);
+}
+.btn-primary:hover,
+.auth-submit:hover {
+  background: var(--ds-accent-dark);
+  box-shadow: 0 10px 22px -8px color-mix(in srgb, var(--ds-accent) 70%, transparent);
+}
+.btn-secondary {
+  background: var(--ds-surface);
+  border-color: var(--ds-line-strong);
+  color: var(--ds-t-900);
+}
+.btn-secondary:hover { border-color: var(--ds-t-700); background: var(--ds-accent-50); }
+.btn-primary-lite,
+.btn-soft,
+.btn-status-approved {
+  background: var(--ds-accent-50);
+  border-color: var(--ds-accent-100);
+  color: var(--ds-accent-dark);
+}
+.btn-primary-lite:hover,
+.btn-soft:hover,
+.btn-status-approved:hover { background: var(--ds-accent-100); }
+.btn-danger {
+  background: var(--ds-danger-50);
+  border-color: var(--ds-danger-100);
+  color: var(--ds-danger);
+}
+.btn-danger:hover { background: var(--ds-danger-100); }
+/* Ações do dashboard: despesa = .ds-btn--primary (tinta), receita = solid */
+.btn-dashboard-expense,
+.dashboard-main-actions .btn-dashboard-expense {
+  background: var(--ds-ink);
+  border-color: transparent;
+  color: #ffffff;
+}
+.btn-dashboard-expense:hover,
+.dashboard-main-actions .btn-dashboard-expense:hover { background: #000000; }
+.btn-dashboard-income,
+.dashboard-main-actions .btn-dashboard-income {
+  background: var(--ds-accent);
+  border-color: transparent;
+  color: var(--ds-on-accent);
+}
+.btn-dashboard-income:hover,
+.dashboard-main-actions .btn-dashboard-income:hover { background: var(--ds-accent-dark); }
+
+/* `.ds-root a { color: inherit }` (0,1,1) vence classe simples (0,1,0):
+   reafirma a cor de âncoras vestidas de botão ou link discreto. */
+a.brand { color: var(--ds-t-900); }
+a.quiet-link { color: var(--ds-t-500); }
+a.quiet-link:hover { color: var(--ds-t-900); }
+a.btn-primary, a.auth-submit,
+a.btn-dashboard-expense, a.btn-dashboard-income { color: var(--ds-on-accent); }
+a.btn-secondary { color: var(--ds-t-900); }
+a.btn-primary-lite, a.btn-soft, a.btn-status-approved { color: var(--ds-accent-dark); }
+a.btn-danger { color: var(--ds-danger); }

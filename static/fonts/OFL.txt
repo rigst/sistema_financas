@@ -1,5 +1,5 @@
 =================================================================
-Copyright 2019 The Chivo Project Authors (https://github.com/Omnibus-Type/Chivo)
+Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
@@ -94,7 +94,7 @@ FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 
 =================================================================
-Copyright 2020 The Archivo Project Authors (https://github.com/Omnibus-Type/Archivo)
+Copyright 2018 The Manrope Project Authors (https://github.com/sharanda/manrope)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:

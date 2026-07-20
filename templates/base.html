@@ -7,12 +7,15 @@
     <title>{% block title %}StölbenFinanças{% endblock %}</title>
     <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
     <link rel="apple-touch-icon" href="{% static 'favicon.png' %}">
-    <link rel="preload" href="{% static 'fonts/archivo-var.woff2' %}" as="font" type="font/woff2" crossorigin>
-    <link rel="preload" href="{% static 'fonts/chivo-mono-var.woff2' %}" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20260421-ai-text">
-    <link rel="stylesheet" href="{% static 'css/identidade.css' %}?v=20260715-carne">
+    <link rel="preload" href="{% static 'fonts/inter-normal-400-latin.woff2' %}" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="{% static 'fonts/manrope-normal-600-latin.woff2' %}" as="font" type="font/woff2" crossorigin>
+    <!-- Fontes auto-hospedadas do DS (Inter + Manrope) -->
+    <link rel="stylesheet" href="{% static 'fonts/fonts.css' %}">
+    <!-- Stölben UI (design system puro, sem fork) → camada do app (ponte no fim do style.css) -->
+    <link rel="stylesheet" href="{% static 'css/stolben-ui.css' %}?v=20260720-ds-puro">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20260720-ds-puro">
 </head>
-<body>
+<body class="ds-root">
     <header class="site-header">
         <div class="container">
             <nav class="nav">
@@ -77,6 +80,7 @@
         <a href="https://github.com/rigst/sistema_financas" target="_blank" rel="noopener">Código-fonte (AGPL-3.0)</a>
     </footer>
 
+    <script src="{% static 'js/stolben-ui.js' %}" defer></script>
     <script nonce="{{ request.csp_nonce }}">
     (() => {
       const DRAFT_STORAGE_PREFIX = "codex-draft:";
