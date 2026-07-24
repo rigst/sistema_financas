@@ -110,7 +110,7 @@ desmarcado e é obrigatório no servidor; publicar uma versão com mudança mate
 todos os usuários a aceitarem de novo antes de continuar usando o sistema.
 
 Os registros de acesso do nginx são mantidos por **6 meses**, como exige o art. 15 do
-Marco Civil (`deploy/logrotate/financas-acesso`).
+Marco Civil (`deploy/logrotate/stolben-acesso`).
 
 O procedimento completo — publicar nova versão, extrair evidência em CSV, instalar a
 rotação de logs — está em [docs/CONFORMIDADE.md](docs/CONFORMIDADE.md).

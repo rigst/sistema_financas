@@ -89,15 +89,36 @@ impede alterar retroativamente algo já aceito.
 O art. 15 do Marco Civil da Internet (Lei 12.965/2014) obriga o provedor de aplicação a
 manter os registros de acesso por **6 meses**.
 
-Quem cumpre isso é o nginx, não a aplicação. Instale a rotação deste repositório:
+Quem cumpre isso é o nginx, não a aplicação.
 
-```bash
-sudo cp deploy/logrotate/financas-acesso /etc/logrotate.d/financas-acesso
-sudo logrotate -d /etc/logrotate.d/financas-acesso   # simulação, não altera nada
+**1. Dar log próprio ao app.** No server block 443 de
+`/etc/nginx/sites-enabled/sistema_financas`, logo abaixo de `server_name`:
+
+```nginx
+access_log /var/log/nginx/acesso/financas.access.log;
 ```
 
-São 200 rotações diárias — 6 meses com folga. Os logs do gunicorn (journald, 7 dias) são
-log de aplicação, não registro de acesso, e não entram nessa conta.
+Sem isso, as requisições caem no `/var/log/nginx/access.log` global, que roda com os
+14 dias do pacote.
+
+**2. Instalar a rotação** (uma vez no servidor; o arquivo serve a todos os apps):
+
+```bash
+sudo install -d -o root -g adm -m 0755 /var/log/nginx/acesso
+sudo cp deploy/logrotate/stolben-acesso /etc/logrotate.d/stolben-acesso
+sudo logrotate -d /etc/logrotate.d/stolben-acesso   # simulação, não altera nada
+```
+
+São 200 rotações diárias — 6 meses com folga.
+
+O subdiretório `acesso/` não é capricho: o `/etc/logrotate.d/nginx` do sistema rotaciona
+`/var/log/nginx/*.log` a cada 14 dias, e esse glob **não** é recursivo. Manter os logs de
+6 meses um nível abaixo evita entrada duplicada no logrotate sem precisar editar um
+arquivo que pertence ao pacote do nginx — o que passaria a pedir confirmação de conffile
+em todo `apt upgrade`.
+
+Os logs do gunicorn (journald, 7 dias) são log de aplicação, não registro de acesso, e
+não entram nessa conta.
 
 O `X-Forwarded-For` é lido pelo **último** item, em `legal/utils.py:ip_do_request()`.
 Atrás do nginx com `proxy_add_x_forwarded_for`, esse é o IP que o nginx observou; os
