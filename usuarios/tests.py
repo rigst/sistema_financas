@@ -6,7 +6,7 @@ from django.test import RequestFactory, TestCase
 from django.urls import NoReverseMatch, reverse
 
 from financeiro.models import Despesa, Receita
-from .views import UsuarioLoginView
+from legal.utils import ip_do_request
 
 
 class AdminIndividualTests(TestCase):
@@ -71,7 +71,10 @@ class UsuarioVisitanteTests(TestCase):
         self.assertContains(response, "projeto com foco em aprendizado e portfólio")
 
     def test_login_como_visitante_cria_usuario_temporario_e_remove_no_logout(self):
-        response = self.client.post(reverse("login"), {"entrar_visitante": "1"})
+        # O aceite dos termos passou a ser condição para criar o visitante.
+        response = self.client.post(
+            reverse("login"), {"entrar_visitante": "1", "aceite_legal": "on"}
+        )
 
         self.assertEqual(response.status_code, 302)
         visitante = get_user_model().objects.get(username__startswith="visitante_")
@@ -101,7 +104,9 @@ class UsuarioVisitanteTests(TestCase):
             criado_por=usuario,
         )
 
-        self.client.post(reverse("login"), {"entrar_visitante": "1"})
+        self.client.post(
+            reverse("login"), {"entrar_visitante": "1", "aceite_legal": "on"}
+        )
 
         response_receitas = self.client.get(reverse("financeiro:receita_lista"))
         response_despesas = self.client.get(reverse("financeiro:despesa_lista"))
@@ -117,22 +122,21 @@ class UsuarioVisitanteTests(TestCase):
 
 
 class UsuarioVisitanteIpTests(TestCase):
+    """A resolução de IP saiu da view para `legal.utils.ip_do_request`, usada por
+    todos os pontos que gravam IP (rate limit e prova de aceite)."""
+
     def test_login_visitante_usa_ultimo_ip_de_x_forwarded_for(self):
         request = RequestFactory().post(
             reverse("login"),
             HTTP_X_FORWARDED_FOR="198.51.100.10, 203.0.113.77",
         )
-        view = UsuarioLoginView()
-        view.request = request
 
-        self.assertEqual(view._client_ip(), "203.0.113.77")
+        self.assertEqual(ip_do_request(request), "203.0.113.77")
 
     def test_login_visitante_cai_para_remote_addr_sem_x_forwarded_for(self):
         request = RequestFactory().post(
             reverse("login"),
             REMOTE_ADDR="10.0.0.5",
         )
-        view = UsuarioLoginView()
-        view.request = request
 
-        self.assertEqual(view._client_ip(), "10.0.0.5")
+        self.assertEqual(ip_do_request(request), "10.0.0.5")

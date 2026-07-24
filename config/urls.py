@@ -2,15 +2,18 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
-from django.views.generic import RedirectView, TemplateView
+from django.views.generic import RedirectView
+from legal import views as legal_views
 from usuarios.views import UsuarioLoginView, UsuarioLogoutView
 
 urlpatterns = [
     path("favicon.ico", RedirectView.as_view(url=settings.STATIC_URL + "favicon.ico", permanent=True)),
     path("admin/", admin.site.urls),
-    # Páginas legais (LGPD): acessíveis sem login.
-    path("privacidade/", TemplateView.as_view(template_name="legal/privacidade.html"), name="privacidade"),
-    path("termos/", TemplateView.as_view(template_name="legal/termos.html"), name="termos"),
+    # Páginas legais (LGPD): acessíveis sem login. O texto vem do banco (app
+    # `legal`), versionado — os nomes de rota seguem os mesmos de antes.
+    path("privacidade/", legal_views.privacidade, name="privacidade"),
+    path("termos/", legal_views.termos, name="termos"),
+    path("legal/", include("legal.urls")),
     path("login/", UsuarioLoginView.as_view(), name="login"),
     path("logout/", UsuarioLogoutView.as_view(), name="logout"),
     path("", include("core.urls")),

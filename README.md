@@ -102,6 +102,26 @@ git remote add origin git@github.com:SEU_USUARIO/sistema_financas.git
 git push -u origin main
 ```
 
+## Conformidade legal (LGPD / Marco Civil)
+
+O app `legal` versiona os Termos de Uso e a Política de Privacidade e registra cada
+aceite com data, hora, IP, navegador e o `sha256` do texto exato aceito. O checkbox nasce
+desmarcado e é obrigatório no servidor; publicar uma versão com mudança material obriga
+todos os usuários a aceitarem de novo antes de continuar usando o sistema.
+
+Os registros de acesso do nginx são mantidos por **6 meses**, como exige o art. 15 do
+Marco Civil (`deploy/logrotate/financas-acesso`).
+
+O procedimento completo — publicar nova versão, extrair evidência em CSV, instalar a
+rotação de logs — está em [docs/CONFORMIDADE.md](docs/CONFORMIDADE.md).
+
+```bash
+./venv/bin/python manage.py importar_documentos_legais --publicar  # seed inicial
+./venv/bin/python manage.py exportar_documentos_legais             # espelho em git
+```
+
 ## Licença
 
 Este projeto é distribuído sob a **GNU Affero General Public License v3.0** (ver [LICENSE](LICENSE)). Código-fonte: <https://github.com/rigst/sistema_financas>.
+
+O inventário das bibliotecas de terceiros está em [docs/LICENCAS-TERCEIROS.md](docs/LICENCAS-TERCEIROS.md), regenerável com `./venv/bin/python scripts/licencas_terceiros.py`.

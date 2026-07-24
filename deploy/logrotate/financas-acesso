@@ -1,0 +1,29 @@
+# Registros de acesso do StölbenFinanças — guarda de 6 meses.
+#
+# Exigência do art. 15 do Marco Civil da Internet (Lei 12.965/2014): o provedor
+# de aplicação deve manter os registros de acesso por 6 meses. 200 rotações
+# diárias cobrem o prazo com folga (~100 MB/ano comprimidos no volume atual).
+#
+# Instalar com:
+#   sudo cp deploy/logrotate/financas-acesso /etc/logrotate.d/financas-acesso
+#
+# Requer que o server block do nginx tenha a diretiva:
+#   access_log /var/log/nginx/financas.access.log;
+#
+# Atenção: remova /var/log/nginx/*.log do bloco em /etc/logrotate.d/nginx ou
+# restrinja-o, para este arquivo não rotacionar em duplicidade com aquele.
+
+/var/log/nginx/financas.access.log {
+    daily
+    rotate 200
+    compress
+    delaycompress
+    dateext
+    missingok
+    notifempty
+    create 0640 www-data adm
+    sharedscripts
+    postrotate
+        [ -f /var/run/nginx.pid ] && kill -USR1 $(cat /var/run/nginx.pid)
+    endscript
+}

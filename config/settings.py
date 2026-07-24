@@ -52,6 +52,10 @@ ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 
 INSTALLED_APPS = [
+    # O unfold precisa vir antes do admin: é assim que os templates dele
+    # sobrescrevem os do django.contrib.admin.
+    "unfold",
+    "unfold.contrib.filters",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -61,6 +65,7 @@ INSTALLED_APPS = [
     "core",
     "usuarios",
     "financeiro",
+    "legal",
 ]
 
 MIDDLEWARE = [
@@ -70,9 +75,29 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # Depois do Authentication (precisa de request.user) e antes das views:
+    # nova versão dos termos bloqueia o uso até ser aceita.
+    "legal.middleware.AceiteObrigatorioMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+UNFOLD = {
+    "SITE_TITLE": "StölbenFinanças",
+    "SITE_HEADER": "StölbenFinanças",
+    "SITE_SUBHEADER": "Administração",
+    "SHOW_HISTORY": True,
+    "SHOW_VIEW_ON_SITE": False,
+    "COLORS": {
+        # Verde do DS, para não parecer o admin de outro sistema.
+        "primary": {
+            "50": "236 253 245", "100": "209 250 229", "200": "167 243 208",
+            "300": "110 231 183", "400": "52 211 153", "500": "16 185 129",
+            "600": "5 150 105", "700": "4 120 87", "800": "6 95 70",
+            "900": "6 78 59", "950": "2 44 34",
+        },
+    },
+}
 
 ROOT_URLCONF = "config.urls"
 
@@ -169,6 +194,10 @@ SHORT_DATE_FORMAT = "d/m/Y"
 
 AUTH_USER_MODEL = "usuarios.Usuario"
 
+# O Usuario não tem `groups` nem `user_permissions`; o backend padrão tentaria
+# consultá-los ao avaliar has_perm(). Ver usuarios/auth_backends.py.
+AUTHENTICATION_BACKENDS = ["usuarios.auth_backends.UsuarioModelBackend"]
+
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "login"
@@ -219,6 +248,21 @@ ENABLE_CSP = env_bool("DJANGO_ENABLE_CSP", default=IS_PRODUCTION)
 CONTENT_SECURITY_POLICY = os.getenv(
     "DJANGO_CONTENT_SECURITY_POLICY",
     "default-src 'self'; img-src 'self' data: blob:; script-src 'self' 'nonce-{nonce}'; "
+    "style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; "
+    "frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+)
+
+ADMIN_PATH_PREFIX = "/admin/"
+
+# Política exclusiva do admin. O 'unsafe-eval' é exigido pelo Alpine.js que o
+# django-unfold usa: ele compila as expressões de `x-data`/`x-init` com
+# `new Function()`. Sem isso o painel carrega sem menu, abas nem tema. A
+# concessão fica presa ao /admin/, que só `is_staff` alcança — o app público
+# continua sob a política estrita acima.
+CONTENT_SECURITY_POLICY_ADMIN = os.getenv(
+    "DJANGO_CONTENT_SECURITY_POLICY_ADMIN",
+    "default-src 'self'; img-src 'self' data: blob:; "
+    "script-src 'self' 'unsafe-eval' 'nonce-{nonce}'; "
     "style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; "
     "frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
 )

@@ -3474,3 +3474,115 @@ a.btn-dashboard-expense, a.btn-dashboard-income { color: var(--ds-on-accent); }
 a.btn-secondary { color: var(--ds-t-900); }
 a.btn-primary-lite, a.btn-soft, a.btn-status-approved { color: var(--ds-accent-dark); }
 a.btn-danger { color: var(--ds-danger); }
+
+/* =========================================================================
+   PÁGINAS LEGAIS E ACEITE (app `legal`) — o texto vem do banco, renderizado
+   de Markdown, então aqui se estiliza o container e a tipografia do corpo,
+   não classes por elemento.
+   ========================================================================= */
+
+.legal-page {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 1.5rem 0 3rem;
+}
+
+.legal-doc { padding: clamp(1.25rem, 4vw, 2.25rem); }
+
+.legal-doc-header h1 { margin: 0 0 .25rem; }
+
+.legal-doc-meta {
+  color: var(--ds-t-500);
+  font-size: .875rem;
+  margin: 0 0 1.5rem;
+}
+
+.legal-doc-aviso {
+  background: var(--ds-panel);
+  border: 1px solid var(--ds-line);
+  border-radius: var(--ds-radius-md);
+  padding: .75rem 1rem;
+  font-size: .875rem;
+  margin-bottom: 1.5rem;
+}
+
+.legal-doc-corpo { line-height: 1.7; }
+.legal-doc-corpo h2 { margin: 2rem 0 .5rem; font-size: 1.15rem; }
+.legal-doc-corpo h3 { margin: 1.5rem 0 .5rem; font-size: 1rem; }
+.legal-doc-corpo p,
+.legal-doc-corpo li { color: var(--ds-t-700); }
+.legal-doc-corpo ul,
+.legal-doc-corpo ol { padding-left: 1.25rem; margin: .5rem 0 1rem; }
+.legal-doc-corpo li { margin-bottom: .35rem; }
+
+/* Rolagem só nos textos do interstitial, para o botão de aceite continuar à
+   vista sem esconder o documento. */
+.legal-doc-scroll {
+  max-height: 24rem;
+  overflow-y: auto;
+  border: 1px solid var(--ds-line);
+  border-radius: var(--ds-radius-md);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.legal-doc-footer {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--ds-line);
+  font-size: .875rem;
+  color: var(--ds-t-500);
+}
+
+.legal-doc-historico { margin-top: 1rem; }
+.legal-doc-historico summary { cursor: pointer; }
+.legal-doc-historico ul { margin: .5rem 0 0; padding-left: 1.25rem; }
+
+/* Checkbox de aceite */
+.legal-aceite { margin: 1rem 0; }
+.legal-aceite label {
+  display: flex;
+  align-items: flex-start;
+  gap: .625rem;
+  font-size: .875rem;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.legal-aceite input[type="checkbox"] {
+  width: 1.05rem;
+  height: 1.05rem;
+  margin-top: .1rem;
+  flex: 0 0 auto;
+  accent-color: var(--ds-accent);
+  cursor: pointer;
+}
+.legal-aceite-erro { color: var(--ds-danger); }
+.legal-aceite-msg {
+  margin: .375rem 0 0 1.675rem;
+  font-size: .8125rem;
+  color: var(--ds-danger);
+}
+
+.legal-aceite-form { margin-top: 1.5rem; }
+
+/* Botão que se apresenta como link (usado para sair sem aceitar). O onclick
+   inline seria bloqueado pela CSP, então a recusa é um submit de verdade. */
+.link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* `.ds-root a { color: inherit }` (0,1,1) venceria as classes simples acima:
+   os links do corpo legal precisam de seletor com a mesma força ou maior. */
+.legal-doc-corpo a,
+.legal-doc-footer a,
+.legal-doc-aviso a,
+.legal-aceite a,
+.legal-page .link-button { color: var(--ds-accent-dark); }
+.legal-doc-corpo a:hover,
+.legal-doc-footer a:hover,
+.legal-aceite a:hover { color: var(--ds-accent); }

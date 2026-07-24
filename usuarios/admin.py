@@ -1,11 +1,20 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from unfold.admin import ModelAdmin
+from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
 
 from .models import Usuario
 
 
 @admin.register(Usuario)
-class UsuarioAdmin(UserAdmin):
+class UsuarioAdmin(UserAdmin, ModelAdmin):
+    # Os formulários do unfold existem porque as telas de troca de senha e de
+    # criação de usuário do admin nativo trazem markup próprio e ficariam fora
+    # do tema.
+    form = UserChangeForm
+    add_form = UserCreationForm
+    change_password_form = AdminPasswordChangeForm
+
     fieldsets = (
         (None, {"fields": ("username", "password")}),
         ("Dados pessoais", {"fields": ("first_name", "last_name", "email", "nome_exibicao")}),

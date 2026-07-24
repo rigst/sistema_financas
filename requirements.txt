@@ -7,3 +7,10 @@ sqlparse==0.5.5
 anthropic==0.117.0
 
 redis==5.2.1
+
+# Conformidade legal (app `legal`): render e sanitização das políticas.
+markdown==3.10.2
+nh3==0.3.6
+
+# Tema do admin.
+django-unfold==0.101.0
