@@ -201,6 +201,10 @@ AUTHENTICATION_BACKENDS = ["usuarios.auth_backends.UsuarioModelBackend"]
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "login"
+
+# Destino após o aceite nas telas do app `legal`. Existe para o app não
+# depender de uma rota chamada `dashboard`, que não há em todos os projetos.
+LEGAL_REDIRECT_URL = "dashboard"
 HEALTHZ_TOKEN = os.getenv("DJANGO_HEALTHZ_TOKEN", "").strip()
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
 ANTHROPIC_MENTORIA_MODEL = os.getenv("ANTHROPIC_MENTORIA_MODEL", "claude-opus-4-8").strip()

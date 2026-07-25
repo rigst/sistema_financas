@@ -1,5 +1,6 @@
 """Páginas públicas dos documentos legais e o interstitial de re-aceite."""
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import Http404
@@ -9,6 +10,19 @@ from django.urls import reverse
 from .forms import AceiteForm
 from .models import AceiteLegal, DocumentoLegal, OrigemAceite, StatusDocumento, TipoDocumento
 from .services import documentos_pendentes, historico, registrar_aceite
+
+
+def _destino_pos_aceite():
+    """Para onde levar o usuário depois de aceitar.
+
+    Configurável porque o app é copiado entre projetos com rotas iniciais
+    diferentes: `dashboard` onde há login, `/` no divisor, que não tem contas.
+    """
+    destino = getattr(settings, "LEGAL_REDIRECT_URL", "/")
+    try:
+        return reverse(destino)
+    except Exception:
+        return destino
 
 
 def _documento_vigente_ou_404(tipo):
@@ -65,7 +79,7 @@ def reaceite(request):
     """Bloqueia o uso do sistema até a nova versão ser aceita."""
     pendentes = documentos_pendentes(request.user)
     if not pendentes:
-        return redirect(reverse("dashboard"))
+        return redirect(_destino_pos_aceite())
 
     if request.method == "POST":
         form = AceiteForm(request.POST)
@@ -78,7 +92,7 @@ def reaceite(request):
                 e_visitante=request.user.username.startswith("visitante_"),
             )
             messages.success(request, "Obrigado. Aceite registrado.")
-            return redirect(reverse("dashboard"))
+            return redirect(_destino_pos_aceite())
     else:
         form = AceiteForm()
 
