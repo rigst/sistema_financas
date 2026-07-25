@@ -67,7 +67,7 @@ class UsuarioVisitanteTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Entrar como visitante")
-        self.assertContains(response, "cria um usuário temporário automaticamente")
+        self.assertContains(response, "cria uma conta temporária")
         self.assertContains(response, "projeto com foco em aprendizado e portfólio")
 
     def test_login_como_visitante_cria_usuario_temporario_e_remove_no_logout(self):

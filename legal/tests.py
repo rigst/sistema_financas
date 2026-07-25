@@ -79,7 +79,8 @@ class AceiteFormTests(TestCase):
 
         criar_documento()
         criar_documento(tipo=TipoDocumento.PRIVACIDADE)
-        html = self.client.get(reverse("login")).content.decode()
+        # O aceite saiu do login para uma página própria.
+        html = self.client.get(reverse("legal:aceite_visitante")).content.decode()
 
         tags = re.findall(r"<input[^>]*name=\"aceite_legal\"[^>]*>", html)
         self.assertEqual(len(tags), 1, "esperava exatamente um checkbox de aceite")
@@ -89,7 +90,7 @@ class AceiteFormTests(TestCase):
     def test_template_nao_vaza_comentario_de_desenvolvimento(self):
         """`{# #}` no Django é de uma linha só: comentário em bloco vaza para a página."""
         criar_documento()
-        html = self.client.get(reverse("login")).content.decode()
+        html = self.client.get(reverse("legal:aceite_visitante")).content.decode()
         self.assertNotIn("initial=False", html)
 
 
@@ -216,7 +217,7 @@ class PaginasPublicasTests(TestCase):
 
         resposta = self.client.get(reverse("legal:versao", args=[antiga.tipo, antiga.versao]))
         self.assertContains(resposta, "Texto antigo.")
-        self.assertContains(resposta, "versão arquivada")
+        self.assertContains(resposta, "versão anterior")
 
     def test_rascunho_nao_e_publico(self):
         rascunho = criar_documento(versao="9.0", publicar=False)

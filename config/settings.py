@@ -205,6 +205,11 @@ LOGOUT_REDIRECT_URL = "login"
 # Destino após o aceite nas telas do app `legal`. Existe para o app não
 # depender de uma rota chamada `dashboard`, que não há em todos os projetos.
 LEGAL_REDIRECT_URL = "dashboard"
+
+# Para onde a tela de aceite de visitante posta, e o que aquela view espera.
+# Aqui a criação do visitante vive no ramo `entrar_visitante` do LoginView.
+LEGAL_VISITOR_ACTION = "login"
+LEGAL_VISITOR_EXTRA = {"entrar_visitante": "1"}
 HEALTHZ_TOKEN = os.getenv("DJANGO_HEALTHZ_TOKEN", "").strip()
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
 ANTHROPIC_MENTORIA_MODEL = os.getenv("ANTHROPIC_MENTORIA_MODEL", "claude-opus-4-8").strip()
