@@ -143,6 +143,9 @@ def dashboard(request):
         "semana_nav": navegacao_semanal(referencia),
         "incluir_previstos_mes": incluir_previstos_mes,
         "mentoria_ia": mentoria_ia,
+        # Com a IA desligada o painel some da tela: deixá-lo visível levaria a
+        # pessoa a clicar num botão que só devolve erro.
+        "ai_mentoria_ativa": settings.AI_MENTORIA_ENABLED,
         "compartilhadas_dashboard": compartilhadas_dashboard,
     }
     return render(request, "core/dashboard.html", context)

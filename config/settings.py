@@ -214,6 +214,7 @@ HEALTHZ_TOKEN = os.getenv("DJANGO_HEALTHZ_TOKEN", "").strip()
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
 ANTHROPIC_MENTORIA_MODEL = os.getenv("ANTHROPIC_MENTORIA_MODEL", "claude-opus-4-8").strip()
 ANTHROPIC_TIMEOUT_SECONDS = int(os.getenv("ANTHROPIC_TIMEOUT_SECONDS", "60"))
+AI_MENTORIA_ENABLED = os.getenv("AI_MENTORIA_ENABLED", "true").strip().lower() == "true"
 
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]

@@ -134,6 +134,8 @@ def _extrair_texto(resposta):
 
 
 def gerar_mentoria_financeira(user):
+    if not settings.AI_MENTORIA_ENABLED:
+        raise ValueError("A mentoria por IA está temporariamente desativada.")
     if not settings.ANTHROPIC_API_KEY:
         raise ValueError("Configure ANTHROPIC_API_KEY para gerar a mentoria financeira da IA.")
 

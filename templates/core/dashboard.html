@@ -134,6 +134,7 @@
         <p class="empty-state">Ainda não há lançamentos.</p>
     {% endif %}
 
+    {% if ai_mentoria_ativa %}
     <div class="ai-mentor-panel">
         <div class="ai-mentor-header">
             <div>
@@ -154,6 +155,7 @@
         <p class="ai-mentor-disclosure">Ao gerar a análise, um resumo dos seus lançamentos dos últimos 30 dias (descrições, valores, categorias e metas — sem seu nome, e-mail ou dados de conta) é enviado à API do Claude (Anthropic, EUA) para produzir o texto. Os dados enviados pela API não são usados para treinar modelos. Gere a análise apenas se concordar com esse envio.</p>
         <div id="ai-mentor-body">{% include "partials/mentoria_ia.html" with mentoria_ia=mentoria_ia %}</div>
     </div>
+    {% endif %}
 
     <div class="dashboard-meta-row">
         <div>

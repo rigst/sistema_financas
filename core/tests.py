@@ -142,6 +142,7 @@ class DashboardTests(TestCase):
         self.assertContains(response, "semana=2026-04-13")
         self.assertContains(response, "semana=2026-04-27")
 
+    @override_settings(AI_MENTORIA_ENABLED=True)
     def test_dashboard_exibe_ultima_mentoria_ia_salva(self):
         MentoriaFinanceiraIA.objects.create(
             criado_por=self.user,
@@ -160,7 +161,7 @@ class DashboardTests(TestCase):
         self.assertContains(response, 'class="ai-mentor-list"', html=False)
         self.assertContains(response, "Gerar análise")
 
-    @override_settings(ANTHROPIC_API_KEY="sk-teste", ANTHROPIC_MENTORIA_MODEL="modelo-teste")
+    @override_settings(AI_MENTORIA_ENABLED=True, ANTHROPIC_API_KEY="sk-teste", ANTHROPIC_MENTORIA_MODEL="modelo-teste")
     @patch("core.ai_mentoria._chamar_anthropic")
     def test_botao_gera_mentoria_ia_e_salva_resultado(self, chamar_anthropic):
         chamar_anthropic.return_value = SimpleNamespace(
@@ -181,7 +182,7 @@ class DashboardTests(TestCase):
         self.assertIn("gastos_por_categoria", mentoria.dados_enviados)
         self.assertContains(response, "Mentoria financeira da IA atualizada.")
 
-    @override_settings(ANTHROPIC_API_KEY="sk-teste")
+    @override_settings(AI_MENTORIA_ENABLED=True, ANTHROPIC_API_KEY="sk-teste")
     @patch("core.ai_mentoria._chamar_anthropic")
     def test_botao_mentoria_ia_com_falha_de_conexao_mostra_erro(self, chamar_anthropic):
         chamar_anthropic.side_effect = anthropic.APIConnectionError(
@@ -194,13 +195,33 @@ class DashboardTests(TestCase):
         self.assertFalse(MentoriaFinanceiraIA.objects.filter(criado_por=self.user).exists())
         self.assertContains(response, "Não foi possível conectar à Anthropic")
 
-    @override_settings(ANTHROPIC_API_KEY="")
+    @override_settings(AI_MENTORIA_ENABLED=True, ANTHROPIC_API_KEY="")
     def test_botao_mentoria_ia_sem_chave_mostra_erro(self):
         response = self.client.post(reverse("gerar_mentoria_ia"), follow=True)
 
         self.assertRedirects(response, reverse("dashboard"))
         self.assertFalse(MentoriaFinanceiraIA.objects.filter(criado_por=self.user).exists())
         self.assertContains(response, "Configure ANTHROPIC_API_KEY")
+
+    @override_settings(AI_MENTORIA_ENABLED=False)
+    def test_mentoria_desativada_some_do_dashboard(self):
+        """Com a IA desligada o painel não aparece — não adianta oferecer um
+        botão que só devolve erro."""
+        response = self.client.get(reverse("dashboard"))
+
+        # `ai-mentor-form` também aparece no JS da página; a asserção precisa
+        # ser sobre o painel em si.
+        self.assertNotContains(response, 'class="ai-mentor-panel"')
+        self.assertNotContains(response, "Gerar análise")
+
+    @override_settings(AI_MENTORIA_ENABLED=False, ANTHROPIC_API_KEY="sk-teste")
+    def test_mentoria_desativada_recusa_geracao_direta(self):
+        """A rota segue existindo: quem postar nela mesmo assim recebe recusa."""
+        response = self.client.post(reverse("gerar_mentoria_ia"), follow=True)
+
+        self.assertRedirects(response, reverse("dashboard"))
+        self.assertFalse(MentoriaFinanceiraIA.objects.filter(criado_por=self.user).exists())
+        self.assertContains(response, "temporariamente desativada")
 
     def test_manual_do_sistema_esta_disponivel(self):
         response = self.client.get(reverse("manual"))
