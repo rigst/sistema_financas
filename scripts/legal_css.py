@@ -45,6 +45,40 @@ PONTE_QUESTOES = """:root {
   --legal-raio-sm: var(--radius-sm);
 }"""
 
+PONTE_TRILHAS = """:root {
+  --legal-surface: var(--panel);
+  --legal-painel: var(--panel-2);
+  --legal-line: var(--line);
+  --legal-line-forte: var(--line-2);
+  --legal-t900: var(--text);
+  --legal-t700: var(--muted);
+  --legal-t500: var(--dim);
+  --legal-accent: var(--teal);
+  --legal-accent-forte: var(--teal-2);
+  --legal-danger: var(--red);
+  --legal-warn: var(--amber);
+  --legal-raio-lg: var(--radius);
+  --legal-raio-md: var(--radius-sm);
+  --legal-raio-sm: var(--radius-xs);
+}"""
+
+PONTE_VETORIAL = """:root {
+  --legal-surface: var(--surface);
+  --legal-painel: var(--surface-2);
+  --legal-line: var(--border);
+  --legal-line-forte: var(--border-strong);
+  --legal-t900: var(--text);
+  --legal-t700: var(--text-soft);
+  --legal-t500: var(--muted);
+  --legal-accent: var(--accent);
+  --legal-accent-forte: var(--accent);
+  --legal-danger: var(--danger);
+  --legal-warn: var(--warning);
+  --legal-raio-lg: var(--radius-lg);
+  --legal-raio-md: var(--radius-md);
+  --legal-raio-sm: var(--radius-sm);
+}"""
+
 CORPO = """
 .legal-page {
   --legal-medida: 66ch;
@@ -447,6 +481,8 @@ APPS = {
     "/var/www/sistema_orcamentos/current/static/css/style.css": PONTE_DS,
     "/var/www/divisor_pdf/static/css/style.css": PONTE_DS,
     "/var/www/sistema_questoes/current/static/css/questoes.css": PONTE_QUESTOES,
+    "/var/www/sistema_trilhas/static/css/app.css": PONTE_TRILHAS,
+    "/var/www/sistema_vetorial/current/static/css/style.css": PONTE_VETORIAL,
 }
 
 
