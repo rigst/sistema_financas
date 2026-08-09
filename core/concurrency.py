@@ -4,9 +4,7 @@ from django import forms
 class OptimisticLockModelFormMixin(forms.ModelForm):
     concurrency_field_name = "concorrencia_atualizado_em"
     concurrency_model_field = "atualizado_em"
-    concurrency_error_message = (
-        "Este registro foi alterado em outra sessão. Recarregue a página para revisar os dados mais recentes."
-    )
+    concurrency_error_message = "Este registro foi alterado em outra sessão. Recarregue a página para revisar os dados mais recentes."
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

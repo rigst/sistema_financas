@@ -1,5 +1,6 @@
-from django.conf import settings
 import secrets
+
+from django.conf import settings
 
 
 class ContentSecurityPolicyMiddleware:

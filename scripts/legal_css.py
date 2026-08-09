@@ -490,9 +490,12 @@ def main():
     for caminho, ponte in APPS.items():
         p = Path(caminho)
         t = p.read_text(encoding="utf-8")
-        for antiga in (MARCA, "/* =========================================================================\n   PÁGINAS LEGAIS E ACEITE"):
+        for antiga in (
+            MARCA,
+            "/* =========================================================================\n   PÁGINAS LEGAIS E ACEITE",
+        ):
             if antiga in t:
-                t = t[:t.index(antiga)].rstrip() + "\n"
+                t = t[: t.index(antiga)].rstrip() + "\n"
         p.write_text(t + CABECALHO + ponte + "\n" + CORPO, encoding="utf-8")
         print(f"  {caminho}: {p.read_text(encoding='utf-8').count(chr(10))} linhas")
 

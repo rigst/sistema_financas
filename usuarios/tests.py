@@ -104,9 +104,7 @@ class UsuarioVisitanteTests(TestCase):
             criado_por=usuario,
         )
 
-        self.client.post(
-            reverse("login"), {"entrar_visitante": "1", "aceite_legal": "on"}
-        )
+        self.client.post(reverse("login"), {"entrar_visitante": "1", "aceite_legal": "on"})
 
         response_receitas = self.client.get(reverse("financeiro:receita_lista"))
         response_despesas = self.client.get(reverse("financeiro:despesa_lista"))

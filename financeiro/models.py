@@ -1,5 +1,5 @@
 import calendar
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -74,18 +74,26 @@ class Receita(SerieCompetenciaMixin, models.Model):
 
     descricao = models.CharField(max_length=255)
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default="variavel")
-    valor = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
+    valor = models.DecimalField(
+        max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
+    )
     data = models.DateField(default=timezone.localdate)
     competencia = models.DateField()
     data_fim = models.DateField(null=True, blank=True)
     categoria = models.CharField(max_length=120, blank=True)
-    parcelas = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(120)])
-    parcela_atual = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(120)])
+    parcelas = models.PositiveSmallIntegerField(
+        default=1, validators=[MinValueValidator(1), MaxValueValidator(120)]
+    )
+    parcela_atual = models.PositiveSmallIntegerField(
+        default=1, validators=[MinValueValidator(1), MaxValueValidator(120)]
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="recebida")
     data_recebimento = models.DateField(null=True, blank=True)
     observacoes = models.TextField(blank=True)
     ativa = models.BooleanField(default=True)
-    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="receitas_criadas")
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="receitas_criadas"
+    )
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
@@ -103,11 +111,17 @@ class Receita(SerieCompetenciaMixin, models.Model):
         if self.tipo != "parcelada" and self.parcelas != 1:
             raise ValidationError({"parcelas": "Use parcelas apenas para receita parcelada."})
         if self.tipo != "parcelada" and self.parcela_atual != 1:
-            raise ValidationError({"parcela_atual": "Use parcela atual apenas para receita parcelada."})
+            raise ValidationError(
+                {"parcela_atual": "Use parcela atual apenas para receita parcelada."}
+            )
         if self.tipo == "parcelada" and self.parcelas < 2:
-            raise ValidationError({"parcelas": "Receita parcelada precisa ter pelo menos 2 parcelas."})
+            raise ValidationError(
+                {"parcelas": "Receita parcelada precisa ter pelo menos 2 parcelas."}
+            )
         if self.tipo == "parcelada" and self.parcela_atual > self.parcelas:
-            raise ValidationError({"parcela_atual": "A parcela atual não pode ser maior que o total de parcelas."})
+            raise ValidationError(
+                {"parcela_atual": "A parcela atual não pode ser maior que o total de parcelas."}
+            )
         if not self.competencia:
             self.competencia = self.data
         self.competencia = normalizar_competencia(self.competencia)
@@ -116,10 +130,16 @@ class Receita(SerieCompetenciaMixin, models.Model):
                 raise ValidationError({"data_fim": "Use a data final apenas para receita fixa."})
             self.data_fim = normalizar_competencia(self.data_fim)
             if self.data_fim < self.competencia:
-                raise ValidationError({"data_fim": "A data final não pode ser anterior à competência inicial."})
+                raise ValidationError(
+                    {"data_fim": "A data final não pode ser anterior à competência inicial."}
+                )
         if self.tipo != "variavel":
             if self.status == "recebida":
-                raise ValidationError({"status": "Para receitas fixas ou parceladas, o recebimento é registrado mês a mês."})
+                raise ValidationError(
+                    {
+                        "status": "Para receitas fixas ou parceladas, o recebimento é registrado mês a mês."
+                    }
+                )
             self.data_recebimento = None
         if self.status == "recebida" and not self.data_recebimento:
             self.data_recebimento = self.data
@@ -205,7 +225,9 @@ class Receita(SerieCompetenciaMixin, models.Model):
         referencia = referencia or timezone.localdate()
         if self.tipo != "parcelada":
             return None
-        meses_decorridos = (referencia.year - self.competencia.year) * 12 + (referencia.month - self.competencia.month)
+        meses_decorridos = (referencia.year - self.competencia.year) * 12 + (
+            referencia.month - self.competencia.month
+        )
         if meses_decorridos < 0:
             return self.parcela_atual
         return min(self.parcela_atual + meses_decorridos, self.parcelas)
@@ -225,16 +247,24 @@ class Despesa(SerieCompetenciaMixin, models.Model):
 
     descricao = models.CharField(max_length=255)
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default="variavel")
-    valor = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
+    valor = models.DecimalField(
+        max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
+    )
     data = models.DateField(default=timezone.localdate)
     competencia = models.DateField()
     data_fim = models.DateField(null=True, blank=True)
     categoria = models.CharField(max_length=120, blank=True)
-    parcelas = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(120)])
-    parcela_atual = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(120)])
+    parcelas = models.PositiveSmallIntegerField(
+        default=1, validators=[MinValueValidator(1), MaxValueValidator(120)]
+    )
+    parcela_atual = models.PositiveSmallIntegerField(
+        default=1, validators=[MinValueValidator(1), MaxValueValidator(120)]
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pendente")
     observacoes = models.TextField(blank=True)
-    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="despesas_criadas")
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="despesas_criadas"
+    )
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
@@ -242,7 +272,9 @@ class Despesa(SerieCompetenciaMixin, models.Model):
         ordering = ["-data", "-id"]
         indexes = [
             models.Index(fields=["criado_por", "data"], name="despesa_user_data_idx"),
-            models.Index(fields=["criado_por", "status", "tipo"], name="despesa_user_stat_tipo_idx"),
+            models.Index(
+                fields=["criado_por", "status", "tipo"], name="despesa_user_stat_tipo_idx"
+            ),
         ]
 
     def __str__(self):
@@ -260,7 +292,10 @@ class Despesa(SerieCompetenciaMixin, models.Model):
             participacao = self.participacao_compartilhada
         except ParticipanteCompartilhamentoDespesa.DoesNotExist:
             participacao = None
-        if participacao and (participacao.status != "aceito" or not participacao.compartilhamento.pronto_para_computar):
+        if participacao and (
+            participacao.status != "aceito"
+            or not participacao.compartilhamento.pronto_para_computar
+        ):
             return False
 
         return True
@@ -269,11 +304,17 @@ class Despesa(SerieCompetenciaMixin, models.Model):
         if self.tipo != "parcelada" and self.parcelas != 1:
             raise ValidationError({"parcelas": "Use parcelas apenas para despesa parcelada."})
         if self.tipo != "parcelada" and self.parcela_atual != 1:
-            raise ValidationError({"parcela_atual": "Use parcela atual apenas para despesa parcelada."})
+            raise ValidationError(
+                {"parcela_atual": "Use parcela atual apenas para despesa parcelada."}
+            )
         if self.tipo == "parcelada" and self.parcelas < 2:
-            raise ValidationError({"parcelas": "Despesa parcelada precisa ter pelo menos 2 parcelas."})
+            raise ValidationError(
+                {"parcelas": "Despesa parcelada precisa ter pelo menos 2 parcelas."}
+            )
         if self.tipo == "parcelada" and self.parcela_atual > self.parcelas:
-            raise ValidationError({"parcela_atual": "A parcela atual não pode ser maior que o total de parcelas."})
+            raise ValidationError(
+                {"parcela_atual": "A parcela atual não pode ser maior que o total de parcelas."}
+            )
         if not self.competencia:
             self.competencia = self.data
         self.competencia = normalizar_competencia(self.competencia)
@@ -282,9 +323,13 @@ class Despesa(SerieCompetenciaMixin, models.Model):
                 raise ValidationError({"data_fim": "Use a data final apenas para despesa fixa."})
             self.data_fim = normalizar_competencia(self.data_fim)
             if self.data_fim < self.competencia:
-                raise ValidationError({"data_fim": "A data final não pode ser anterior à competência inicial."})
+                raise ValidationError(
+                    {"data_fim": "A data final não pode ser anterior à competência inicial."}
+                )
         if self.tipo != "variavel" and self.status == "paga":
-            raise ValidationError({"status": "Para despesas fixas ou parceladas, o pagamento é registrado mês a mês."})
+            raise ValidationError(
+                {"status": "Para despesas fixas ou parceladas, o pagamento é registrado mês a mês."}
+            )
 
     def save(self, *args, **kwargs):
         if not self.competencia:
@@ -366,7 +411,9 @@ class Despesa(SerieCompetenciaMixin, models.Model):
         referencia = referencia or timezone.localdate()
         if self.tipo != "parcelada":
             return None
-        meses_decorridos = (referencia.year - self.competencia.year) * 12 + (referencia.month - self.competencia.month)
+        meses_decorridos = (referencia.year - self.competencia.year) * 12 + (
+            referencia.month - self.competencia.month
+        )
         if meses_decorridos < 0:
             return self.parcela_atual
         return min(self.parcela_atual + meses_decorridos, self.parcelas)
@@ -380,7 +427,11 @@ class RecebimentoReceita(models.Model):
 
     class Meta:
         ordering = ["-competencia"]
-        constraints = [models.UniqueConstraint(fields=["receita", "competencia"], name="receb_receita_comp_uniq")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["receita", "competencia"], name="receb_receita_comp_uniq"
+            )
+        ]
         indexes = [models.Index(fields=["receita", "competencia"], name="receb_receita_comp_idx")]
 
     def __str__(self):
@@ -399,7 +450,9 @@ class PagamentoDespesa(models.Model):
 
     class Meta:
         ordering = ["-competencia"]
-        constraints = [models.UniqueConstraint(fields=["despesa", "competencia"], name="pag_despesa_comp_uniq")]
+        constraints = [
+            models.UniqueConstraint(fields=["despesa", "competencia"], name="pag_despesa_comp_uniq")
+        ]
         indexes = [models.Index(fields=["despesa", "competencia"], name="pag_despesa_comp_idx")]
 
     def __str__(self):
@@ -416,12 +469,30 @@ class CompartilhamentoDespesa(models.Model):
         ("fixo", "Valores definidos"),
     ]
 
-    despesa = models.OneToOneField(Despesa, on_delete=models.CASCADE, related_name="compartilhamento")
-    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="compartilhamentos_despesas_criados")
-    valor_total = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
+    despesa = models.OneToOneField(
+        Despesa, on_delete=models.CASCADE, related_name="compartilhamento"
+    )
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="compartilhamentos_despesas_criados",
+    )
+    valor_total = models.DecimalField(
+        max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
+    )
     modo_divisao = models.CharField(max_length=20, choices=MODO_CHOICES, default="igual")
-    pagador = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="compartilhamentos_despesas_pagador")
-    recusado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="compartilhamentos_despesas_recusados", null=True, blank=True)
+    pagador = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="compartilhamentos_despesas_pagador",
+    )
+    recusado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="compartilhamentos_despesas_recusados",
+        null=True,
+        blank=True,
+    )
     data_prevista_ressarcimento = models.DateField(null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
@@ -459,11 +530,25 @@ class ParticipanteCompartilhamentoDespesa(models.Model):
         ("recusado", "Recusado"),
     ]
 
-    compartilhamento = models.ForeignKey(CompartilhamentoDespesa, on_delete=models.CASCADE, related_name="participantes")
-    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="compartilhamentos_despesas_recebidos")
-    valor = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
+    compartilhamento = models.ForeignKey(
+        CompartilhamentoDespesa, on_delete=models.CASCADE, related_name="participantes"
+    )
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="compartilhamentos_despesas_recebidos",
+    )
+    valor = models.DecimalField(
+        max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pendente")
-    despesa_gerada = models.OneToOneField(Despesa, on_delete=models.SET_NULL, null=True, blank=True, related_name="participacao_compartilhada")
+    despesa_gerada = models.OneToOneField(
+        Despesa,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="participacao_compartilhada",
+    )
     ressarcimento_confirmado = models.BooleanField(default=False)
     data_aceite = models.DateTimeField(null=True, blank=True)
     data_confirmacao_ressarcimento = models.DateTimeField(null=True, blank=True)
@@ -473,7 +558,9 @@ class ParticipanteCompartilhamentoDespesa(models.Model):
     class Meta:
         ordering = ["status", "usuario__username"]
         constraints = [
-            models.UniqueConstraint(fields=["compartilhamento", "usuario"], name="comp_despesa_usuario_uniq"),
+            models.UniqueConstraint(
+                fields=["compartilhamento", "usuario"], name="comp_despesa_usuario_uniq"
+            ),
         ]
         indexes = [
             models.Index(fields=["usuario", "status"], name="comp_part_user_status_idx"),
@@ -485,11 +572,27 @@ class ParticipanteCompartilhamentoDespesa(models.Model):
 
 class Reserva(models.Model):
     nome = models.CharField(max_length=160)
-    valor_atual = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"), validators=[MinValueValidator(Decimal("0.00"))])
-    valor_alvo = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"), validators=[MinValueValidator(Decimal("0.00"))])
+    valor_atual = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
+    valor_alvo = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
     observacoes = models.TextField(blank=True)
     ativa = models.BooleanField(default=True)
-    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="reservas_criadas", null=True, blank=True)
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="reservas_criadas",
+        null=True,
+        blank=True,
+    )
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
@@ -503,11 +606,15 @@ class Reserva(models.Model):
     def percentual_concluido(self):
         if not self.valor_alvo:
             return Decimal("0.00")
-        return min(arredondar((self.valor_atual / self.valor_alvo) * Decimal("100")), Decimal("100.00"))
+        return min(
+            arredondar((self.valor_atual / self.valor_alvo) * Decimal("100")), Decimal("100.00")
+        )
 
 
 class MentoriaFinanceiraIA(models.Model):
-    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="mentorias_financeiras_ia")
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="mentorias_financeiras_ia"
+    )
     periodo_inicio = models.DateField()
     periodo_fim = models.DateField()
     conteudo = models.TextField()
@@ -523,6 +630,7 @@ class MentoriaFinanceiraIA(models.Model):
 
     def __str__(self):
         return f"Mentoria IA de {self.periodo_inicio:%d/%m/%Y} a {self.periodo_fim:%d/%m/%Y}"
+
 
 class Conta(models.Model):
     TIPO_CHOICES = [
@@ -616,7 +724,9 @@ class CategoriaFinanceira(models.Model):
     class Meta:
         ordering = ["tipo", "nome"]
         constraints = [
-            models.UniqueConstraint(fields=["tipo", "nome"], name="categoriafinanceira_tipo_nome_uniq"),
+            models.UniqueConstraint(
+                fields=["tipo", "nome"], name="categoriafinanceira_tipo_nome_uniq"
+            ),
         ]
 
     def __str__(self):
@@ -695,18 +805,26 @@ class Transacao(models.Model):
     def clean(self):
         if self.tipo == "transferencia":
             if not self.conta_destino_id:
-                raise ValidationError({"conta_destino": "Informe a conta destino da transferência."})
+                raise ValidationError(
+                    {"conta_destino": "Informe a conta destino da transferência."}
+                )
             if self.conta_id and self.conta_destino_id == self.conta_id:
-                raise ValidationError({"conta_destino": "A conta destino deve ser diferente da conta origem."})
+                raise ValidationError(
+                    {"conta_destino": "A conta destino deve ser diferente da conta origem."}
+                )
             if self.categoria_id:
                 raise ValidationError({"categoria": "Transferências não usam categoria."})
         else:
             if self.conta_destino_id:
-                raise ValidationError({"conta_destino": "Conta destino só deve ser usada em transferências."})
+                raise ValidationError(
+                    {"conta_destino": "Conta destino só deve ser usada em transferências."}
+                )
             if not self.categoria_id:
                 raise ValidationError({"categoria": "Informe a categoria."})
             if self.categoria.tipo != self.tipo:
-                raise ValidationError({"categoria": "A categoria deve ter o mesmo tipo da transação."})
+                raise ValidationError(
+                    {"categoria": "A categoria deve ter o mesmo tipo da transação."}
+                )
 
         if self.status == "pago" and not self.data_pagamento:
             raise ValidationError({"data_pagamento": "Informe a data de pagamento/recebimento."})
@@ -743,10 +861,21 @@ class CartaoCredito(models.Model):
 
     nome = models.CharField(max_length=120)
     bandeira = models.CharField(max_length=20, choices=BANDEIRA_CHOICES, default="outra")
-    limite = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"), validators=[MinValueValidator(Decimal("0.00"))])
-    dia_fechamento = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(31)])
-    dia_vencimento = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(31)])
-    conta_pagamento = models.ForeignKey(Conta, on_delete=models.PROTECT, related_name="cartoes", null=True, blank=True)
+    limite = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
+    dia_fechamento = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(31)]
+    )
+    dia_vencimento = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(31)]
+    )
+    conta_pagamento = models.ForeignKey(
+        Conta, on_delete=models.PROTECT, related_name="cartoes", null=True, blank=True
+    )
     cor = models.CharField(max_length=7, default="#111827")
     ativo = models.BooleanField(default=True)
     criado_em = models.DateTimeField(auto_now_add=True)
@@ -774,13 +903,29 @@ class FaturaCartao(models.Model):
 
     cartao = models.ForeignKey(CartaoCredito, on_delete=models.PROTECT, related_name="faturas")
     mes = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(12)])
-    ano = models.PositiveSmallIntegerField(validators=[MinValueValidator(2000), MaxValueValidator(2100)])
+    ano = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(2000), MaxValueValidator(2100)]
+    )
     data_fechamento = models.DateField(null=True, blank=True)
     data_vencimento = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="aberta")
-    conta_pagamento = models.ForeignKey(Conta, on_delete=models.PROTECT, related_name="faturas_cartao", null=True, blank=True)
-    categoria_pagamento = models.ForeignKey(CategoriaFinanceira, on_delete=models.PROTECT, related_name="faturas_cartao", null=True, blank=True)
-    transacao_pagamento = models.ForeignKey(Transacao, on_delete=models.PROTECT, related_name="faturas_cartao_pagas", null=True, blank=True)
+    conta_pagamento = models.ForeignKey(
+        Conta, on_delete=models.PROTECT, related_name="faturas_cartao", null=True, blank=True
+    )
+    categoria_pagamento = models.ForeignKey(
+        CategoriaFinanceira,
+        on_delete=models.PROTECT,
+        related_name="faturas_cartao",
+        null=True,
+        blank=True,
+    )
+    transacao_pagamento = models.ForeignKey(
+        Transacao,
+        on_delete=models.PROTECT,
+        related_name="faturas_cartao_pagas",
+        null=True,
+        blank=True,
+    )
     data_pagamento = models.DateField(null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
@@ -791,7 +936,11 @@ class FaturaCartao(models.Model):
             models.Index(fields=["status"], name="fatura_status_idx"),
             models.Index(fields=["ano", "mes"], name="fatura_periodo_idx"),
         ]
-        constraints = [models.UniqueConstraint(fields=["cartao", "ano", "mes"], name="faturacartao_cartao_periodo_uniq")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["cartao", "ano", "mes"], name="faturacartao_cartao_periodo_uniq"
+            )
+        ]
 
     def __str__(self):
         return f"{self.cartao} - {self.mes:02d}/{self.ano}"
@@ -799,13 +948,19 @@ class FaturaCartao(models.Model):
     @property
     def valor_total(self):
         total = self.lancamentos.exclude(status="cancelado").aggregate(
-            total=Coalesce(Sum("valor"), Decimal("0.00"), output_field=models.DecimalField(max_digits=14, decimal_places=2))
+            total=Coalesce(
+                Sum("valor"),
+                Decimal("0.00"),
+                output_field=models.DecimalField(max_digits=14, decimal_places=2),
+            )
         )["total"]
         return arredondar(total)
 
     def clean(self):
         if self.categoria_pagamento_id and self.categoria_pagamento.tipo != "despesa":
-            raise ValidationError({"categoria_pagamento": "A categoria de pagamento deve ser de despesa."})
+            raise ValidationError(
+                {"categoria_pagamento": "A categoria de pagamento deve ser de despesa."}
+            )
         if self.status == "paga":
             if not self.conta_pagamento_id:
                 raise ValidationError({"conta_pagamento": "Informe a conta de pagamento."})
@@ -814,7 +969,9 @@ class FaturaCartao(models.Model):
             if not self.data_pagamento:
                 raise ValidationError({"data_pagamento": "Informe a data de pagamento."})
             if not self.transacao_pagamento_id:
-                raise ValidationError({"status": "Use a ação Pagar fatura para criar a baixa bancária."})
+                raise ValidationError(
+                    {"status": "Use a ação Pagar fatura para criar a baixa bancária."}
+                )
 
     def save(self, *args, **kwargs):
         if self.conta_pagamento_id is None and self.cartao_id and self.cartao.conta_pagamento_id:
@@ -845,7 +1002,16 @@ class FaturaCartao(models.Model):
         self.categoria_pagamento = categoria
         self.data_pagamento = data_pagamento
         self.transacao_pagamento = transacao
-        self.save(update_fields=["status", "conta_pagamento", "categoria_pagamento", "data_pagamento", "transacao_pagamento", "atualizado_em"])
+        self.save(
+            update_fields=[
+                "status",
+                "conta_pagamento",
+                "categoria_pagamento",
+                "data_pagamento",
+                "transacao_pagamento",
+                "atualizado_em",
+            ]
+        )
         return transacao
 
 
@@ -857,15 +1023,23 @@ class LancamentoCartao(models.Model):
 
     fatura = models.ForeignKey(FaturaCartao, on_delete=models.CASCADE, related_name="lancamentos")
     cartao = models.ForeignKey(CartaoCredito, on_delete=models.PROTECT, related_name="lancamentos")
-    categoria = models.ForeignKey(CategoriaFinanceira, on_delete=models.PROTECT, related_name="lancamentos_cartao")
+    categoria = models.ForeignKey(
+        CategoriaFinanceira, on_delete=models.PROTECT, related_name="lancamentos_cartao"
+    )
     descricao = models.CharField(max_length=255)
-    valor = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
+    valor = models.DecimalField(
+        max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
+    )
     data_compra = models.DateField(default=timezone.localdate)
     parcela_numero = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1)])
     parcela_total = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1)])
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ativo")
     observacoes = models.TextField(blank=True)
-    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="lancamentos_cartao_criados")
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="lancamentos_cartao_criados",
+    )
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
@@ -883,9 +1057,13 @@ class LancamentoCartao(models.Model):
 
     def clean(self):
         if self.parcela_numero > self.parcela_total:
-            raise ValidationError({"parcela_numero": "A parcela atual não pode ser maior que o total de parcelas."})
+            raise ValidationError(
+                {"parcela_numero": "A parcela atual não pode ser maior que o total de parcelas."}
+            )
         if self.categoria_id and self.categoria.tipo != "despesa":
-            raise ValidationError({"categoria": "Lançamentos de cartão exigem categoria de despesa."})
+            raise ValidationError(
+                {"categoria": "Lançamentos de cartão exigem categoria de despesa."}
+            )
         if self.fatura_id and self.cartao_id and self.fatura.cartao_id != self.cartao_id:
             raise ValidationError({"fatura": "A fatura deve pertencer ao cartão selecionado."})
 
@@ -905,16 +1083,26 @@ class RecorrenciaFinanceira(models.Model):
 
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
     descricao = models.CharField(max_length=255)
-    valor = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
-    categoria = models.ForeignKey(CategoriaFinanceira, on_delete=models.PROTECT, related_name="recorrencias")
+    valor = models.DecimalField(
+        max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
+    )
+    categoria = models.ForeignKey(
+        CategoriaFinanceira, on_delete=models.PROTECT, related_name="recorrencias"
+    )
     conta = models.ForeignKey(Conta, on_delete=models.PROTECT, related_name="recorrencias")
     frequencia = models.CharField(max_length=20, choices=FREQUENCIA_CHOICES, default="mensal")
-    dia_vencimento = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(31)], default=1)
+    dia_vencimento = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(31)], default=1
+    )
     data_inicio = models.DateField()
     data_fim = models.DateField(null=True, blank=True)
     ativa = models.BooleanField(default=True)
     observacoes = models.TextField(blank=True)
-    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="recorrencias_financeiras_criadas")
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="recorrencias_financeiras_criadas",
+    )
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
@@ -926,9 +1114,13 @@ class RecorrenciaFinanceira(models.Model):
 
     def clean(self):
         if self.categoria_id and self.categoria.tipo != self.tipo:
-            raise ValidationError({"categoria": "A categoria deve ter o mesmo tipo da recorrência."})
+            raise ValidationError(
+                {"categoria": "A categoria deve ter o mesmo tipo da recorrência."}
+            )
         if self.data_fim and self.data_fim < self.data_inicio:
-            raise ValidationError({"data_fim": "A data final não pode ser anterior à data inicial."})
+            raise ValidationError(
+                {"data_fim": "A data final não pode ser anterior à data inicial."}
+            )
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -937,18 +1129,29 @@ class RecorrenciaFinanceira(models.Model):
 
 class PlanejamentoMensal(models.Model):
     mes = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(12)])
-    ano = models.PositiveSmallIntegerField(validators=[MinValueValidator(2000), MaxValueValidator(2100)])
-    categoria = models.ForeignKey(CategoriaFinanceira, on_delete=models.PROTECT, related_name="planejamentos_mensais")
-    valor_planejado = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.00"))])
+    ano = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(2000), MaxValueValidator(2100)]
+    )
+    categoria = models.ForeignKey(
+        CategoriaFinanceira, on_delete=models.PROTECT, related_name="planejamentos_mensais"
+    )
+    valor_planejado = models.DecimalField(
+        max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.00"))]
+    )
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["-ano", "-mes", "categoria__nome"]
-        constraints = [models.UniqueConstraint(fields=["ano", "mes", "categoria"], name="planejamentomensal_periodo_categoria_uniq")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["ano", "mes", "categoria"], name="planejamentomensal_periodo_categoria_uniq"
+            )
+        ]
 
     def __str__(self):
         return f"{self.categoria} - {self.mes:02d}/{self.ano}"
+
 
 class MetaFinanceira(models.Model):
     STATUS_CHOICES = [
@@ -959,11 +1162,20 @@ class MetaFinanceira(models.Model):
     ]
 
     nome = models.CharField(max_length=160)
-    valor_alvo = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
-    valor_atual_manual = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"), validators=[MinValueValidator(Decimal("0.00"))])
+    valor_alvo = models.DecimalField(
+        max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
+    )
+    valor_atual_manual = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
     data_inicio = models.DateField(null=True, blank=True)
     data_limite = models.DateField(null=True, blank=True)
-    conta_vinculada = models.ForeignKey(Conta, on_delete=models.PROTECT, related_name="metas", null=True, blank=True)
+    conta_vinculada = models.ForeignKey(
+        Conta, on_delete=models.PROTECT, related_name="metas", null=True, blank=True
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ativa")
     cor = models.CharField(max_length=7, default="#16A34A")
     observacoes = models.TextField(blank=True)

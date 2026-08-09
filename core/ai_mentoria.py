@@ -46,10 +46,16 @@ def coletar_dados_mentoria(user, referencia=None):
             "receitas_previstas": _decimal_para_json(receitas_previstas),
             "despesas_total": _decimal_para_json(despesas_total),
             "gastos_total": _decimal_para_json(gastos_total),
-            "resultado_recebido_menos_despesas": _decimal_para_json(receitas_recebidas - despesas_total),
+            "resultado_recebido_menos_despesas": _decimal_para_json(
+                receitas_recebidas - despesas_total
+            ),
         },
-        "gastos_por_tipo": _mapear_valores(ocorrencias, lambda item: item["despesa"].get_tipo_display()),
-        "gastos_por_categoria": _mapear_valores(ocorrencias, lambda item: item["despesa"].categoria or "Sem categoria"),
+        "gastos_por_tipo": _mapear_valores(
+            ocorrencias, lambda item: item["despesa"].get_tipo_display()
+        ),
+        "gastos_por_categoria": _mapear_valores(
+            ocorrencias, lambda item: item["despesa"].categoria or "Sem categoria"
+        ),
         "maiores_despesas": [
             {
                 "data": item["data"].isoformat(),
@@ -128,9 +134,7 @@ def _chamar_anthropic(dados, modelo):
 
 
 def _extrair_texto(resposta):
-    return "\n".join(
-        bloco.text for bloco in resposta.content if bloco.type == "text"
-    ).strip()
+    return "\n".join(bloco.text for bloco in resposta.content if bloco.type == "text").strip()
 
 
 def gerar_mentoria_financeira(user):

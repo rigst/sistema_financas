@@ -1,14 +1,12 @@
-import secrets
 import logging
+import secrets
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.views import LoginView, LogoutView
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.urls import reverse
-
-from django.conf import settings
-from django.shortcuts import render
 
 from legal.forms import AceiteForm
 from legal.models import OrigemAceite

@@ -2,6 +2,7 @@ import csv
 from decimal import Decimal
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponse
@@ -12,17 +13,17 @@ from django.utils.dateparse import parse_date
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from django.contrib.auth.decorators import login_required
 from core.query import paginate_queryset
 from core.search import filter_ranked_search
+
 from .forms import DespesaSimplificadaForm, ReceitaSimplificadaForm, ReservaForm
 from .models import (
     CompartilhamentoDespesa,
     Despesa,
     PagamentoDespesa,
     ParticipanteCompartilhamentoDespesa,
-    Receita,
     RecebimentoReceita,
+    Receita,
     Reserva,
     arredondar,
 )
@@ -66,7 +67,9 @@ def _parse_competencia(valor):
 
 
 def _competencia_do_post(request):
-    return _parse_competencia(request.POST.get("competencia")) or timezone.localdate().replace(day=1)
+    return _parse_competencia(request.POST.get("competencia")) or timezone.localdate().replace(
+        day=1
+    )
 
 
 def _obter_compartilhamento(despesa):
@@ -127,7 +130,9 @@ def _sincronizar_participantes_compartilhamento(despesa):
     compartilhamento = _obter_compartilhamento(despesa)
     if not compartilhamento:
         return
-    for participante in compartilhamento.participantes.filter(status="aceito").select_related("despesa_gerada", "usuario"):
+    for participante in compartilhamento.participantes.filter(status="aceito").select_related(
+        "despesa_gerada", "usuario"
+    ):
         _sincronizar_despesa_compartilhada(participante)
 
 
@@ -140,7 +145,9 @@ def _salvar_compartilhamento_despesa(despesa, form, user):
     compartilhamento = _obter_compartilhamento(despesa)
     if not compartilhar:
         if compartilhamento:
-            for participante in compartilhamento.participantes.filter(status="aceito").select_related("despesa_gerada"):
+            for participante in compartilhamento.participantes.filter(
+                status="aceito"
+            ).select_related("despesa_gerada"):
                 if participante.despesa_gerada:
                     participante.despesa_gerada.status = "cancelada"
                     participante.despesa_gerada.save(update_fields=["status", "atualizado_em"])
@@ -197,7 +204,11 @@ def _anotar_referencia_mensal(itens, hoje, modelo_registro, campo_fk):
     """Anota itens de série (fixa/parcelada) com a competência de referência e se ela está quitada."""
     series_ids = [item.pk for item in itens if item.tipo != "variavel"]
     quitadas = (
-        set(modelo_registro.objects.filter(**{f"{campo_fk}_id__in": series_ids}).values_list(f"{campo_fk}_id", "competencia"))
+        set(
+            modelo_registro.objects.filter(**{f"{campo_fk}_id__in": series_ids}).values_list(
+                f"{campo_fk}_id", "competencia"
+            )
+        )
         if series_ids
         else set()
     )
@@ -221,7 +232,13 @@ def receita_lista(request):
     return render(
         request,
         "financeiro/receita_lista.html",
-        {"receitas": page_obj, "page_obj": page_obj, "busca": busca, "status": status, "mostrar_inativos": mostrar_inativos},
+        {
+            "receitas": page_obj,
+            "page_obj": page_obj,
+            "busca": busca,
+            "status": status,
+            "mostrar_inativos": mostrar_inativos,
+        },
     )
 
 
@@ -251,7 +268,9 @@ def receita_editar(request, pk):
             return redirect("financeiro:receita_lista")
     else:
         form = ReceitaSimplificadaForm(instance=receita, user=request.user)
-    return render(request, "financeiro/receita_form.html", {"form": form, "titulo": "Editar receita"})
+    return render(
+        request, "financeiro/receita_form.html", {"form": form, "titulo": "Editar receita"}
+    )
 
 
 @require_POST
@@ -313,12 +332,20 @@ def despesa_lista(request):
         despesas = despesas.filter(tipo=tipo)
     filtrar_compartilhadas = compartilhamento_filtro == "compartilhadas"
     if filtrar_compartilhadas:
-        despesas = despesas.filter(Q(compartilhamento__isnull=False) | Q(participacao_compartilhada__isnull=False)).distinct()
+        despesas = despesas.filter(
+            Q(compartilhamento__isnull=False) | Q(participacao_compartilhada__isnull=False)
+        ).distinct()
     fixas = Despesa.objects.filter(criado_por=request.user, tipo="fixa").exclude(status="cancelada")
-    parceladas_qs = Despesa.objects.filter(criado_por=request.user, tipo="parcelada").exclude(status="cancelada")
+    parceladas_qs = Despesa.objects.filter(criado_por=request.user, tipo="parcelada").exclude(
+        status="cancelada"
+    )
     if filtrar_compartilhadas:
-        fixas = fixas.filter(Q(compartilhamento__isnull=False) | Q(participacao_compartilhada__isnull=False)).distinct()
-        parceladas_qs = parceladas_qs.filter(Q(compartilhamento__isnull=False) | Q(participacao_compartilhada__isnull=False)).distinct()
+        fixas = fixas.filter(
+            Q(compartilhamento__isnull=False) | Q(participacao_compartilhada__isnull=False)
+        ).distinct()
+        parceladas_qs = parceladas_qs.filter(
+            Q(compartilhamento__isnull=False) | Q(participacao_compartilhada__isnull=False)
+        ).distinct()
     fixas = [item for item in fixas.order_by("-valor", "descricao") if item.deve_computar()]
     parceladas = list(parceladas_qs.order_by("descricao"))
     page_obj = paginate_queryset(request, despesas, per_page=25)
@@ -337,8 +364,18 @@ def despesa_lista(request):
     _anotar_referencia_mensal(page_obj.object_list, hoje, PagamentoDespesa, "despesa")
     compartilhadas_recebidas = (
         ParticipanteCompartilhamentoDespesa.objects.filter(usuario=request.user)
-        .filter(Q(status="pendente") | Q(status="recusado") | Q(status="aceito", ressarcimento_confirmado=False))
-        .select_related("compartilhamento__despesa", "compartilhamento__criado_por", "compartilhamento__pagador", "compartilhamento__recusado_por", "despesa_gerada")
+        .filter(
+            Q(status="pendente")
+            | Q(status="recusado")
+            | Q(status="aceito", ressarcimento_confirmado=False)
+        )
+        .select_related(
+            "compartilhamento__despesa",
+            "compartilhamento__criado_por",
+            "compartilhamento__pagador",
+            "compartilhamento__recusado_por",
+            "despesa_gerada",
+        )
         .order_by("status", "-criado_em")
     )
     compartilhadas_criadas = (
@@ -348,7 +385,9 @@ def despesa_lista(request):
         .prefetch_related("participantes__usuario")
     )
     compartilhadas_alertas_count = len(compartilhadas_recebidas) + sum(
-        1 for compartilhamento in compartilhadas_criadas if compartilhamento.status_geral != "aceito"
+        1
+        for compartilhamento in compartilhadas_criadas
+        if compartilhamento.status_geral != "aceito"
     )
     return render(
         request,
@@ -400,13 +439,17 @@ def despesa_editar(request, pk):
             return redirect("financeiro:despesa_lista")
     else:
         form = DespesaSimplificadaForm(instance=despesa, user=request.user)
-    return render(request, "financeiro/despesa_form.html", {"form": form, "titulo": "Editar despesa"})
+    return render(
+        request, "financeiro/despesa_form.html", {"form": form, "titulo": "Editar despesa"}
+    )
 
 
 @require_POST
 @login_required
 def despesa_marcar_paga(request, pk):
-    despesa = get_object_or_404(Despesa.objects.filter(criado_por=request.user).exclude(status="cancelada"), pk=pk)
+    despesa = get_object_or_404(
+        Despesa.objects.filter(criado_por=request.user).exclude(status="cancelada"), pk=pk
+    )
     if despesa.tipo == "variavel":
         despesa.status = "paga"
         despesa.save(update_fields=["status", "atualizado_em"])
@@ -429,7 +472,9 @@ def despesa_marcar_paga(request, pk):
 @require_POST
 @login_required
 def despesa_desmarcar_paga(request, pk):
-    despesa = get_object_or_404(Despesa.objects.filter(criado_por=request.user).exclude(status="cancelada"), pk=pk)
+    despesa = get_object_or_404(
+        Despesa.objects.filter(criado_por=request.user).exclude(status="cancelada"), pk=pk
+    )
     if despesa.tipo == "variavel":
         despesa.status = "pendente"
         despesa.save(update_fields=["status", "atualizado_em"])
@@ -461,7 +506,9 @@ def despesas_compartilhadas(request):
 @require_POST
 @login_required
 def despesa_compartilhada_aceitar(request, pk):
-    participante = get_object_or_404(ParticipanteCompartilhamentoDespesa.objects.filter(usuario=request.user), pk=pk)
+    participante = get_object_or_404(
+        ParticipanteCompartilhamentoDespesa.objects.filter(usuario=request.user), pk=pk
+    )
     if participante.status != "aceito":
         participante.status = "aceito"
         participante.data_aceite = timezone.now()
@@ -474,7 +521,9 @@ def despesa_compartilhada_aceitar(request, pk):
 @require_POST
 @login_required
 def despesa_compartilhada_recusar(request, pk):
-    participante = get_object_or_404(ParticipanteCompartilhamentoDespesa.objects.filter(usuario=request.user), pk=pk)
+    participante = get_object_or_404(
+        ParticipanteCompartilhamentoDespesa.objects.filter(usuario=request.user), pk=pk
+    )
     compartilhamento = participante.compartilhamento
     compartilhamento.recusado_por = request.user
     compartilhamento.save(update_fields=["recusado_por", "atualizado_em"])
@@ -492,10 +541,19 @@ def despesa_compartilhada_recusar(request, pk):
 @require_POST
 @login_required
 def despesa_compartilhada_confirmar_ressarcimento(request, pk):
-    participante = get_object_or_404(ParticipanteCompartilhamentoDespesa.objects.filter(usuario=request.user, status="aceito"), pk=pk)
+    participante = get_object_or_404(
+        ParticipanteCompartilhamentoDespesa.objects.filter(usuario=request.user, status="aceito"),
+        pk=pk,
+    )
     participante.ressarcimento_confirmado = True
     participante.data_confirmacao_ressarcimento = timezone.now()
-    participante.save(update_fields=["ressarcimento_confirmado", "data_confirmacao_ressarcimento", "atualizado_em"])
+    participante.save(
+        update_fields=[
+            "ressarcimento_confirmado",
+            "data_confirmacao_ressarcimento",
+            "atualizado_em",
+        ]
+    )
     messages.success(request, "Ressarcimento confirmado.")
     return _voltar_para(request, "financeiro:despesa_lista")
 
@@ -506,7 +564,20 @@ def exportar_csv(request):
     response["Content-Disposition"] = 'attachment; filename="financeiro_simplificado.csv"'
     response.write("\ufeff")
     writer = csv.writer(response)
-    writer.writerow(["tipo", "descricao", "valor", "data", "competencia", "categoria", "status", "parcelas", "parcela_atual", "observacoes"])
+    writer.writerow(
+        [
+            "tipo",
+            "descricao",
+            "valor",
+            "data",
+            "competencia",
+            "categoria",
+            "status",
+            "parcelas",
+            "parcela_atual",
+            "observacoes",
+        ]
+    )
 
     receitas = Receita.objects.filter(criado_por=request.user).order_by("data", "id")
     despesas = Despesa.objects.filter(criado_por=request.user).order_by("data", "id")
@@ -551,8 +622,14 @@ def controle(request):
     reservas = Reserva.objects.filter(criado_por=request.user)
     if not mostrar_inativos:
         reservas = reservas.filter(ativa=True)
-    fixas = Despesa.objects.filter(criado_por=request.user, tipo="fixa").exclude(status="cancelada").order_by("descricao")
-    reservas_total = arredondar(sum((reserva.valor_atual for reserva in reservas.filter(ativa=True)), Decimal("0.00")))
+    fixas = (
+        Despesa.objects.filter(criado_por=request.user, tipo="fixa")
+        .exclude(status="cancelada")
+        .order_by("descricao")
+    )
+    reservas_total = arredondar(
+        sum((reserva.valor_atual for reserva in reservas.filter(ativa=True)), Decimal("0.00"))
+    )
     return render(
         request,
         "financeiro/controle.html",
@@ -593,7 +670,9 @@ def reserva_editar(request, pk):
             return redirect("financeiro:controle")
     else:
         form = ReservaForm(instance=reserva)
-    return render(request, "financeiro/reserva_form.html", {"form": form, "titulo": "Editar reserva"})
+    return render(
+        request, "financeiro/reserva_form.html", {"form": form, "titulo": "Editar reserva"}
+    )
 
 
 @require_POST

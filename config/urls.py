@@ -3,11 +3,14 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from django.views.generic import RedirectView
+
 from legal import views as legal_views
 from usuarios.views import UsuarioLoginView, UsuarioLogoutView
 
 urlpatterns = [
-    path("favicon.ico", RedirectView.as_view(url=settings.STATIC_URL + "favicon.ico", permanent=True)),
+    path(
+        "favicon.ico", RedirectView.as_view(url=settings.STATIC_URL + "favicon.ico", permanent=True)
+    ),
     path("admin/", admin.site.urls),
     # Páginas legais (LGPD): acessíveis sem login. O texto vem do banco (app
     # `legal`), versionado — os nomes de rota seguem os mesmos de antes.

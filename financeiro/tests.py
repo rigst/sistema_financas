@@ -2,10 +2,9 @@ from datetime import date
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import NoReverseMatch, reverse
-
-from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from .models import (
@@ -13,8 +12,8 @@ from .models import (
     Despesa,
     PagamentoDespesa,
     ParticipanteCompartilhamentoDespesa,
-    Receita,
     RecebimentoReceita,
+    Receita,
     Reserva,
 )
 from .planejamento import calcular_planejamento_semanal, resumo_fluxo_periodo, resumo_mensal
@@ -22,7 +21,9 @@ from .planejamento import calcular_planejamento_semanal, resumo_fluxo_periodo, r
 
 class FinanceiroSimplificadoModelTests(TestCase):
     def setUp(self):
-        self.user = get_user_model().objects.create_user(username="fin_user", password="senha-forte-123")
+        self.user = get_user_model().objects.create_user(
+            username="fin_user", password="senha-forte-123"
+        )
 
     def test_despesa_parcelada_distribui_ocorrencias_mensais(self):
         despesa = Despesa.objects.create(
@@ -40,7 +41,10 @@ class FinanceiroSimplificadoModelTests(TestCase):
 
         despesa.refresh_from_db()
         self.assertEqual(despesa.competencia, date(2026, 4, 1))
-        self.assertEqual([item["valor"] for item in ocorrencias], [Decimal("200.00"), Decimal("200.00"), Decimal("200.00")])
+        self.assertEqual(
+            [item["valor"] for item in ocorrencias],
+            [Decimal("200.00"), Decimal("200.00"), Decimal("200.00")],
+        )
         self.assertEqual([item["parcela"] for item in ocorrencias], [1, 2, 3])
 
     def test_parcelada_pode_comecar_em_parcela_atual_maior_que_um(self):
@@ -71,10 +75,16 @@ class FinanceiroSimplificadoModelTests(TestCase):
         receitas = receita.ocorrencias(date(2026, 4, 1), date(2026, 6, 30))
 
         self.assertEqual([item["parcela"] for item in despesas], [5, 6, 7])
-        self.assertEqual([item["valor"] for item in despesas], [Decimal("100.00"), Decimal("100.00"), Decimal("100.00")])
+        self.assertEqual(
+            [item["valor"] for item in despesas],
+            [Decimal("100.00"), Decimal("100.00"), Decimal("100.00")],
+        )
         self.assertEqual(despesa.parcela_na_data(date(2026, 6, 1)), 7)
         self.assertEqual([item["parcela"] for item in receitas], [4, 5, 6])
-        self.assertEqual([item["valor"] for item in receitas], [Decimal("100.00"), Decimal("100.00"), Decimal("100.00")])
+        self.assertEqual(
+            [item["valor"] for item in receitas],
+            [Decimal("100.00"), Decimal("100.00"), Decimal("100.00")],
+        )
         self.assertEqual(receita.parcela_na_data(date(2026, 5, 1)), 5)
 
     def test_planejamento_semanal_mostra_disponivel_e_compromissos(self):
@@ -209,9 +219,15 @@ class FinanceiroSimplificadoModelTests(TestCase):
 
 class FinanceiroSimplificadoViewTests(TestCase):
     def setUp(self):
-        self.user = get_user_model().objects.create_user(username="fin_view", password="senha-forte-123")
-        self.outro_user = get_user_model().objects.create_user(username="outro_fin", password="senha-forte-123")
-        self.terceiro_user = get_user_model().objects.create_user(username="terceiro_fin", password="senha-forte-123")
+        self.user = get_user_model().objects.create_user(
+            username="fin_view", password="senha-forte-123"
+        )
+        self.outro_user = get_user_model().objects.create_user(
+            username="outro_fin", password="senha-forte-123"
+        )
+        self.terceiro_user = get_user_model().objects.create_user(
+            username="terceiro_fin", password="senha-forte-123"
+        )
         self.client.force_login(self.user)
 
     def test_fluxo_de_receita_despesa_reserva_e_controle(self):
@@ -310,7 +326,9 @@ class FinanceiroSimplificadoViewTests(TestCase):
             criado_por=self.user,
         )
 
-        response_receita = self.client.post(reverse("financeiro:receita_marcar_recebida", args=[receita.pk]))
+        response_receita = self.client.post(
+            reverse("financeiro:receita_marcar_recebida", args=[receita.pk])
+        )
 
         receita.refresh_from_db()
         despesa.refresh_from_db()
@@ -319,12 +337,16 @@ class FinanceiroSimplificadoViewTests(TestCase):
         self.assertIsNotNone(receita.data_recebimento)
         self.assertEqual(despesa.status, "pendente")
 
-        response_pagar = self.client.post(reverse("financeiro:despesa_marcar_paga", args=[despesa.pk]))
+        response_pagar = self.client.post(
+            reverse("financeiro:despesa_marcar_paga", args=[despesa.pk])
+        )
         despesa.refresh_from_db()
         self.assertEqual(response_pagar.status_code, 302)
         self.assertEqual(despesa.status, "paga")
 
-        response_cancelar = self.client.post(reverse("financeiro:despesa_cancelar", args=[despesa.pk]))
+        response_cancelar = self.client.post(
+            reverse("financeiro:despesa_cancelar", args=[despesa.pk])
+        )
         despesa.refresh_from_db()
         self.assertEqual(response_cancelar.status_code, 302)
         self.assertEqual(despesa.status, "cancelada")
@@ -333,7 +355,10 @@ class FinanceiroSimplificadoViewTests(TestCase):
         conteudo = response_csv.content.decode("utf-8-sig")
         self.assertEqual(response_csv.status_code, 200)
         self.assertIn("text/csv", response_csv["Content-Type"])
-        self.assertIn("tipo,descricao,valor,data,competencia,categoria,status,parcelas,parcela_atual,observacoes", conteudo)
+        self.assertIn(
+            "tipo,descricao,valor,data,competencia,categoria,status,parcelas,parcela_atual,observacoes",
+            conteudo,
+        )
         self.assertIn("receita,Receita prevista", conteudo)
         self.assertIn("despesa,Conta de luz", conteudo)
         self.assertIn("2026-04", conteudo)
@@ -396,7 +421,9 @@ class FinanceiroSimplificadoViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
         despesa = Despesa.objects.get(descricao="Viagem", criado_por=self.user)
         compartilhamento = CompartilhamentoDespesa.objects.get(despesa=despesa)
-        participante = ParticipanteCompartilhamentoDespesa.objects.get(compartilhamento=compartilhamento, usuario=self.outro_user)
+        participante = ParticipanteCompartilhamentoDespesa.objects.get(
+            compartilhamento=compartilhamento, usuario=self.outro_user
+        )
         self.assertEqual(compartilhamento.valor_total, Decimal("900.00"))
         self.assertEqual(despesa.valor, Decimal("450.00"))
         self.assertEqual(participante.valor, Decimal("450.00"))
@@ -406,13 +433,17 @@ class FinanceiroSimplificadoViewTests(TestCase):
         self.client.force_login(self.outro_user)
         response_lista = self.client.get(reverse("financeiro:despesa_lista"))
         self.assertContains(response_lista, "Nenhuma despesa encontrada.")
-        self.assertFalse(Despesa.objects.filter(descricao="Viagem", criado_por=self.outro_user).exists())
+        self.assertFalse(
+            Despesa.objects.filter(descricao="Viagem", criado_por=self.outro_user).exists()
+        )
         response_notificacao = self.client.get(reverse("financeiro:despesa_lista"))
         self.assertContains(response_notificacao, "Viagem")
         self.assertContains(response_notificacao, "450,00")
         self.assertContains(response_notificacao, "Compartilhadas com você")
 
-        response_aceite = self.client.post(reverse("financeiro:despesa_compartilhada_aceitar", args=[participante.pk]))
+        response_aceite = self.client.post(
+            reverse("financeiro:despesa_compartilhada_aceitar", args=[participante.pk])
+        )
         participante.refresh_from_db()
         self.assertEqual(response_aceite.status_code, 302)
         self.assertEqual(participante.status, "aceito")
@@ -445,7 +476,9 @@ class FinanceiroSimplificadoViewTests(TestCase):
             status="aceito",
         )
         self.client.force_login(self.outro_user)
-        self.client.post(reverse("financeiro:despesa_compartilhada_aceitar", args=[participante.pk]))
+        self.client.post(
+            reverse("financeiro:despesa_compartilhada_aceitar", args=[participante.pk])
+        )
         participante.refresh_from_db()
 
         self.client.force_login(self.user)
@@ -490,9 +523,13 @@ class FinanceiroSimplificadoViewTests(TestCase):
         participante.despesa_gerada.refresh_from_db()
         self.assertEqual(despesa.status, "pendente")
         self.assertEqual(participante.despesa_gerada.status, "pendente")
-        self.assertTrue(PagamentoDespesa.objects.filter(despesa=despesa, competencia=date(2026, 4, 1)).exists())
         self.assertTrue(
-            PagamentoDespesa.objects.filter(despesa=participante.despesa_gerada, competencia=date(2026, 4, 1)).exists()
+            PagamentoDespesa.objects.filter(despesa=despesa, competencia=date(2026, 4, 1)).exists()
+        )
+        self.assertTrue(
+            PagamentoDespesa.objects.filter(
+                despesa=participante.despesa_gerada, competencia=date(2026, 4, 1)
+            ).exists()
         )
 
     def test_menu_mostra_pendencias_na_aba_de_despesas(self):
@@ -522,7 +559,7 @@ class FinanceiroSimplificadoViewTests(TestCase):
         self.client.force_login(self.outro_user)
         response = self.client.get(reverse("financeiro:despesa_lista"))
 
-        self.assertContains(response, "Despesas<span class=\"nav-badge\">1</span>", html=True)
+        self.assertContains(response, 'Despesas<span class="nav-badge">1</span>', html=True)
         self.assertNotContains(response, 'href="/financeiro/despesas/compartilhadas/"')
 
     def test_formulario_de_despesa_oculta_campos_de_compartilhamento_por_padrao(self):
@@ -590,7 +627,9 @@ class FinanceiroSimplificadoViewTests(TestCase):
         )
 
         self.client.force_login(self.outro_user)
-        response_recusa = self.client.post(reverse("financeiro:despesa_compartilhada_recusar", args=[participante.pk]))
+        response_recusa = self.client.post(
+            reverse("financeiro:despesa_compartilhada_recusar", args=[participante.pk])
+        )
         self.assertEqual(response_recusa.status_code, 302)
         participante.refresh_from_db()
         compartilhamento.refresh_from_db()
@@ -599,7 +638,7 @@ class FinanceiroSimplificadoViewTests(TestCase):
 
         self.client.force_login(self.user)
         response_lista = self.client.get(reverse("financeiro:despesa_lista"))
-        self.assertContains(response_lista, "Despesas<span class=\"nav-badge\">1</span>", html=True)
+        self.assertContains(response_lista, 'Despesas<span class="nav-badge">1</span>', html=True)
         self.assertContains(response_lista, "shared-status-recusado")
         self.assertContains(response_lista, "Recusado")
         self.assertContains(response_lista, "outro_fin recusou o compartilhamento.")
@@ -662,7 +701,9 @@ class FinanceiroSimplificadoViewTests(TestCase):
         )
 
         self.client.force_login(self.outro_user)
-        response_recusa = self.client.post(reverse("financeiro:despesa_compartilhada_recusar", args=[recusador.pk]))
+        response_recusa = self.client.post(
+            reverse("financeiro:despesa_compartilhada_recusar", args=[recusador.pk])
+        )
 
         self.assertEqual(response_recusa.status_code, 302)
         recusador.refresh_from_db()
@@ -709,7 +750,9 @@ class FinanceiroSimplificadoViewTests(TestCase):
         )
 
         self.client.force_login(self.outro_user)
-        self.client.post(reverse("financeiro:despesa_compartilhada_aceitar", args=[participante_1.pk]))
+        self.client.post(
+            reverse("financeiro:despesa_compartilhada_aceitar", args=[participante_1.pk])
+        )
         participante_1.refresh_from_db()
         compartilhamento.refresh_from_db()
 
@@ -720,7 +763,9 @@ class FinanceiroSimplificadoViewTests(TestCase):
         self.assertContains(response_criador, "Aguardando")
 
         self.client.force_login(self.terceiro_user)
-        self.client.post(reverse("financeiro:despesa_compartilhada_aceitar", args=[participante_2.pk]))
+        self.client.post(
+            reverse("financeiro:despesa_compartilhada_aceitar", args=[participante_2.pk])
+        )
         participante_1.refresh_from_db()
         participante_2.refresh_from_db()
         compartilhamento.refresh_from_db()
@@ -754,12 +799,16 @@ class FinanceiroSimplificadoViewTests(TestCase):
             pagador=self.user,
         )
 
-        response = self.client.get(reverse("financeiro:despesa_lista"), {"compartilhamento": "compartilhadas"})
+        response = self.client.get(
+            reverse("financeiro:despesa_lista"), {"compartilhamento": "compartilhadas"}
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Assinatura dividida")
         self.assertNotContains(response, "Padaria comum")
-        self.assertContains(response, '<option value="compartilhadas" selected>Compartilhadas</option>', html=False)
+        self.assertContains(
+            response, '<option value="compartilhadas" selected>Compartilhadas</option>', html=False
+        )
 
     def test_marcar_paga_de_fixa_cria_registro_da_competencia(self):
         despesa = Despesa.objects.create(
@@ -778,11 +827,16 @@ class FinanceiroSimplificadoViewTests(TestCase):
         despesa.refresh_from_db()
         self.assertEqual(response.status_code, 302)
         self.assertEqual(despesa.status, "pendente")
-        self.assertTrue(PagamentoDespesa.objects.filter(despesa=despesa, competencia=date(2026, 5, 1)).exists())
-        self.assertFalse(PagamentoDespesa.objects.filter(despesa=despesa, competencia=date(2026, 4, 1)).exists())
+        self.assertTrue(
+            PagamentoDespesa.objects.filter(despesa=despesa, competencia=date(2026, 5, 1)).exists()
+        )
+        self.assertFalse(
+            PagamentoDespesa.objects.filter(despesa=despesa, competencia=date(2026, 4, 1)).exists()
+        )
 
         response_desfazer = self.client.post(
-            reverse("financeiro:despesa_desmarcar_paga", args=[despesa.pk]), {"competencia": "2026-05"}
+            reverse("financeiro:despesa_desmarcar_paga", args=[despesa.pk]),
+            {"competencia": "2026-05"},
         )
         self.assertEqual(response_desfazer.status_code, 302)
         self.assertFalse(PagamentoDespesa.objects.filter(despesa=despesa).exists())
@@ -801,7 +855,9 @@ class FinanceiroSimplificadoViewTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         mes_atual = timezone.localdate().replace(day=1)
-        self.assertTrue(PagamentoDespesa.objects.filter(despesa=despesa, competencia=mes_atual).exists())
+        self.assertTrue(
+            PagamentoDespesa.objects.filter(despesa=despesa, competencia=mes_atual).exists()
+        )
 
     def test_marcar_paga_com_competencia_fora_da_serie_nao_cria_registro(self):
         despesa = Despesa.objects.create(
@@ -848,16 +904,22 @@ class FinanceiroSimplificadoViewTests(TestCase):
         )
 
         response = self.client.post(
-            reverse("financeiro:receita_marcar_recebida", args=[receita.pk]), {"competencia": "2026-05"}
+            reverse("financeiro:receita_marcar_recebida", args=[receita.pk]),
+            {"competencia": "2026-05"},
         )
 
         receita.refresh_from_db()
         self.assertEqual(response.status_code, 302)
         self.assertEqual(receita.status, "prevista")
-        self.assertTrue(RecebimentoReceita.objects.filter(receita=receita, competencia=date(2026, 5, 1)).exists())
+        self.assertTrue(
+            RecebimentoReceita.objects.filter(
+                receita=receita, competencia=date(2026, 5, 1)
+            ).exists()
+        )
 
         response_desfazer = self.client.post(
-            reverse("financeiro:receita_desmarcar_recebida", args=[receita.pk]), {"competencia": "2026-05"}
+            reverse("financeiro:receita_desmarcar_recebida", args=[receita.pk]),
+            {"competencia": "2026-05"},
         )
         self.assertEqual(response_desfazer.status_code, 302)
         self.assertFalse(RecebimentoReceita.objects.filter(receita=receita).exists())
@@ -871,7 +933,9 @@ class FinanceiroSimplificadoViewTests(TestCase):
             criado_por=self.user,
         )
 
-        response = self.client.post(reverse("financeiro:receita_desmarcar_recebida", args=[receita.pk]))
+        response = self.client.post(
+            reverse("financeiro:receita_desmarcar_recebida", args=[receita.pk])
+        )
 
         receita.refresh_from_db()
         self.assertEqual(response.status_code, 302)
@@ -918,7 +982,9 @@ class FinanceiroSimplificadoViewTests(TestCase):
 
 class PagamentoPorCompetenciaModelTests(TestCase):
     def setUp(self):
-        self.user = get_user_model().objects.create_user(username="fin_comp", password="senha-forte-123")
+        self.user = get_user_model().objects.create_user(
+            username="fin_comp", password="senha-forte-123"
+        )
 
     def test_pagamento_de_fixa_afeta_apenas_a_competencia_marcada(self):
         despesa = Despesa.objects.create(
@@ -929,7 +995,9 @@ class PagamentoPorCompetenciaModelTests(TestCase):
             status="pendente",
             criado_por=self.user,
         )
-        PagamentoDespesa.objects.create(despesa=despesa, competencia=date(2026, 5, 1), data_pagamento=date(2026, 5, 12))
+        PagamentoDespesa.objects.create(
+            despesa=despesa, competencia=date(2026, 5, 1), data_pagamento=date(2026, 5, 12)
+        )
 
         ocorrencias = despesa.ocorrencias(date(2026, 4, 1), date(2026, 6, 30))
         fluxo_abril = resumo_fluxo_periodo(self.user, date(2026, 4, 1), date(2026, 4, 30))
@@ -972,12 +1040,18 @@ class PagamentoPorCompetenciaModelTests(TestCase):
             status="prevista",
             criado_por=self.user,
         )
-        RecebimentoReceita.objects.create(receita=receita, competencia=date(2026, 4, 1), data_recebimento=date(2026, 4, 6))
-        RecebimentoReceita.objects.create(receita=receita, competencia=date(2026, 5, 1), data_recebimento=date(2026, 5, 7))
+        RecebimentoReceita.objects.create(
+            receita=receita, competencia=date(2026, 4, 1), data_recebimento=date(2026, 4, 6)
+        )
+        RecebimentoReceita.objects.create(
+            receita=receita, competencia=date(2026, 5, 1), data_recebimento=date(2026, 5, 7)
+        )
 
         ocorrencias = receita.ocorrencias(date(2026, 4, 1), date(2026, 6, 30))
 
-        self.assertEqual([item["status"] for item in ocorrencias], ["recebida", "recebida", "prevista"])
+        self.assertEqual(
+            [item["status"] for item in ocorrencias], ["recebida", "recebida", "prevista"]
+        )
         self.assertEqual(ocorrencias[0]["data_recebimento"], date(2026, 4, 6))
         self.assertEqual(ocorrencias[1]["data_recebimento"], date(2026, 5, 7))
         self.assertIsNone(ocorrencias[2]["data_recebimento"])
@@ -1084,7 +1158,9 @@ class PagamentoPorCompetenciaModelTests(TestCase):
 
 class PlanejamentoSemanalCorrigidoTests(TestCase):
     def setUp(self):
-        self.user = get_user_model().objects.create_user(username="fin_plan", password="senha-forte-123")
+        self.user = get_user_model().objects.create_user(
+            username="fin_plan", password="senha-forte-123"
+        )
 
     def test_semana_de_borda_mostra_lancamentos_do_mes_vizinho(self):
         Despesa.objects.create(

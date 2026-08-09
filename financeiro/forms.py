@@ -7,7 +7,15 @@ from django.utils import timezone
 
 from core.concurrency import OptimisticLockModelFormMixin
 from core.form_fields import substituir_por_decimal_br
-from .models import CompartilhamentoDespesa, Despesa, Receita, Reserva, arredondar, normalizar_competencia
+
+from .models import (
+    CompartilhamentoDespesa,
+    Despesa,
+    Receita,
+    Reserva,
+    arredondar,
+    normalizar_competencia,
+)
 
 
 def _parse_decimal_br(valor):
@@ -60,13 +68,27 @@ class CompetenciaField(forms.DateField):
 
 
 class ReceitaSimplificadaForm(OptimisticLockModelFormMixin, forms.ModelForm):
-    valor_parcela = forms.DecimalField(max_digits=14, decimal_places=2, required=False, label="Valor da parcela")
+    valor_parcela = forms.DecimalField(
+        max_digits=14, decimal_places=2, required=False, label="Valor da parcela"
+    )
     competencia = CompetenciaField(label="Competência", required=False)
     data_fim = CompetenciaField(label="Repetir até", required=False)
 
     class Meta:
         model = Receita
-        fields = ["tipo", "descricao", "valor", "data", "competencia", "data_fim", "categoria", "parcelas", "parcela_atual", "status", "observacoes"]
+        fields = [
+            "tipo",
+            "descricao",
+            "valor",
+            "data",
+            "competencia",
+            "data_fim",
+            "categoria",
+            "parcelas",
+            "parcela_atual",
+            "status",
+            "observacoes",
+        ]
         widgets = {
             "tipo": forms.Select(attrs={"data-expense-type": "1", "data-income-type": "1"}),
             "data": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
@@ -79,13 +101,21 @@ class ReceitaSimplificadaForm(OptimisticLockModelFormMixin, forms.ModelForm):
         substituir_por_decimal_br(self, "valor_parcela", currency=True)
         self.fields["descricao"].widget.attrs["placeholder"] = "Ex.: salário, venda, reembolso"
         hoje = timezone.localdate()
-        self.fields["data"].initial = self.initial.get("data") or getattr(self.instance, "data", None) or hoje
-        self.fields["competencia"].initial = self.initial.get("competencia") or getattr(self.instance, "competencia", None) or self.fields["data"].initial
+        self.fields["data"].initial = (
+            self.initial.get("data") or getattr(self.instance, "data", None) or hoje
+        )
+        self.fields["competencia"].initial = (
+            self.initial.get("competencia")
+            or getattr(self.instance, "competencia", None)
+            or self.fields["data"].initial
+        )
         self.fields["parcelas"].required = False
         self.fields["parcelas"].label = "Total de parcelas"
         self.fields["parcela_atual"].required = False
         self.fields["parcela_atual"].label = "Parcela atual"
-        self.fields["parcela_atual"].initial = self.initial.get("parcela_atual") or getattr(self.instance, "parcela_atual", None) or 1
+        self.fields["parcela_atual"].initial = (
+            self.initial.get("parcela_atual") or getattr(self.instance, "parcela_atual", None) or 1
+        )
         self.fields["parcelas"].widget.attrs["data-installments-input"] = "1"
         self.fields["parcela_atual"].widget.attrs["data-installments-current"] = "1"
         self.fields["valor"].widget.attrs["data-installments-total"] = "1"
@@ -105,7 +135,9 @@ class ReceitaSimplificadaForm(OptimisticLockModelFormMixin, forms.ModelForm):
             elif parcelas < 2:
                 self.add_error("parcelas", "Receita parcelada precisa ter pelo menos 2 parcelas.")
             if parcela_atual > parcelas:
-                self.add_error("parcela_atual", "A parcela atual não pode ser maior que o total de parcelas.")
+                self.add_error(
+                    "parcela_atual", "A parcela atual não pode ser maior que o total de parcelas."
+                )
             if valor_parcela and "valor_parcela" in self.changed_data:
                 cleaned["valor"] = arredondar(valor_parcela * parcelas)
         else:
@@ -116,7 +148,11 @@ class ReceitaSimplificadaForm(OptimisticLockModelFormMixin, forms.ModelForm):
         cleaned["competencia"] = normalizar_competencia(cleaned.get("competencia"))
         if tipo != "fixa":
             cleaned["data_fim"] = None
-        elif cleaned.get("data_fim") and cleaned.get("competencia") and cleaned["data_fim"] < cleaned["competencia"]:
+        elif (
+            cleaned.get("data_fim")
+            and cleaned.get("competencia")
+            and cleaned["data_fim"] < cleaned["competencia"]
+        ):
             self.add_error("data_fim", "A data final não pode ser anterior à competência inicial.")
         if tipo != "variavel":
             cleaned["status"] = "prevista"
@@ -124,13 +160,23 @@ class ReceitaSimplificadaForm(OptimisticLockModelFormMixin, forms.ModelForm):
 
 
 class DespesaSimplificadaForm(OptimisticLockModelFormMixin, forms.ModelForm):
-    valor_parcela = forms.DecimalField(max_digits=14, decimal_places=2, required=False, label="Valor da parcela")
+    valor_parcela = forms.DecimalField(
+        max_digits=14, decimal_places=2, required=False, label="Valor da parcela"
+    )
     competencia = CompetenciaField(label="Competência", required=False)
     data_fim = CompetenciaField(label="Repetir até", required=False)
     compartilhar = forms.BooleanField(required=False, label="Compartilhar despesa")
-    participantes = forms.CharField(required=False, label="Compartilhar com", help_text="Separe usuários por vírgula.")
-    modo_divisao = forms.ChoiceField(choices=CompartilhamentoDespesa.MODO_CHOICES, required=False, label="Divisão")
-    valores_participantes = forms.CharField(required=False, label="Valores dos participantes", help_text="Na mesma ordem dos usuários, separados por vírgula.")
+    participantes = forms.CharField(
+        required=False, label="Compartilhar com", help_text="Separe usuários por vírgula."
+    )
+    modo_divisao = forms.ChoiceField(
+        choices=CompartilhamentoDespesa.MODO_CHOICES, required=False, label="Divisão"
+    )
+    valores_participantes = forms.CharField(
+        required=False,
+        label="Valores dos participantes",
+        help_text="Na mesma ordem dos usuários, separados por vírgula.",
+    )
     pagador = forms.CharField(required=False, label="Quem pagou ou vai pagar")
     data_prevista_ressarcimento = forms.DateField(
         required=False,
@@ -140,7 +186,19 @@ class DespesaSimplificadaForm(OptimisticLockModelFormMixin, forms.ModelForm):
 
     class Meta:
         model = Despesa
-        fields = ["tipo", "descricao", "valor", "data", "competencia", "data_fim", "categoria", "parcelas", "parcela_atual", "status", "observacoes"]
+        fields = [
+            "tipo",
+            "descricao",
+            "valor",
+            "data",
+            "competencia",
+            "data_fim",
+            "categoria",
+            "parcelas",
+            "parcela_atual",
+            "status",
+            "observacoes",
+        ]
         widgets = {
             "tipo": forms.Select(attrs={"data-expense-type": "1"}),
             "data": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
@@ -158,8 +216,12 @@ class DespesaSimplificadaForm(OptimisticLockModelFormMixin, forms.ModelForm):
         self.fields["modo_divisao"].widget.attrs["data-shared-mode"] = "1"
         self.fields["valores_participantes"].widget.attrs["placeholder"] = "Ex.: 120,00; 80,00"
         self.fields["valores_participantes"].widget.attrs["data-shared-values"] = "1"
-        self.fields["pagador"].widget.attrs["placeholder"] = f"Ex.: {user.username}" if user else "Ex.: usuario"
-        self.fields["pagador"].initial = self.initial.get("pagador") or getattr(user, "username", "")
+        self.fields["pagador"].widget.attrs["placeholder"] = (
+            f"Ex.: {user.username}" if user else "Ex.: usuario"
+        )
+        self.fields["pagador"].initial = self.initial.get("pagador") or getattr(
+            user, "username", ""
+        )
         self.categorias_sugeridas = []
         self.usuarios_sugeridos = []
         if user and getattr(user, "is_authenticated", False):
@@ -183,15 +245,25 @@ class DespesaSimplificadaForm(OptimisticLockModelFormMixin, forms.ModelForm):
                 self.fields["participantes"].widget.attrs["list"] = "usuarios-sistema"
                 self.fields["pagador"].widget.attrs["list"] = "usuarios-sistema-com-criador"
         hoje = timezone.localdate()
-        self.fields["data"].initial = self.initial.get("data") or getattr(self.instance, "data", None) or hoje
-        self.fields["competencia"].initial = self.initial.get("competencia") or getattr(self.instance, "competencia", None) or self.fields["data"].initial
+        self.fields["data"].initial = (
+            self.initial.get("data") or getattr(self.instance, "data", None) or hoje
+        )
+        self.fields["competencia"].initial = (
+            self.initial.get("competencia")
+            or getattr(self.instance, "competencia", None)
+            or self.fields["data"].initial
+        )
         self.fields["parcelas"].required = False
         self.fields["parcelas"].label = "Total de parcelas"
         self.fields["parcela_atual"].required = False
         self.fields["parcela_atual"].label = "Parcela atual"
-        self.fields["parcela_atual"].initial = self.initial.get("parcela_atual") or getattr(self.instance, "parcela_atual", None) or 1
+        self.fields["parcela_atual"].initial = (
+            self.initial.get("parcela_atual") or getattr(self.instance, "parcela_atual", None) or 1
+        )
         self.fields["status"].required = False
-        self.fields["status"].initial = self.initial.get("status") or getattr(self.instance, "status", None) or "pendente"
+        self.fields["status"].initial = (
+            self.initial.get("status") or getattr(self.instance, "status", None) or "pendente"
+        )
         self.fields["parcelas"].widget.attrs["data-installments-input"] = "1"
         self.fields["parcela_atual"].widget.attrs["data-installments-current"] = "1"
         self.fields["valor"].widget.attrs["data-installments-total"] = "1"
@@ -205,14 +277,22 @@ class DespesaSimplificadaForm(OptimisticLockModelFormMixin, forms.ModelForm):
             if compartilhamento:
                 participantes = list(compartilhamento.participantes.select_related("usuario").all())
                 self.fields["compartilhar"].initial = True
-                self.fields["participantes"].initial = ", ".join(item.usuario.username for item in participantes)
+                self.fields["participantes"].initial = ", ".join(
+                    item.usuario.username for item in participantes
+                )
                 self.fields["modo_divisao"].initial = compartilhamento.modo_divisao
-                self.fields["valores_participantes"].initial = ", ".join(str(item.valor).replace(".", ",") for item in participantes)
+                self.fields["valores_participantes"].initial = ", ".join(
+                    str(item.valor).replace(".", ",") for item in participantes
+                )
                 self.fields["pagador"].initial = compartilhamento.pagador.username
-                self.fields["data_prevista_ressarcimento"].initial = compartilhamento.data_prevista_ressarcimento
+                self.fields[
+                    "data_prevista_ressarcimento"
+                ].initial = compartilhamento.data_prevista_ressarcimento
                 self.fields["valor"].initial = compartilhamento.valor_total
                 if self.instance.tipo == "parcelada":
-                    self.fields["valor_parcela"].initial = arredondar(compartilhamento.valor_total / self.instance.parcelas)
+                    self.fields["valor_parcela"].initial = arredondar(
+                        compartilhamento.valor_total / self.instance.parcelas
+                    )
 
     def clean(self):
         cleaned = super().clean()
@@ -226,7 +306,9 @@ class DespesaSimplificadaForm(OptimisticLockModelFormMixin, forms.ModelForm):
             elif parcelas < 2:
                 self.add_error("parcelas", "Despesa parcelada precisa ter pelo menos 2 parcelas.")
             if parcela_atual > parcelas:
-                self.add_error("parcela_atual", "A parcela atual não pode ser maior que o total de parcelas.")
+                self.add_error(
+                    "parcela_atual", "A parcela atual não pode ser maior que o total de parcelas."
+                )
             if valor_parcela and "valor_parcela" in self.changed_data:
                 cleaned["valor"] = arredondar(valor_parcela * parcelas)
         else:
@@ -237,7 +319,11 @@ class DespesaSimplificadaForm(OptimisticLockModelFormMixin, forms.ModelForm):
         cleaned["competencia"] = normalizar_competencia(cleaned.get("competencia"))
         if tipo != "fixa":
             cleaned["data_fim"] = None
-        elif cleaned.get("data_fim") and cleaned.get("competencia") and cleaned["data_fim"] < cleaned["competencia"]:
+        elif (
+            cleaned.get("data_fim")
+            and cleaned.get("competencia")
+            and cleaned["data_fim"] < cleaned["competencia"]
+        ):
             self.add_error("data_fim", "A data final não pode ser anterior à competência inicial.")
         if not cleaned.get("status"):
             cleaned["status"] = "pendente"
@@ -253,12 +339,18 @@ class DespesaSimplificadaForm(OptimisticLockModelFormMixin, forms.ModelForm):
             return
 
         User = get_user_model()
-        nomes = [nome.strip() for nome in str(cleaned.get("participantes") or "").split(",") if nome.strip()]
+        nomes = [
+            nome.strip()
+            for nome in str(cleaned.get("participantes") or "").split(",")
+            if nome.strip()
+        ]
         if not nomes:
             self.add_error("participantes", "Informe pelo menos um usuário para compartilhar.")
             return
         if self.user and self.user.username in nomes:
-            self.add_error("participantes", "Não inclua seu próprio usuário na lista de participantes.")
+            self.add_error(
+                "participantes", "Não inclua seu próprio usuário na lista de participantes."
+            )
             return
 
         usuarios = list(User.objects.filter(username__in=nomes, is_active=True))
@@ -273,9 +365,15 @@ class DespesaSimplificadaForm(OptimisticLockModelFormMixin, forms.ModelForm):
         if not pagador_nome:
             self.add_error("pagador", "Informe quem pagou ou vai pagar.")
             return
-        pagador = self.user if self.user and pagador_nome == self.user.username else encontrados.get(pagador_nome)
+        pagador = (
+            self.user
+            if self.user and pagador_nome == self.user.username
+            else encontrados.get(pagador_nome)
+        )
         if not pagador:
-            self.add_error("pagador", "O pagador deve ser o criador ou um dos participantes informados.")
+            self.add_error(
+                "pagador", "O pagador deve ser o criador ou um dos participantes informados."
+            )
             return
 
         valor_total = cleaned.get("valor")
@@ -283,14 +381,24 @@ class DespesaSimplificadaForm(OptimisticLockModelFormMixin, forms.ModelForm):
             return
         modo = cleaned.get("modo_divisao") or "igual"
         if modo == "fixo":
-            valores = _parse_decimal_list_br(cleaned.get("valores_participantes"), len(participantes))
-            if len(valores) != len(participantes) or any(valor is None or valor <= 0 for valor in valores):
-                self.add_error("valores_participantes", "Informe um valor positivo para cada participante, na mesma ordem.")
+            valores = _parse_decimal_list_br(
+                cleaned.get("valores_participantes"), len(participantes)
+            )
+            if len(valores) != len(participantes) or any(
+                valor is None or valor <= 0 for valor in valores
+            ):
+                self.add_error(
+                    "valores_participantes",
+                    "Informe um valor positivo para cada participante, na mesma ordem.",
+                )
                 return
             soma_participantes = arredondar(sum(valores, Decimal("0.00")))
             valor_criador = arredondar(valor_total - soma_participantes)
             if valor_criador <= 0:
-                self.add_error("valores_participantes", "A soma dos participantes deve ser menor que o valor total.")
+                self.add_error(
+                    "valores_participantes",
+                    "A soma dos participantes deve ser menor que o valor total.",
+                )
                 return
         else:
             quantidade = Decimal(len(participantes) + 1)

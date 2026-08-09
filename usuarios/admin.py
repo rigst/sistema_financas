@@ -26,7 +26,15 @@ class UsuarioAdmin(UserAdmin, ModelAdmin):
             None,
             {
                 "classes": ("wide",),
-                "fields": ("username", "email", "password1", "password2", "is_active", "is_staff", "is_superuser"),
+                "fields": (
+                    "username",
+                    "email",
+                    "password1",
+                    "password2",
+                    "is_active",
+                    "is_staff",
+                    "is_superuser",
+                ),
             },
         ),
     )
@@ -52,5 +60,6 @@ class UsuarioAdmin(UserAdmin, ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return self.has_module_permission(request)
+
 
 # Register your models here.

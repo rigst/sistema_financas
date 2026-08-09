@@ -16,10 +16,17 @@ def compartilhamentos_pendentes(request):
         compartilhamento__criado_por=request.user,
         status="pendente",
     ).count()
-    recusas_notificadas = ParticipanteCompartilhamentoDespesa.objects.filter(
-        usuario=request.user,
-        status="recusado",
-    ).exclude(compartilhamento__recusado_por=request.user).count()
+    recusas_notificadas = (
+        ParticipanteCompartilhamentoDespesa.objects.filter(
+            usuario=request.user,
+            status="recusado",
+        )
+        .exclude(compartilhamento__recusado_por=request.user)
+        .count()
+    )
     return {
-        "compartilhamentos_pendentes_count": pendentes_recebidos + recusas_recebidas + recusas_notificadas + aguardando_criador
+        "compartilhamentos_pendentes_count": pendentes_recebidos
+        + recusas_recebidas
+        + recusas_notificadas
+        + aguardando_criador
     }

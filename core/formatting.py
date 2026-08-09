@@ -98,7 +98,11 @@ def calcular_expressao_decimal_br(valor, default=None):
                 raise ValueError("Valor decimal inválido.")
             operadores.pop()
         else:
-            while operadores and operadores[-1] != "(" and precedencia[operadores[-1]] >= precedencia[token]:
+            while (
+                operadores
+                and operadores[-1] != "("
+                and precedencia[operadores[-1]] >= precedencia[token]
+            ):
                 aplicar_operador(valores, operadores.pop())
             operadores.append(token)
 

@@ -9,8 +9,8 @@ from .models import (
     MentoriaFinanceiraIA,
     PagamentoDespesa,
     ParticipanteCompartilhamentoDespesa,
-    Receita,
     RecebimentoReceita,
+    Receita,
     Reserva,
 )
 
@@ -37,7 +37,18 @@ class PagamentoDespesaInline(FinanceiroInlineAdminMixin, TabularInline):
 @admin.register(Receita)
 class ReceitaAdmin(FinanceiroAdminMixin, ModelAdmin):
     exclude = ("criado_por",)
-    list_display = ("descricao", "tipo", "valor", "data", "competencia", "categoria", "parcelas", "parcela_atual", "status", "ativa")
+    list_display = (
+        "descricao",
+        "tipo",
+        "valor",
+        "data",
+        "competencia",
+        "categoria",
+        "parcelas",
+        "parcela_atual",
+        "status",
+        "ativa",
+    )
     list_filter = ("tipo", "status", "ativa", "competencia", "data")
     search_fields = ("descricao", "categoria", "observacoes")
     date_hierarchy = "data"
@@ -52,7 +63,18 @@ class ReceitaAdmin(FinanceiroAdminMixin, ModelAdmin):
 @admin.register(Despesa)
 class DespesaAdmin(FinanceiroAdminMixin, ModelAdmin):
     exclude = ("criado_por",)
-    list_display = ("descricao", "tipo", "valor", "valor_parcela", "data", "competencia", "categoria", "parcelas", "parcela_atual", "status")
+    list_display = (
+        "descricao",
+        "tipo",
+        "valor",
+        "valor_parcela",
+        "data",
+        "competencia",
+        "categoria",
+        "parcelas",
+        "parcela_atual",
+        "status",
+    )
     list_filter = ("tipo", "competencia", "data", "status")
     search_fields = ("descricao", "categoria", "observacoes")
     date_hierarchy = "data"
@@ -86,7 +108,14 @@ class ParticipanteCompartilhamentoDespesaInline(TabularInline):
 
 @admin.register(CompartilhamentoDespesa)
 class CompartilhamentoDespesaAdmin(FinanceiroAdminMixin, ModelAdmin):
-    list_display = ("despesa", "valor_total", "modo_divisao", "pagador", "data_prevista_ressarcimento", "criado_por")
+    list_display = (
+        "despesa",
+        "valor_total",
+        "modo_divisao",
+        "pagador",
+        "data_prevista_ressarcimento",
+        "criado_por",
+    )
     list_filter = ("modo_divisao", "data_prevista_ressarcimento")
     search_fields = ("despesa__descricao", "criado_por__username", "pagador__username")
     autocomplete_fields = ("despesa", "criado_por", "pagador")
@@ -96,7 +125,15 @@ class CompartilhamentoDespesaAdmin(FinanceiroAdminMixin, ModelAdmin):
 @admin.register(MentoriaFinanceiraIA)
 class MentoriaFinanceiraIAAdmin(FinanceiroAdminMixin, ModelAdmin):
     list_display = ("periodo_inicio", "periodo_fim", "modelo", "criado_em")
-    readonly_fields = ("criado_por", "periodo_inicio", "periodo_fim", "conteudo", "dados_enviados", "modelo", "criado_em")
+    readonly_fields = (
+        "criado_por",
+        "periodo_inicio",
+        "periodo_fim",
+        "conteudo",
+        "dados_enviados",
+        "modelo",
+        "criado_em",
+    )
     search_fields = ("conteudo", "modelo")
     date_hierarchy = "criado_em"
 

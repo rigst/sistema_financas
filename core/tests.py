@@ -6,14 +6,19 @@ from unittest.mock import patch
 
 import anthropic
 import httpx
-
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
 from core.formatting import parse_decimal_br
-from financeiro.models import CompartilhamentoDespesa, Despesa, MentoriaFinanceiraIA, ParticipanteCompartilhamentoDespesa, Receita
+from financeiro.models import (
+    CompartilhamentoDespesa,
+    Despesa,
+    MentoriaFinanceiraIA,
+    ParticipanteCompartilhamentoDespesa,
+    Receita,
+)
 
 
 class DashboardTests(TestCase):
@@ -40,6 +45,7 @@ class DashboardTests(TestCase):
             categoria="Mercado",
             criado_por=self.user,
         )
+
     def test_dashboard_filtra_periodo_e_exibe_indicadores(self):
         response = self.client.get(reverse("dashboard"), {"periodo": "30"})
 
@@ -135,7 +141,9 @@ class DashboardTests(TestCase):
         self.assertNotContains(response, "Lançamento 0")
 
     def test_dashboard_permite_navegar_por_semana(self):
-        response = self.client.get(reverse("dashboard"), {"semana": "2026-04-20", "periodo": "todos"})
+        response = self.client.get(
+            reverse("dashboard"), {"semana": "2026-04-20", "periodo": "todos"}
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "20/04/2026 a 26/04/2026")
@@ -161,14 +169,20 @@ class DashboardTests(TestCase):
         self.assertContains(response, 'class="ai-mentor-list"', html=False)
         self.assertContains(response, "Gerar análise")
 
-    @override_settings(AI_MENTORIA_ENABLED=True, ANTHROPIC_API_KEY="sk-teste", ANTHROPIC_MENTORIA_MODEL="modelo-teste")
+    @override_settings(
+        AI_MENTORIA_ENABLED=True,
+        ANTHROPIC_API_KEY="sk-teste",
+        ANTHROPIC_MENTORIA_MODEL="modelo-teste",
+    )
     @patch("core.ai_mentoria._chamar_anthropic")
     def test_botao_gera_mentoria_ia_e_salva_resultado(self, chamar_anthropic):
         chamar_anthropic.return_value = SimpleNamespace(
-            content=[SimpleNamespace(
-                type="text",
-                text="Seu gasto do mês ficou concentrado em mercado.\n1. Defina um limite semanal.",
-            )],
+            content=[
+                SimpleNamespace(
+                    type="text",
+                    text="Seu gasto do mês ficou concentrado em mercado.\n1. Defina um limite semanal.",
+                )
+            ],
             stop_reason="end_turn",
             model="modelo-teste",
         )

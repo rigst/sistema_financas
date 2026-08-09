@@ -50,7 +50,9 @@ def _somar_ocorrencias(ocorrencias, *, filtro=None):
 
 def receitas_no_periodo(user, inicio, fim):
     ocorrencias = []
-    for receita in Receita.objects.filter(criado_por=user, ativa=True).prefetch_related("recebimentos"):
+    for receita in Receita.objects.filter(criado_por=user, ativa=True).prefetch_related(
+        "recebimentos"
+    ):
         for ocorrencia in receita.ocorrencias(inicio, fim):
             ocorrencias.append({"receita": receita, **ocorrencia})
     return ocorrencias
@@ -58,7 +60,11 @@ def receitas_no_periodo(user, inicio, fim):
 
 def despesas_no_periodo(user, inicio, fim):
     ocorrencias = []
-    for despesa in Despesa.objects.filter(criado_por=user).exclude(status="cancelada").prefetch_related("pagamentos"):
+    for despesa in (
+        Despesa.objects.filter(criado_por=user)
+        .exclude(status="cancelada")
+        .prefetch_related("pagamentos")
+    ):
         for ocorrencia in despesa.ocorrencias(inicio, fim):
             ocorrencias.append({"despesa": despesa, **ocorrencia})
     return ocorrencias
@@ -71,15 +77,27 @@ def _filtrar_por_data(ocorrencias, inicio, fim):
 def resumo_fluxo_periodo(user, inicio, fim):
     receitas = receitas_no_periodo(user, inicio, fim)
     despesas = despesas_no_periodo(user, inicio, fim)
-    receitas_recebidas = _somar_ocorrencias(receitas, filtro=lambda item: item["status"] == "recebida")
-    receitas_previstas = _somar_ocorrencias(receitas, filtro=lambda item: item["status"] == "prevista")
+    receitas_recebidas = _somar_ocorrencias(
+        receitas, filtro=lambda item: item["status"] == "recebida"
+    )
+    receitas_previstas = _somar_ocorrencias(
+        receitas, filtro=lambda item: item["status"] == "prevista"
+    )
     fixos = _somar_ocorrencias(despesas, filtro=lambda item: item["despesa"].tipo == "fixa")
     parcelas = _somar_ocorrencias(despesas, filtro=lambda item: item["despesa"].tipo == "parcelada")
     variaveis = _somar_ocorrencias(despesas, filtro=lambda item: item["despesa"].tipo == "variavel")
     despesas_pagas = _somar_ocorrencias(despesas, filtro=lambda item: item["status"] == "paga")
-    despesas_pendentes = _somar_ocorrencias(despesas, filtro=lambda item: item["status"] == "pendente")
-    variaveis_pagas = _somar_ocorrencias(despesas, filtro=lambda item: item["despesa"].tipo == "variavel" and item["status"] == "paga")
-    variaveis_pendentes = _somar_ocorrencias(despesas, filtro=lambda item: item["despesa"].tipo == "variavel" and item["status"] == "pendente")
+    despesas_pendentes = _somar_ocorrencias(
+        despesas, filtro=lambda item: item["status"] == "pendente"
+    )
+    variaveis_pagas = _somar_ocorrencias(
+        despesas,
+        filtro=lambda item: item["despesa"].tipo == "variavel" and item["status"] == "paga",
+    )
+    variaveis_pendentes = _somar_ocorrencias(
+        despesas,
+        filtro=lambda item: item["despesa"].tipo == "variavel" and item["status"] == "pendente",
+    )
     despesas_total = arredondar(fixos + parcelas + variaveis)
     receitas_total = arredondar(receitas_recebidas + receitas_previstas)
     return {
@@ -106,7 +124,10 @@ def resumo_fluxo_periodo(user, inicio, fim):
 def _receitas_confirmadas_ate(receitas_mes, data_limite):
     return _somar_ocorrencias(
         receitas_mes,
-        filtro=lambda item: item["status"] == "recebida" and (item["data_recebimento"] or item["data"]) <= data_limite,
+        filtro=lambda item: (
+            item["status"] == "recebida"
+            and (item["data_recebimento"] or item["data"]) <= data_limite
+        ),
     )
 
 
@@ -120,7 +141,9 @@ def _saldo_total_confirmado(user, referencia):
     receitas = receitas_no_periodo(user, inicio, fim)
     despesas = despesas_no_periodo(user, inicio, fim)
     receitas_confirmadas = _receitas_confirmadas_ate(receitas, fim)
-    despesas_ate_hoje = _somar_ocorrencias(despesas, filtro=lambda item: item["status"] == "paga" and item["data"] <= fim)
+    despesas_ate_hoje = _somar_ocorrencias(
+        despesas, filtro=lambda item: item["status"] == "paga" and item["data"] <= fim
+    )
     return arredondar(receitas_confirmadas - despesas_ate_hoje)
 
 
@@ -140,17 +163,25 @@ def calcular_planejamento_semanal(user, referencia, quantidade=5, incluir_previs
     receitas_grade = fluxo_mes["receitas"]
     despesas_grade = fluxo_mes["despesas"]
     if inicio_grade < inicio_mes or fim_grade > fim_mes:
-        receitas_grade = receitas_no_periodo(user, inicio_do_mes(inicio_grade), fim_do_mes(fim_grade))
-        despesas_grade = despesas_no_periodo(user, inicio_do_mes(inicio_grade), fim_do_mes(fim_grade))
+        receitas_grade = receitas_no_periodo(
+            user, inicio_do_mes(inicio_grade), fim_do_mes(fim_grade)
+        )
+        despesas_grade = despesas_no_periodo(
+            user, inicio_do_mes(inicio_grade), fim_do_mes(fim_grade)
+        )
 
     for indice, (inicio, fim) in enumerate(semanas_mes):
-        receitas_semana = [item for item in receitas_grade if inicio <= _data_fluxo_receita(item) <= fim]
+        receitas_semana = [
+            item for item in receitas_grade if inicio <= _data_fluxo_receita(item) <= fim
+        ]
         despesas_semana = [item for item in despesas_grade if inicio <= item["data"] <= fim]
         variaveis_anteriores = _somar_ocorrencias(
             fluxo_mes["despesas"],
-            filtro=lambda item: item["despesa"].tipo == "variavel"
-            and item["data"] < inicio
-            and (incluir_previstos or item["status"] == "paga"),
+            filtro=lambda item: (
+                item["despesa"].tipo == "variavel"
+                and item["data"] < inicio
+                and (incluir_previstos or item["status"] == "paga")
+            ),
         )
         # Cota orçamentária: renda planejada do mês inteiro menos compromissos
         # do mês inteiro — horizontes iguais, cota estável a semana toda.
@@ -167,7 +198,10 @@ def calcular_planejamento_semanal(user, referencia, quantidade=5, incluir_previs
         )
         gastos_semana = _somar_ocorrencias(
             despesas_semana,
-            filtro=lambda item: item["despesa"].tipo == "variavel" and (incluir_previstos or item["status"] == "paga"),
+            filtro=lambda item: (
+                item["despesa"].tipo == "variavel"
+                and (incluir_previstos or item["status"] == "paga")
+            ),
         )
         gastos_pagos = _somar_ocorrencias(
             despesas_semana,
@@ -177,8 +211,12 @@ def calcular_planejamento_semanal(user, referencia, quantidade=5, incluir_previs
             despesas_semana,
             filtro=lambda item: item["despesa"].tipo == "variavel" and item["status"] == "pendente",
         )
-        fixos_semana = _somar_ocorrencias(despesas_semana, filtro=lambda item: item["despesa"].tipo == "fixa")
-        parcelas_semana = _somar_ocorrencias(despesas_semana, filtro=lambda item: item["despesa"].tipo == "parcelada")
+        fixos_semana = _somar_ocorrencias(
+            despesas_semana, filtro=lambda item: item["despesa"].tipo == "fixa"
+        )
+        parcelas_semana = _somar_ocorrencias(
+            despesas_semana, filtro=lambda item: item["despesa"].tipo == "parcelada"
+        )
         semanas.append(
             {
                 "inicio": inicio,
@@ -186,8 +224,12 @@ def calcular_planejamento_semanal(user, referencia, quantidade=5, incluir_previs
                 "rotulo": f"{inicio:%d/%m} a {fim:%d/%m}",
                 "semana_atual": inicio <= referencia <= fim,
                 "receitas": _somar_ocorrencias(receitas_semana),
-                "receitas_previstas": _somar_ocorrencias(receitas_semana, filtro=lambda item: item["status"] == "prevista"),
-                "receitas_recebidas": _somar_ocorrencias(receitas_semana, filtro=lambda item: item["status"] == "recebida"),
+                "receitas_previstas": _somar_ocorrencias(
+                    receitas_semana, filtro=lambda item: item["status"] == "prevista"
+                ),
+                "receitas_recebidas": _somar_ocorrencias(
+                    receitas_semana, filtro=lambda item: item["status"] == "recebida"
+                ),
                 "gasto_semana": gastos_semana,
                 "gastos_pagos": gastos_pagos,
                 "gastos_previstos": gastos_previstos,
@@ -202,9 +244,13 @@ def calcular_planejamento_semanal(user, referencia, quantidade=5, incluir_previs
         )
 
     if quantidade == 1:
-        semanas = [semana for semana in semanas if semana["semana_atual"]] or ([semanas[0]] if semanas else [])
+        semanas = [semana for semana in semanas if semana["semana_atual"]] or (
+            [semanas[0]] if semanas else []
+        )
 
-    semana_atual = next((semana for semana in semanas if semana["semana_atual"]), semanas[0] if semanas else None)
+    semana_atual = next(
+        (semana for semana in semanas if semana["semana_atual"]), semanas[0] if semanas else None
+    )
     return {
         "saldo_total": _saldo_total_confirmado(user, referencia),
         "semanas": semanas,
@@ -247,18 +293,30 @@ def resumo_mensal(user, referencia):
         "parcelas": fluxo["parcelas"],
         "compromissos": fluxo["despesas_total"],
         "gasto_total": fluxo["despesas_total"],
-        "cota_semanal": planejamento["semana_atual"]["cota_semana"] if planejamento["semana_atual"] else Decimal("0.00"),
+        "cota_semanal": planejamento["semana_atual"]["cota_semana"]
+        if planejamento["semana_atual"]
+        else Decimal("0.00"),
         "disponivel": fluxo["saldo_planejado"],
     }
 
 
 def _despesas_por_data_no_periodo(user, inicio, fim):
-    return _filtrar_por_data(despesas_no_periodo(user, inicio_do_mes(inicio), fim_do_mes(fim)), inicio, fim)
+    return _filtrar_por_data(
+        despesas_no_periodo(user, inicio_do_mes(inicio), fim_do_mes(fim)), inicio, fim
+    )
 
 
 def _dados_graficos_periodo(user, inicio, fim, evolucao, *, usar_data=False):
-    despesas_periodo = _despesas_por_data_no_periodo(user, inicio, fim) if usar_data else despesas_no_periodo(user, inicio, fim)
-    por_tipo = {"Variáveis": Decimal("0.00"), "Fixas": Decimal("0.00"), "Parceladas": Decimal("0.00")}
+    despesas_periodo = (
+        _despesas_por_data_no_periodo(user, inicio, fim)
+        if usar_data
+        else despesas_no_periodo(user, inicio, fim)
+    )
+    por_tipo = {
+        "Variáveis": Decimal("0.00"),
+        "Fixas": Decimal("0.00"),
+        "Parceladas": Decimal("0.00"),
+    }
     por_categoria = {}
 
     for item in despesas_periodo:
@@ -309,8 +367,12 @@ def _dados_graficos_periodo(user, inicio, fim, evolucao, *, usar_data=False):
 
     categoria_itens = []
     cursor_categoria = Decimal("0.00")
-    for indice, (chave, valor) in enumerate(sorted(por_categoria.items(), key=lambda item: item[1], reverse=True)[:6]):
-        percentual = Decimal("0.00") if not total_categoria else (valor / total_categoria) * Decimal("100")
+    for indice, (chave, valor) in enumerate(
+        sorted(por_categoria.items(), key=lambda item: item[1], reverse=True)[:6]
+    ):
+        percentual = (
+            Decimal("0.00") if not total_categoria else (valor / total_categoria) * Decimal("100")
+        )
         inicio_percentual = cursor_categoria
         cursor_categoria += percentual
         categoria_itens.append(
@@ -329,7 +391,12 @@ def _dados_graficos_periodo(user, inicio, fim, evolucao, *, usar_data=False):
         "por_tipo": tipo_percentuais,
         "por_categoria": categoria_itens,
         "evolucao": [
-            {**item, "percentual": int((item["valor"] / maior_evolucao) * Decimal("100")) if maior_evolucao else 0}
+            {
+                **item,
+                "percentual": int((item["valor"] / maior_evolucao) * Decimal("100"))
+                if maior_evolucao
+                else 0,
+            }
             for item in evolucao_itens
         ],
         "total": arredondar(total_tipo),
@@ -348,7 +415,9 @@ def dados_graficos_dashboard(user, referencia):
         }
         for indice in range(5)
     ]
-    return _dados_graficos_periodo(user, inicio, inicio + timedelta(days=6), evolucao, usar_data=True)
+    return _dados_graficos_periodo(
+        user, inicio, inicio + timedelta(days=6), evolucao, usar_data=True
+    )
 
 
 def dados_graficos_mensal(user, referencia):

@@ -32,14 +32,18 @@ def mentoria_formatada(valor, autoescape=True):
         blocos.append(
             format_html(
                 '<div class="ai-mentor-summary">{}</div>',
-                format_html_join("", "<p>{}</p>", ((escape(paragrafo),) for paragrafo in paragrafos)),
+                format_html_join(
+                    "", "<p>{}</p>", ((escape(paragrafo),) for paragrafo in paragrafos)
+                ),
             )
         )
     if itens:
         blocos.append(
             format_html(
                 '<ol class="ai-mentor-list">{}</ol>',
-                format_html_join("", "<li><span>{}</span></li>", ((escape(item),) for item in itens)),
+                format_html_join(
+                    "", "<li><span>{}</span></li>", ((escape(item),) for item in itens)
+                ),
             )
         )
     if not blocos:
