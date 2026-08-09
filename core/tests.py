@@ -244,13 +244,15 @@ class DashboardTests(TestCase):
 
 
 class InfraestruturaTests(TestCase):
-    def test_workflow_de_ci_existe_e_executa_check_e_test(self):
-        workflow = Path(__file__).resolve().parent.parent / ".github" / "workflows" / "django.yml"
+    def test_workflow_de_ci_chama_o_pipeline_compartilhado(self):
+        # O pipeline vive em github.com/rigst/ci; o arquivo local só declara os
+        # parâmetros do projeto. O que este teste protege é o encanamento: que
+        # o repositório continue ligado ao CI compartilhado, e na tag esperada.
+        workflow = Path(__file__).resolve().parent.parent / ".github" / "workflows" / "ci.yml"
 
         self.assertTrue(workflow.exists())
         conteudo = workflow.read_text(encoding="utf-8")
-        self.assertIn("python manage.py check", conteudo)
-        self.assertIn("python manage.py test", conteudo)
+        self.assertIn("rigst/ci/.github/workflows/python-django.yml@v1", conteudo)
 
     def test_healthz_retorna_ok_sem_autenticacao(self):
         response = self.client.get(reverse("healthz"))
