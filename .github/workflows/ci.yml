@@ -1,0 +1,46 @@
+name: CI
+
+# O pipeline vive em github.com/rigst/ci. Ajuste lá vale para todos os projetos.
+# Substitui o antigo django.yml, que era uma cópia divergente do mesmo pipeline.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: rigst/ci/.github/workflows/python-django.yml@v1
+    secrets: inherit
+    with:
+      python-version: "3.12"
+      django-settings-module: config.settings
+      source-paths: "config core financeiro legal usuarios"
+
+      # Valores fictícios, só para o check --deploy conseguir importar os
+      # settings de produção. Nada aqui é segredo real.
+      django-env: |
+        DJANGO_ENV=production
+        DJANGO_SECRET_KEY=ci-only-1f2e3d4c5b6a7089-NaoEhUmaChaveReal-vutsrqponm
+        DJANGO_DEBUG=False
+        DJANGO_ALLOWED_HOSTS=example.com
+        DJANGO_CSRF_TRUSTED_ORIGINS=https://example.com
+        DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres
+
+      # Só no job de testes: em production os settings exigem TLS no banco
+      # (DJANGO_DB_SSL_REQUIRE herda IS_PRODUCTION) e o Postgres do runner não
+      # tem TLS. Os testes seguem no Postgres, igual à produção, só sem SSL.
+      # ALLOWED_HOSTS: o django-env usa example.com porque o check --deploy
+      # recusa curinga; os testes batem em localhost e levariam 400.
+      test-env: |
+        DJANGO_ENV=development
+        DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,testserver
+        DJANGO_DB_SSL_REQUIRE=false
+        DJANGO_DB_CONN_MAX_AGE=0
+
+      # Primeira adoção: tudo reporta antes de bloquear. Retire da lista
+      # conforme cada etapa zerar.
+      soft-fail: "ruff,mypy,pytest,bandit,pip-audit"
