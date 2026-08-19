@@ -107,15 +107,17 @@ jobs:
       # `qualitygate.wait`: sem isto o job termina verde assim que envia a
       # análise, e o Quality Gate reprovando não aparece no CI.
       #
-      # `sonar.exclusions=scripts/**`: ferramenta de desenvolvedor que a
-      # aplicação nunca importa, já omitida do .coveragerc e do testpaths do
-      # pytest. O S2083 que o scanner levanta ali é taint sobre o **conteúdo**
-      # lido de um arquivo, não sobre o caminho.
+      # `sonar.exclusions` acrescenta `scripts/**`: ferramenta de desenvolvedor
+      # que a aplicação nunca importa, já omitida do .coveragerc e do testpaths
+      # do pytest. O S2083 que o scanner levanta ali é taint sobre o
+      # **conteúdo** lido de um arquivo, não sobre o caminho.
       #
-      # `coverage.exclusions` repete a lista do pipeline compartilhado porque
-      # propriedade repetida no scanner é substituída, não somada: sem copiar o
-      # resto, migrações e testes voltariam a contar.
+      # As duas listas repetem a do pipeline compartilhado porque propriedade
+      # repetida no scanner é **substituída, não somada**. Passar só o item novo
+      # apaga o resto: numa primeira tentativa o `-Dsonar.exclusions=scripts/**`
+      # sozinho derrubou as exclusões de migrations, staticfiles e binários que
+      # o pipeline define.
       sonar-args: >-
         -Dsonar.qualitygate.wait=true
-        -Dsonar.exclusions=scripts/**
+        -Dsonar.exclusions=**/migrations/**,**/staticfiles/**,**/node_modules/**,**/venv/**,**/.venv/**,**/*.jpg,**/*.jpeg,**/*.png,**/*.gif,**/*.ico,**/*.webp,**/*.pdf,**/*.woff,**/*.woff2,**/*.ttf,**/*.eot,scripts/**
         -Dsonar.coverage.exclusions=**/migrations/**,**/tests.py,**/tests_*.py,**/test_*.py,**/tests/**,**/conftest.py,**/settings/**,**/manage.py,**/wsgi.py,**/asgi.py,scripts/**

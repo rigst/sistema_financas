@@ -310,6 +310,20 @@ class FormatacaoTests(TestCase):
         self.assertEqual(parse_decimal_br("100+50/2"), Decimal("125"))
         self.assertEqual(parse_decimal_br("1.200,00/3"), Decimal("400.00"))
         self.assertEqual(parse_decimal_br("100+50/2+30/3"), Decimal("135"))
+
+    def test_parse_decimal_br_recusa_texto_que_nao_e_numero(self):
+        """O erro precisa chegar como ValueError, e não como InvalidOperation.
+
+        Quem chama trata ValueError para devolver erro de formulário. Se o
+        InvalidOperation do Decimal vazasse, viraria 500 numa digitação errada.
+        """
+        for entrada in ("abc", "1,2,3", "10+"):
+            with self.subTest(entrada=entrada), self.assertRaises(ValueError):
+                parse_decimal_br(entrada)
+
+    def test_parse_decimal_br_devolve_o_default_para_vazio(self):
+        self.assertIsNone(parse_decimal_br(""))
+        self.assertEqual(parse_decimal_br(None, default=Decimal("0")), Decimal("0"))
         self.assertEqual(parse_decimal_br("1.200+600/3"), Decimal("1400"))
         self.assertEqual(parse_decimal_br("(1.200+600)/3"), Decimal("600"))
 
