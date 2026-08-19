@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase
 from django.urls import NoReverseMatch, reverse
 
+from core.testing import SENHA_TESTE
 from financeiro.models import Despesa, Receita
 from legal.utils import ip_do_request
 
@@ -13,7 +14,7 @@ class AdminIndividualTests(TestCase):
     def criar_usuario(self, username, *, staff=True, superuser=False):
         return get_user_model().objects.create_user(
             username=username,
-            password="senha-forte-123",
+            password=SENHA_TESTE,
             is_staff=staff,
             is_superuser=superuser,
         )
@@ -87,7 +88,7 @@ class UsuarioVisitanteTests(TestCase):
     def test_visitante_nao_ve_dados_de_outro_usuario(self):
         usuario = get_user_model().objects.create_user(
             username="usuario_real",
-            password="senha-forte-123",
+            password=SENHA_TESTE,
         )
         Receita.objects.create(
             descricao="Receita Sigilosa",

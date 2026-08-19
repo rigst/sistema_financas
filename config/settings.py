@@ -29,7 +29,10 @@ else:
 
 ENV = os.getenv("DJANGO_ENV", "development").lower()
 IS_PRODUCTION = ENV == "production"
-IS_TEST = "test" in sys.argv
+# `"test" in sys.argv` cobria só `manage.py test`. O CI roda pytest, e sem a
+# segunda condição o bloco `if IS_TEST` mais abaixo nunca valia para a suíte:
+# ela rodava com o hasher de produção e com o HEALTHZ_TOKEN do ambiente.
+IS_TEST = "test" in sys.argv or Path(sys.argv[0]).name.startswith(("pytest", "py.test"))
 
 
 def env_bool(nome, default=False):
@@ -292,7 +295,7 @@ if IS_TEST:
     SECURE_SSL_REDIRECT = False
     HEALTHZ_TOKEN = ""
     PASSWORD_HASHERS = [
-        "django.contrib.auth.hashers.MD5PasswordHasher",
+        "core.hashers.PBKDF2RapidoParaTestes",
     ]
     EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 

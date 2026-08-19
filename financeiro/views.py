@@ -11,7 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_safe
 
 from core.query import paginate_queryset
 from core.search import filter_ranked_search
@@ -222,6 +222,7 @@ def _anotar_referencia_mensal(itens, hoje, modelo_registro, campo_fk):
 
 
 @login_required
+@require_safe
 def receita_lista(request):
     receitas, busca, status, mostrar_inativos = _queryset_simples(Receita, request)
     page_obj = paginate_queryset(request, receitas, per_page=25)
@@ -323,6 +324,7 @@ def receita_excluir(request, pk):
 
 
 @login_required
+@require_safe
 def despesa_lista(request):
     despesas, busca, _status, mostrar_inativos = _queryset_simples(Despesa, request)
     tipo = request.GET.get("tipo", "").strip()
@@ -501,6 +503,7 @@ def despesa_cancelar(request, pk):
 
 
 @login_required
+@require_safe
 def despesas_compartilhadas(request):
     return redirect("financeiro:despesa_lista")
 
@@ -561,6 +564,7 @@ def despesa_compartilhada_confirmar_ressarcimento(request, pk):
 
 
 @login_required
+@require_safe
 def exportar_csv(request):
     response = HttpResponse(content_type="text/csv; charset=utf-8")
     response["Content-Disposition"] = 'attachment; filename="financeiro_simplificado.csv"'
@@ -617,6 +621,7 @@ def exportar_csv(request):
 
 
 @login_required
+@require_safe
 def controle(request):
     referencia = _referencia_semanal(request)
     mostrar_inativos = request.GET.get("inativos") == "1"

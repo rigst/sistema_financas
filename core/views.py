@@ -12,7 +12,7 @@ from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.dateparse import parse_date
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_safe
 
 from core.ai_mentoria import gerar_mentoria_financeira
 from financeiro.models import (
@@ -36,6 +36,7 @@ from financeiro.planejamento import (
 logger = logging.getLogger(__name__)
 
 
+@require_safe
 def healthz(request):
     healthz_token = getattr(settings, "HEALTHZ_TOKEN", "")
     if healthz_token:
@@ -46,6 +47,7 @@ def healthz(request):
 
 
 @login_required
+@require_safe
 def dashboard(request):
     periodo = request.GET.get("periodo", "30")
     referencia = parse_date(request.GET.get("semana", "")) or timezone.localdate()
@@ -211,5 +213,6 @@ def gerar_mentoria_ia(request):
 
 
 @login_required
+@require_safe
 def manual(request):
     return render(request, "core/manual.html")

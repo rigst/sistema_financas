@@ -12,6 +12,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from core.formatting import parse_decimal_br
+from core.testing import SENHA_TESTE
 from financeiro.models import (
     CompartilhamentoDespesa,
     Despesa,
@@ -25,7 +26,7 @@ class DashboardTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(
             username="dashboard_user",
-            password="senha-forte-123",
+            password=SENHA_TESTE,
         )
         self.client.force_login(self.user)
         Receita.objects.create(
@@ -307,11 +308,11 @@ class SistemaIndividualTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(
             username="usuario_individual",
-            password="senha-forte-123",
+            password=SENHA_TESTE,
         )
         self.outro_usuario = get_user_model().objects.create_user(
             username="outro_usuario",
-            password="senha-forte-123",
+            password=SENHA_TESTE,
         )
         self.client.force_login(self.user)
 
