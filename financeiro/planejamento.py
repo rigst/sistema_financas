@@ -317,7 +317,7 @@ def _dados_graficos_periodo(user, inicio, fim, evolucao, *, usar_data=False):
         "Fixas": Decimal("0.00"),
         "Parceladas": Decimal("0.00"),
     }
-    por_categoria = {}
+    por_categoria: dict[str, Decimal] = {}
 
     for item in despesas_periodo:
         despesa = item["despesa"]

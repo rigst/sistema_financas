@@ -1,7 +1,8 @@
 import logging
 import secrets
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
+from typing import cast
 
 from django.conf import settings
 from django.contrib import messages
@@ -143,7 +144,7 @@ def dashboard(request):
             }
             for item in ultimas_despesas
         ],
-        key=lambda item: item["data"],
+        key=lambda item: cast("date", item["data"]),
         reverse=True,
     )[:5]
     reservas_resumo = [

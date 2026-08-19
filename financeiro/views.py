@@ -346,7 +346,9 @@ def despesa_lista(request):
         parceladas_qs = parceladas_qs.filter(
             Q(compartilhamento__isnull=False) | Q(participacao_compartilhada__isnull=False)
         ).distinct()
-    fixas = [item for item in fixas.order_by("-valor", "descricao") if item.deve_computar()]
+    fixas_computadas = [
+        item for item in fixas.order_by("-valor", "descricao") if item.deve_computar()
+    ]
     parceladas = list(parceladas_qs.order_by("descricao"))
     page_obj = paginate_queryset(request, despesas, per_page=25)
     hoje = timezone.localdate()
@@ -398,7 +400,7 @@ def despesa_lista(request):
             "busca": busca,
             "tipo": tipo,
             "compartilhamento_filtro": compartilhamento_filtro,
-            "fixas": fixas,
+            "fixas": fixas_computadas,
             "parceladas": parceladas,
             "hoje": hoje,
             "mostrar_inativos": mostrar_inativos,
@@ -596,19 +598,19 @@ def exportar_csv(request):
                 item.observacoes,
             ]
         )
-    for item in despesas:
+    for despesa in despesas:
         writer.writerow(
             [
                 "despesa",
-                item.descricao,
-                item.valor,
-                item.data.isoformat(),
-                item.competencia.strftime("%Y-%m"),
-                item.categoria,
-                item.get_status_display(),
-                item.parcelas,
-                item.parcela_atual,
-                item.observacoes,
+                despesa.descricao,
+                despesa.valor,
+                despesa.data.isoformat(),
+                despesa.competencia.strftime("%Y-%m"),
+                despesa.categoria,
+                despesa.get_status_display(),
+                despesa.parcelas,
+                despesa.parcela_atual,
+                despesa.observacoes,
             ]
         )
     return response

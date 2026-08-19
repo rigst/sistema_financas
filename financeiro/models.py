@@ -1,5 +1,7 @@
 import calendar
+from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
+from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -35,6 +37,15 @@ LIMITE_MESES_FIXA = 120
 
 class SerieCompetenciaMixin:
     """Helpers de série mensal para Receita/Despesa (tipos fixa e parcelada)."""
+
+    if TYPE_CHECKING:
+        # Campos declarados pela Receita e pela Despesa, que são quem combina
+        # este mixin. Sem isto o checador não tem como saber que existem.
+        tipo: str
+        competencia: date
+        parcelas: int
+        parcela_atual: int
+        data_fim: date | None
 
     def competencia_final(self):
         if self.tipo == "parcelada":
@@ -234,6 +245,10 @@ class Receita(SerieCompetenciaMixin, models.Model):
 
 
 class Despesa(SerieCompetenciaMixin, models.Model):
+    # Anexados pelas views de listagem para o template ler; não são campos.
+    parcela_exibicao: int | None = None
+    compartilhamento_info: object = None
+
     TIPO_CHOICES = [
         ("variavel", "Variável"),
         ("fixa", "Fixa"),
@@ -733,10 +748,11 @@ class CategoriaFinanceira(models.Model):
         return f"{self.nome} ({self.get_tipo_display()})"
 
     def clean(self):
-        if self.categoria_pai_id:
+        categoria_pai = self.categoria_pai if self.categoria_pai_id else None
+        if categoria_pai:
             if self.categoria_pai_id == self.pk:
                 raise ValidationError({"categoria_pai": "A categoria não pode ser pai dela mesma."})
-            if self.categoria_pai.tipo != self.tipo:
+            if categoria_pai.tipo != self.tipo:
                 raise ValidationError({"categoria_pai": "A categoria pai deve ter o mesmo tipo."})
 
 
@@ -823,9 +839,10 @@ class Transacao(models.Model):
                 raise ValidationError(
                     {"conta_destino": "Conta destino só deve ser usada em transferências."}
                 )
-            if not self.categoria_id:
+            categoria = self.categoria if self.categoria_id else None
+            if categoria is None:
                 raise ValidationError({"categoria": "Informe a categoria."})
-            if self.categoria.tipo != self.tipo:
+            if categoria.tipo != self.tipo:
                 raise ValidationError(
                     {"categoria": "A categoria deve ter o mesmo tipo da transação."}
                 )
@@ -963,7 +980,8 @@ class FaturaCartao(models.Model):
         return arredondar(total)
 
     def clean(self):
-        if self.categoria_pagamento_id and self.categoria_pagamento.tipo != "despesa":
+        categoria_pagamento = self.categoria_pagamento if self.categoria_pagamento_id else None
+        if categoria_pagamento and categoria_pagamento.tipo != "despesa":
             raise ValidationError(
                 {"categoria_pagamento": "A categoria de pagamento deve ser de despesa."}
             )
@@ -1190,8 +1208,9 @@ class MetaFinanceira(models.Model):
 
     @property
     def valor_atual(self):
-        if self.conta_vinculada_id:
-            return self.conta_vinculada.saldo_atual()
+        conta = self.conta_vinculada if self.conta_vinculada_id else None
+        if conta is not None:
+            return conta.saldo_atual()
         return arredondar(self.valor_atual_manual)
 
     @property
