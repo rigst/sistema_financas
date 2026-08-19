@@ -177,7 +177,7 @@ def calcular_planejamento_semanal(user, referencia, quantidade=5, incluir_previs
         despesas_semana = [item for item in despesas_grade if inicio <= item["data"] <= fim]
         variaveis_anteriores = _somar_ocorrencias(
             fluxo_mes["despesas"],
-            filtro=lambda item: (
+            filtro=lambda item, inicio=inicio: (
                 item["despesa"].tipo == "variavel"
                 and item["data"] < inicio
                 and (incluir_previstos or item["status"] == "paga")

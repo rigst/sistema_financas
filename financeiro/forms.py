@@ -405,7 +405,7 @@ class DespesaSimplificadaForm(OptimisticLockModelFormMixin, forms.ModelForm):
             valores = [arredondar(valor_total / quantidade) for _usuario in participantes]
             valor_criador = arredondar(valor_total - sum(valores, Decimal("0.00")))
 
-        cleaned["participantes_resolvidos"] = list(zip(participantes, valores))
+        cleaned["participantes_resolvidos"] = list(zip(participantes, valores, strict=True))
         cleaned["pagador_resolvido"] = pagador
         cleaned["valor_criador_compartilhado"] = valor_criador
 
