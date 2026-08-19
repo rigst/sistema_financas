@@ -7,6 +7,8 @@ from django.test import TestCase
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
+from core.testing import SENHA_TESTE
+
 from .models import (
     CompartilhamentoDespesa,
     Despesa,
@@ -21,9 +23,7 @@ from .planejamento import calcular_planejamento_semanal, resumo_fluxo_periodo, r
 
 class FinanceiroSimplificadoModelTests(TestCase):
     def setUp(self):
-        self.user = get_user_model().objects.create_user(
-            username="fin_user", password="senha-forte-123"
-        )
+        self.user = get_user_model().objects.create_user(username="fin_user", password=SENHA_TESTE)
 
     def test_despesa_parcelada_distribui_ocorrencias_mensais(self):
         despesa = Despesa.objects.create(
@@ -219,14 +219,12 @@ class FinanceiroSimplificadoModelTests(TestCase):
 
 class FinanceiroSimplificadoViewTests(TestCase):
     def setUp(self):
-        self.user = get_user_model().objects.create_user(
-            username="fin_view", password="senha-forte-123"
-        )
+        self.user = get_user_model().objects.create_user(username="fin_view", password=SENHA_TESTE)
         self.outro_user = get_user_model().objects.create_user(
-            username="outro_fin", password="senha-forte-123"
+            username="outro_fin", password=SENHA_TESTE
         )
         self.terceiro_user = get_user_model().objects.create_user(
-            username="terceiro_fin", password="senha-forte-123"
+            username="terceiro_fin", password=SENHA_TESTE
         )
         self.client.force_login(self.user)
 
@@ -982,9 +980,7 @@ class FinanceiroSimplificadoViewTests(TestCase):
 
 class PagamentoPorCompetenciaModelTests(TestCase):
     def setUp(self):
-        self.user = get_user_model().objects.create_user(
-            username="fin_comp", password="senha-forte-123"
-        )
+        self.user = get_user_model().objects.create_user(username="fin_comp", password=SENHA_TESTE)
 
     def test_pagamento_de_fixa_afeta_apenas_a_competencia_marcada(self):
         despesa = Despesa.objects.create(
@@ -1158,9 +1154,7 @@ class PagamentoPorCompetenciaModelTests(TestCase):
 
 class PlanejamentoSemanalCorrigidoTests(TestCase):
     def setUp(self):
-        self.user = get_user_model().objects.create_user(
-            username="fin_plan", password="senha-forte-123"
-        )
+        self.user = get_user_model().objects.create_user(username="fin_plan", password=SENHA_TESTE)
 
     def test_semana_de_borda_mostra_lancamentos_do_mes_vizinho(self):
         Despesa.objects.create(

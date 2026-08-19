@@ -1,4 +1,14 @@
-class PerfilAdminPermissionMixin:
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from django.contrib.admin import ModelAdmin
+
+    AdminBase = ModelAdmin
+else:
+    AdminBase = object
+
+
+class PerfilAdminPermissionMixin(AdminBase):
     def _has_admin_access(self, request):
         return bool(request.user.is_active and request.user.is_staff)
 

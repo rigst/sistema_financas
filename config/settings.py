@@ -29,7 +29,10 @@ else:
 
 ENV = os.getenv("DJANGO_ENV", "development").lower()
 IS_PRODUCTION = ENV == "production"
-IS_TEST = "test" in sys.argv
+# `"test" in sys.argv` cobria só `manage.py test`. O CI roda pytest, e sem a
+# segunda condição o bloco `if IS_TEST` mais abaixo nunca valia para a suíte:
+# ela rodava com o hasher de produção e com o HEALTHZ_TOKEN do ambiente.
+IS_TEST = "test" in sys.argv or Path(sys.argv[0]).name.startswith(("pytest", "py.test"))
 
 
 def env_bool(nome, default=False):
@@ -90,6 +93,14 @@ UNFOLD = {
     "SHOW_VIEW_ON_SITE": False,
     "COLORS": {
         # Verde do DS, para não parecer o admin de outro sistema.
+        #
+        # A rampa é a do verde padrão deslocada um degrau a partir do 600. O
+        # unfold usa `primary-600` como fundo de botão com texto branco, e o
+        # 600 original (5 150 105) dá 3,77:1 — abaixo dos 4,5:1 que o WCAG AA
+        # exige para texto normal, e o axe reprova a tela de login do admin por
+        # isso. O 700 do mesmo verde (4 120 87) dá 5,48:1, então o conserto é
+        # escurecer a metade escura da rampa, não trocar de cor. A metade clara
+        # fica como estava: ela não serve de fundo para texto branco.
         "primary": {
             "50": "236 253 245",
             "100": "209 250 229",
@@ -97,11 +108,11 @@ UNFOLD = {
             "300": "110 231 183",
             "400": "52 211 153",
             "500": "16 185 129",
-            "600": "5 150 105",
-            "700": "4 120 87",
-            "800": "6 95 70",
-            "900": "6 78 59",
-            "950": "2 44 34",
+            "600": "4 120 87",
+            "700": "6 95 70",
+            "800": "6 78 59",
+            "900": "2 44 34",
+            "950": "1 31 24",
         },
     },
 }
@@ -149,7 +160,7 @@ else:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
+            "NAME": str(BASE_DIR / "db.sqlite3"),
             "OPTIONS": {
                 "timeout": int(os.getenv("SQLITE_TIMEOUT", "20")),
             },
@@ -292,7 +303,7 @@ if IS_TEST:
     SECURE_SSL_REDIRECT = False
     HEALTHZ_TOKEN = ""
     PASSWORD_HASHERS = [
-        "django.contrib.auth.hashers.MD5PasswordHasher",
+        "core.hashers.PBKDF2RapidoParaTestes",
     ]
     EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 

@@ -1,5 +1,7 @@
 import calendar
+from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
+from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -35,6 +37,15 @@ LIMITE_MESES_FIXA = 120
 
 class SerieCompetenciaMixin:
     """Helpers de série mensal para Receita/Despesa (tipos fixa e parcelada)."""
+
+    if TYPE_CHECKING:
+        # Campos declarados pela Receita e pela Despesa, que são quem combina
+        # este mixin. Sem isto o checador não tem como saber que existem.
+        tipo: str
+        competencia: date
+        parcelas: int
+        parcela_atual: int
+        data_fim: date | None
 
     def competencia_final(self):
         if self.tipo == "parcelada":
@@ -107,6 +118,13 @@ class Receita(SerieCompetenciaMixin, models.Model):
     def __str__(self):
         return self.descricao
 
+    def save(self, *args, **kwargs):
+        if not self.competencia:
+            self.competencia = self.data
+        self.competencia = normalizar_competencia(self.competencia)
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def clean(self):
         if self.tipo != "parcelada" and self.parcelas != 1:
             raise ValidationError({"parcelas": "Use parcelas apenas para receita parcelada."})
@@ -145,13 +163,6 @@ class Receita(SerieCompetenciaMixin, models.Model):
             self.data_recebimento = self.data
         if self.status == "prevista":
             self.data_recebimento = None
-
-    def save(self, *args, **kwargs):
-        if not self.competencia:
-            self.competencia = self.data
-        self.competencia = normalizar_competencia(self.competencia)
-        self.full_clean()
-        super().save(*args, **kwargs)
 
     @property
     def valor_parcela(self):
@@ -234,6 +245,10 @@ class Receita(SerieCompetenciaMixin, models.Model):
 
 
 class Despesa(SerieCompetenciaMixin, models.Model):
+    # Anexados pelas views de listagem para o template ler; não são campos.
+    parcela_exibicao: int | None = None
+    compartilhamento_info: object = None
+
     TIPO_CHOICES = [
         ("variavel", "Variável"),
         ("fixa", "Fixa"),
@@ -279,6 +294,13 @@ class Despesa(SerieCompetenciaMixin, models.Model):
 
     def __str__(self):
         return self.descricao
+
+    def save(self, *args, **kwargs):
+        if not self.competencia:
+            self.competencia = self.data
+        self.competencia = normalizar_competencia(self.competencia)
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def deve_computar(self):
         try:
@@ -330,13 +352,6 @@ class Despesa(SerieCompetenciaMixin, models.Model):
             raise ValidationError(
                 {"status": "Para despesas fixas ou parceladas, o pagamento é registrado mês a mês."}
             )
-
-    def save(self, *args, **kwargs):
-        if not self.competencia:
-            self.competencia = self.data
-        self.competencia = normalizar_competencia(self.competencia)
-        self.full_clean()
-        super().save(*args, **kwargs)
 
     @property
     def valor_parcela(self):
@@ -733,10 +748,11 @@ class CategoriaFinanceira(models.Model):
         return f"{self.nome} ({self.get_tipo_display()})"
 
     def clean(self):
-        if self.categoria_pai_id:
+        categoria_pai = self.categoria_pai if self.categoria_pai_id else None
+        if categoria_pai:
             if self.categoria_pai_id == self.pk:
                 raise ValidationError({"categoria_pai": "A categoria não pode ser pai dela mesma."})
-            if self.categoria_pai.tipo != self.tipo:
+            if categoria_pai.tipo != self.tipo:
                 raise ValidationError({"categoria_pai": "A categoria pai deve ter o mesmo tipo."})
 
 
@@ -802,6 +818,10 @@ class Transacao(models.Model):
     def __str__(self):
         return f"{self.descricao} - {arredondar(self.valor)}"
 
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def clean(self):
         if self.tipo == "transferencia":
             if not self.conta_destino_id:
@@ -819,19 +839,16 @@ class Transacao(models.Model):
                 raise ValidationError(
                     {"conta_destino": "Conta destino só deve ser usada em transferências."}
                 )
-            if not self.categoria_id:
+            categoria = self.categoria if self.categoria_id else None
+            if categoria is None:
                 raise ValidationError({"categoria": "Informe a categoria."})
-            if self.categoria.tipo != self.tipo:
+            if categoria.tipo != self.tipo:
                 raise ValidationError(
                     {"categoria": "A categoria deve ter o mesmo tipo da transação."}
                 )
 
         if self.status == "pago" and not self.data_pagamento:
             raise ValidationError({"data_pagamento": "Informe a data de pagamento/recebimento."})
-
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super().save(*args, **kwargs)
 
     def impacto_na_conta(self, conta):
         valor = arredondar(self.valor)
@@ -945,6 +962,12 @@ class FaturaCartao(models.Model):
     def __str__(self):
         return f"{self.cartao} - {self.mes:02d}/{self.ano}"
 
+    def save(self, *args, **kwargs):
+        if self.conta_pagamento_id is None and self.cartao_id and self.cartao.conta_pagamento_id:
+            self.conta_pagamento = self.cartao.conta_pagamento
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     @property
     def valor_total(self):
         total = self.lancamentos.exclude(status="cancelado").aggregate(
@@ -957,7 +980,8 @@ class FaturaCartao(models.Model):
         return arredondar(total)
 
     def clean(self):
-        if self.categoria_pagamento_id and self.categoria_pagamento.tipo != "despesa":
+        categoria_pagamento = self.categoria_pagamento if self.categoria_pagamento_id else None
+        if categoria_pagamento and categoria_pagamento.tipo != "despesa":
             raise ValidationError(
                 {"categoria_pagamento": "A categoria de pagamento deve ser de despesa."}
             )
@@ -972,12 +996,6 @@ class FaturaCartao(models.Model):
                 raise ValidationError(
                     {"status": "Use a ação Pagar fatura para criar a baixa bancária."}
                 )
-
-    def save(self, *args, **kwargs):
-        if self.conta_pagamento_id is None and self.cartao_id and self.cartao.conta_pagamento_id:
-            self.conta_pagamento = self.cartao.conta_pagamento
-        self.full_clean()
-        super().save(*args, **kwargs)
 
     def pagar(self, *, conta, categoria, data_pagamento, usuario):
         if self.status == "paga":
@@ -1055,6 +1073,10 @@ class LancamentoCartao(models.Model):
             return f"{self.descricao} ({self.parcela_numero}/{self.parcela_total})"
         return self.descricao
 
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def clean(self):
         if self.parcela_numero > self.parcela_total:
             raise ValidationError(
@@ -1066,10 +1088,6 @@ class LancamentoCartao(models.Model):
             )
         if self.fatura_id and self.cartao_id and self.fatura.cartao_id != self.cartao_id:
             raise ValidationError({"fatura": "A fatura deve pertencer ao cartão selecionado."})
-
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super().save(*args, **kwargs)
 
 
 class RecorrenciaFinanceira(models.Model):
@@ -1112,6 +1130,10 @@ class RecorrenciaFinanceira(models.Model):
     def __str__(self):
         return self.descricao
 
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def clean(self):
         if self.categoria_id and self.categoria.tipo != self.tipo:
             raise ValidationError(
@@ -1121,10 +1143,6 @@ class RecorrenciaFinanceira(models.Model):
             raise ValidationError(
                 {"data_fim": "A data final não pode ser anterior à data inicial."}
             )
-
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super().save(*args, **kwargs)
 
 
 class PlanejamentoMensal(models.Model):
@@ -1190,8 +1208,9 @@ class MetaFinanceira(models.Model):
 
     @property
     def valor_atual(self):
-        if self.conta_vinculada_id:
-            return self.conta_vinculada.saldo_atual()
+        conta = self.conta_vinculada if self.conta_vinculada_id else None
+        if conta is not None:
+            return conta.saldo_atual()
         return arredondar(self.valor_atual_manual)
 
     @property

@@ -12,6 +12,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from core.formatting import parse_decimal_br
+from core.testing import SENHA_TESTE
 from financeiro.models import (
     CompartilhamentoDespesa,
     Despesa,
@@ -25,7 +26,7 @@ class DashboardTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(
             username="dashboard_user",
-            password="senha-forte-123",
+            password=SENHA_TESTE,
         )
         self.client.force_login(self.user)
         Receita.objects.create(
@@ -261,12 +262,22 @@ class InfraestruturaTests(TestCase):
     def test_workflow_de_ci_chama_o_pipeline_compartilhado(self):
         # O pipeline vive em github.com/rigst/ci; o arquivo local só declara os
         # parâmetros do projeto. O que este teste protege é o encanamento: que
-        # o repositório continue ligado ao CI compartilhado, e na tag esperada.
+        # o repositório continue ligado ao CI compartilhado.
+        #
+        # A referência é um SHA de 40 caracteres, e não a tag `v1`: tag é
+        # ponteiro móvel, e quem puder reescrevê-la passa a rodar código
+        # arbitrário com os secrets deste repositório. Por isso o teste casa
+        # com o formato do SHA em vez de um valor fixo — prender o SHA aqui
+        # faria toda subida do pipeline compartilhado quebrar a suíte, que é
+        # exatamente o trabalho que o Dependabot existe para fazer.
         workflow = Path(__file__).resolve().parent.parent / ".github" / "workflows" / "ci.yml"
 
         self.assertTrue(workflow.exists())
         conteudo = workflow.read_text(encoding="utf-8")
-        self.assertIn("rigst/ci/.github/workflows/python-django.yml@v1", conteudo)
+        self.assertRegex(
+            conteudo,
+            r"rigst/ci/\.github/workflows/python-django\.yml@[0-9a-f]{40}\b",
+        )
 
     def test_healthz_retorna_ok_sem_autenticacao(self):
         response = self.client.get(reverse("healthz"))
@@ -299,6 +310,20 @@ class FormatacaoTests(TestCase):
         self.assertEqual(parse_decimal_br("100+50/2"), Decimal("125"))
         self.assertEqual(parse_decimal_br("1.200,00/3"), Decimal("400.00"))
         self.assertEqual(parse_decimal_br("100+50/2+30/3"), Decimal("135"))
+
+    def test_parse_decimal_br_recusa_texto_que_nao_e_numero(self):
+        """O erro precisa chegar como ValueError, e não como InvalidOperation.
+
+        Quem chama trata ValueError para devolver erro de formulário. Se o
+        InvalidOperation do Decimal vazasse, viraria 500 numa digitação errada.
+        """
+        for entrada in ("abc", "1,2,3", "10+"):
+            with self.subTest(entrada=entrada), self.assertRaises(ValueError):
+                parse_decimal_br(entrada)
+
+    def test_parse_decimal_br_devolve_o_default_para_vazio(self):
+        self.assertIsNone(parse_decimal_br(""))
+        self.assertEqual(parse_decimal_br(None, default=Decimal("0")), Decimal("0"))
         self.assertEqual(parse_decimal_br("1.200+600/3"), Decimal("1400"))
         self.assertEqual(parse_decimal_br("(1.200+600)/3"), Decimal("600"))
 
@@ -307,11 +332,11 @@ class SistemaIndividualTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(
             username="usuario_individual",
-            password="senha-forte-123",
+            password=SENHA_TESTE,
         )
         self.outro_usuario = get_user_model().objects.create_user(
             username="outro_usuario",
-            password="senha-forte-123",
+            password=SENHA_TESTE,
         )
         self.client.force_login(self.user)
 

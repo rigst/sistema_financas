@@ -1,7 +1,6 @@
 name: CI
 
 # O pipeline vive em github.com/rigst/ci. Ajuste lá vale para todos os projetos.
-# Substitui o antigo django.yml, que era uma cópia divergente do mesmo pipeline.
 
 on:
   push:
@@ -13,8 +12,17 @@ permissions:
 
 jobs:
   ci:
-    uses: rigst/ci/.github/workflows/python-django.yml@v1
-    secrets: inherit
+    # Fixado no SHA, e não na tag v1: tag é ponteiro móvel, e quem puder
+    # reescrevê-la passa a rodar código arbitrário com os secrets deste repo.
+    # O comentário ao lado é o que o Dependabot lê para propor a subida — as
+    # melhorias do pipeline compartilhado continuam chegando, só que como PR
+    # revisável em vez de silenciosamente.
+    uses: rigst/ci/.github/workflows/python-django.yml@934b4f046dcedc840ec32b9886d5bf5d99e58812 # v1
+    # Explícito em vez de `secrets: inherit`: o workflow chamado recebe só
+    # estes dois, e não tudo que o repositório tiver hoje ou vier a ter.
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     with:
       python-version: "3.12"
       django-settings-module: config.settings
@@ -41,7 +49,75 @@ jobs:
         DJANGO_DB_SSL_REQUIRE=false
         DJANGO_DB_CONN_MAX_AGE=0
 
-      # pytest, bandit e pip-audit saíram do soft-fail: já estão limpos.
-      # Restam 12 achados de ruff que exigem decisão caso a caso (B904, DJ012,
-      # E741 e afins) e o mypy, com o código ainda sem anotação de tipo.
-      soft-fail: "ruff,mypy"
+      # Nada em soft-fail: toda etapa bloqueia, inclusive as cinco novas.
+      #
+      # O ruff e o mypy foram os últimos a sair. Eram 11 achados de ruff e 32 de
+      # mypy, resolvidos um a um e sem nenhum `# type: ignore` — portão que
+      # fecha sobre exceção declarada não protege do caso seguinte.
+      #
+      # Lista vazia significa "nada tolerado": ao acrescentar uma etapa nova,
+      # declare-a aqui primeiro e meça o passivo antes de fechar.
+      soft-fail: ""
+
+      # --- conformidade ---
+      # Nada a configurar: o projeto passa na política padrão (AGPL-3.0 aceita
+      # permissivas e copyleft da família).
+      run-licencas: true
+      run-sbom: true
+
+      # Confere o requirements.lock contra o requirements.txt (que traz pin
+      # exato) e instala com --require-hashes. Resolvido para 3.12, a mesma
+      # versão que o servidor roda, então não precisa de lock-python-version.
+      run-lock: true
+
+      # --- ponta a ponta ---
+      # core/tests_e2e.py, sob o marcador `e2e`, que o pytest.ini tira da suíte
+      # padrão. Cobre o que o test client não alcança: que a página chega ao
+      # navegador com o CSS aplicado.
+      run-e2e: true
+
+      # --- acessibilidade ---
+      # As cinco páginas que existem sem sessão. /termos/ e /privacidade/ só
+      # entram porque o setup abaixo publica os documentos: sem eles a view
+      # levanta Http404 de propósito, e auditar página de erro não diz nada.
+      run-a11y: true
+      a11y-setup-command: python manage.py importar_documentos_legais --publicar
+      a11y-paths: |
+        /login/
+        /termos/
+        /privacidade/
+        /legal/aceite/
+        /admin/login/
+      # Medido antes de ligar: zero violações nas cinco páginas em WCAG 2.1 AA.
+      # Sem passivo a proteger, o limite fica no padrão `serious` — que trava
+      # conteúdo inalcançável por leitor de tela sem transformar aviso de
+      # contraste em bloqueio de merge.
+      a11y-fail-on: serious
+
+      # Desligado nas PRs do Dependabot. O GitHub não entrega os secrets do
+      # Actions a esse ator — usa um cofre separado, justamente para que uma
+      # dependência comprometida não alcance credencial de projeto. Sem o
+      # SONAR_TOKEN o scanner falha com "Not authorized", e como o job `CI` é
+      # obrigatório no branch protection, nenhuma atualização de dependência
+      # conseguiria entrar. As outras etapas continuam rodando: são elas que
+      # dizem se a nova versão quebra o projeto.
+      run-sonar: ${{ github.actor != 'dependabot[bot]' }}
+      sonar-project-key: rigst_sistema_financas
+      sonar-organization: rigst
+      # `qualitygate.wait`: sem isto o job termina verde assim que envia a
+      # análise, e o Quality Gate reprovando não aparece no CI.
+      #
+      # `sonar.exclusions` acrescenta `scripts/**`: ferramenta de desenvolvedor
+      # que a aplicação nunca importa, já omitida do .coveragerc e do testpaths
+      # do pytest. O S2083 que o scanner levanta ali é taint sobre o
+      # **conteúdo** lido de um arquivo, não sobre o caminho.
+      #
+      # As duas listas repetem a do pipeline compartilhado porque propriedade
+      # repetida no scanner é **substituída, não somada**. Passar só o item novo
+      # apaga o resto: numa primeira tentativa o `-Dsonar.exclusions=scripts/**`
+      # sozinho derrubou as exclusões de migrations, staticfiles e binários que
+      # o pipeline define.
+      sonar-args: >-
+        -Dsonar.qualitygate.wait=true
+        -Dsonar.exclusions=**/migrations/**,**/staticfiles/**,**/node_modules/**,**/venv/**,**/.venv/**,**/*.jpg,**/*.jpeg,**/*.png,**/*.gif,**/*.ico,**/*.webp,**/*.pdf,**/*.woff,**/*.woff2,**/*.ttf,**/*.eot,scripts/**
+        -Dsonar.coverage.exclusions=**/migrations/**,**/tests.py,**/tests_*.py,**/test_*.py,**/tests/**,**/conftest.py,**/settings/**,**/manage.py,**/wsgi.py,**/asgi.py,scripts/**

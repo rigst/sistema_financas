@@ -1,7 +1,8 @@
 import logging
 import secrets
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
+from typing import cast
 
 from django.conf import settings
 from django.contrib import messages
@@ -11,7 +12,7 @@ from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.dateparse import parse_date
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_safe
 
 from core.ai_mentoria import gerar_mentoria_financeira
 from financeiro.models import (
@@ -35,6 +36,7 @@ from financeiro.planejamento import (
 logger = logging.getLogger(__name__)
 
 
+@require_safe
 def healthz(request):
     healthz_token = getattr(settings, "HEALTHZ_TOKEN", "")
     if healthz_token:
@@ -45,6 +47,7 @@ def healthz(request):
 
 
 @login_required
+@require_safe
 def dashboard(request):
     periodo = request.GET.get("periodo", "30")
     referencia = parse_date(request.GET.get("semana", "")) or timezone.localdate()
@@ -143,7 +146,7 @@ def dashboard(request):
             }
             for item in ultimas_despesas
         ],
-        key=lambda item: item["data"],
+        key=lambda item: cast("date", item["data"]),
         reverse=True,
     )[:5]
     reservas_resumo = [
@@ -210,5 +213,6 @@ def gerar_mentoria_ia(request):
 
 
 @login_required
+@require_safe
 def manual(request):
     return render(request, "core/manual.html")

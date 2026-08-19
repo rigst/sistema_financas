@@ -11,7 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_safe
 
 from core.query import paginate_queryset
 from core.search import filter_ranked_search
@@ -222,6 +222,7 @@ def _anotar_referencia_mensal(itens, hoje, modelo_registro, campo_fk):
 
 
 @login_required
+@require_safe
 def receita_lista(request):
     receitas, busca, status, mostrar_inativos = _queryset_simples(Receita, request)
     page_obj = paginate_queryset(request, receitas, per_page=25)
@@ -323,6 +324,7 @@ def receita_excluir(request, pk):
 
 
 @login_required
+@require_safe
 def despesa_lista(request):
     despesas, busca, _status, mostrar_inativos = _queryset_simples(Despesa, request)
     tipo = request.GET.get("tipo", "").strip()
@@ -346,7 +348,9 @@ def despesa_lista(request):
         parceladas_qs = parceladas_qs.filter(
             Q(compartilhamento__isnull=False) | Q(participacao_compartilhada__isnull=False)
         ).distinct()
-    fixas = [item for item in fixas.order_by("-valor", "descricao") if item.deve_computar()]
+    fixas_computadas = [
+        item for item in fixas.order_by("-valor", "descricao") if item.deve_computar()
+    ]
     parceladas = list(parceladas_qs.order_by("descricao"))
     page_obj = paginate_queryset(request, despesas, per_page=25)
     hoje = timezone.localdate()
@@ -398,7 +402,7 @@ def despesa_lista(request):
             "busca": busca,
             "tipo": tipo,
             "compartilhamento_filtro": compartilhamento_filtro,
-            "fixas": fixas,
+            "fixas": fixas_computadas,
             "parceladas": parceladas,
             "hoje": hoje,
             "mostrar_inativos": mostrar_inativos,
@@ -499,6 +503,7 @@ def despesa_cancelar(request, pk):
 
 
 @login_required
+@require_safe
 def despesas_compartilhadas(request):
     return redirect("financeiro:despesa_lista")
 
@@ -559,6 +564,7 @@ def despesa_compartilhada_confirmar_ressarcimento(request, pk):
 
 
 @login_required
+@require_safe
 def exportar_csv(request):
     response = HttpResponse(content_type="text/csv; charset=utf-8")
     response["Content-Disposition"] = 'attachment; filename="financeiro_simplificado.csv"'
@@ -596,25 +602,26 @@ def exportar_csv(request):
                 item.observacoes,
             ]
         )
-    for item in despesas:
+    for despesa in despesas:
         writer.writerow(
             [
                 "despesa",
-                item.descricao,
-                item.valor,
-                item.data.isoformat(),
-                item.competencia.strftime("%Y-%m"),
-                item.categoria,
-                item.get_status_display(),
-                item.parcelas,
-                item.parcela_atual,
-                item.observacoes,
+                despesa.descricao,
+                despesa.valor,
+                despesa.data.isoformat(),
+                despesa.competencia.strftime("%Y-%m"),
+                despesa.categoria,
+                despesa.get_status_display(),
+                despesa.parcelas,
+                despesa.parcela_atual,
+                despesa.observacoes,
             ]
         )
     return response
 
 
 @login_required
+@require_safe
 def controle(request):
     referencia = _referencia_semanal(request)
     mostrar_inativos = request.GET.get("inativos") == "1"

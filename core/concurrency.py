@@ -22,7 +22,10 @@ class OptimisticLockModelFormMixin(forms.ModelForm):
         return value.isoformat(timespec="microseconds")
 
     def clean(self):
-        cleaned_data = super().clean()
+        # `or {}`: Form.clean() é declarado devolvendo dict | None, e o caminho
+        # de baixo indexa o resultado. Em ModelForm nunca vem None, mas amarrar
+        # isso aqui é mais barato que espalhar checagem.
+        cleaned_data = super().clean() or {}
         if not getattr(self.instance, "pk", None):
             return cleaned_data
         if self.concurrency_field_name not in self.data:

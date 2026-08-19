@@ -19,7 +19,7 @@ def _somar(valores):
 
 
 def _mapear_valores(itens, chave_func):
-    totais = {}
+    totais: dict[str, Decimal] = {}
     for item in itens:
         chave = chave_func(item)
         totais[chave] = totais.get(chave, Decimal("0.00")) + item["valor"]
