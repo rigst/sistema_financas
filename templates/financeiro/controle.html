@@ -8,7 +8,7 @@
     <div class="section-heading">
         <div>
             <h2>Controle</h2>
-            <p>Planejamento semanal com base nas receitas do mês, fixos, parcelas e semanas restantes.</p>
+            <p>Quanto ainda cabe gastar nesta semana, o que vem no resto do mês, e suas metas.</p>
         </div>
         <div class="inline-actions">
             <a class="btn btn-primary-lite" href="{% url 'financeiro:reserva_criar' %}"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span>Nova meta</span></a>
@@ -16,28 +16,46 @@
         </div>
     </div>
 
-    <div class="stats-grid">
-        <div class="stat-card stat-card-primary"><span class="label">Ainda livre nesta semana</span><span class="value">{{ planejamento.semana_atual.livre_semana|brl }}</span></div>
-        <div class="stat-card"><span class="label">Cota semanal</span><span class="value">{{ planejamento.semana_atual.cota_semana|brl }}</span></div>
-        <div class="stat-card"><span class="label">Já gasto na semana</span><span class="value">{{ planejamento.semana_atual.gasto_semana|brl }}</span></div>
-        <div class="stat-card"><span class="label">Reservas</span><span class="value">{{ reservas_total|brl }}</span></div>
-    </div>
+    <article class="available-panel">
+        <div class="panel-label-row">
+            <span class="label">{{ planejamento.semana_atual.rotulo }}{% if planejamento.semana_atual.semana_atual %} · agora{% endif %}</span>
+            <div class="inline-actions week-actions">
+                <a class="btn btn-secondary btn-icon-action" href="?semana={{ semana_nav.anterior|date:'Y-m-d' }}" title="Semana anterior" aria-label="Semana anterior"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span class="visually-hidden">Semana anterior</span></a>
+                {% if not planejamento.semana_atual.semana_atual %}<a class="btn btn-secondary" href="{% url 'financeiro:controle' %}">Agora</a>{% endif %}
+                <a class="btn btn-secondary btn-icon-action" href="?semana={{ semana_nav.proxima|date:'Y-m-d' }}" title="Próxima semana" aria-label="Próxima semana"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg><span class="visually-hidden">Próxima semana</span></a>
+            </div>
+        </div>
+        <strong>{{ planejamento.semana_atual.livre_semana|brl }}</strong>
+        <dl>
+            <div><dt>Cota da semana</dt><dd>{{ planejamento.semana_atual.cota_semana|brl }}</dd></div>
+            <div><dt>Já gasto</dt><dd>{{ planejamento.semana_atual.gasto_semana|brl }}</dd></div>
+            <div><dt>Fixas + parcelas</dt><dd>{{ planejamento.semana_atual.compromissos|brl }}</dd></div>
+            <div><dt>Reservado em metas</dt><dd>{{ reservas_total|brl }}</dd></div>
+        </dl>
+    </article>
 
-    <div class="section-heading compact-heading"><div><h3>Semanas do mês</h3><p>Cada semana mostra cota, gasto variável já pago e saldo livre.</p></div><div class="inline-actions week-actions"><a class="btn btn-secondary btn-icon-action" href="?semana={{ semana_nav.anterior|date:'Y-m-d' }}" title="Semana anterior" aria-label="Semana anterior"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span class="visually-hidden">Semana anterior</span></a><a class="btn btn-secondary" href="{% url 'financeiro:controle' %}" title="Semana atual"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 8v4l3 2"/></svg><span>Atual</span></a><a class="btn btn-secondary btn-icon-action" href="?semana={{ semana_nav.proxima|date:'Y-m-d' }}" title="Próxima semana" aria-label="Próxima semana"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg><span class="visually-hidden">Próxima semana</span></a></div></div>
-    <div class="weekly-grid">
-        {% for semana in planejamento.semanas %}
-            <article class="week-card {% if semana.semana_atual %}week-card-current{% endif %}">
-                <div class="week-card-header"><strong>{{ semana.rotulo }}</strong>{% if semana.semana_atual %}<span class="badge">Agora</span>{% endif %}</div>
-                <span class="week-available">{{ semana.livre_semana|brl }}</span>
-                <dl class="week-breakdown">
-                    <div><dt>Cota</dt><dd>{{ semana.cota_semana|brl }}</dd></div>
-                    <div><dt>Já gasto</dt><dd>{{ semana.gasto_semana|brl }}</dd></div>
-                    <div><dt>Fixos</dt><dd>{{ semana.fixos|brl }}</dd></div>
-                    <div><dt>Parcelas</dt><dd>{{ semana.parcelas|brl }}</dd></div>
-                </dl>
-            </article>
-        {% endfor %}
-    </div>
+    <div class="section-heading compact-heading"><div><h3>Resto do mês</h3><p>Cota de cada semana, já reservando o que é fixo e parcelado.</p></div></div>
+    {% with outras=planejamento.semanas %}
+        {% if outras|length > 1 %}
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Semana</th><th class="num">Cota</th><th class="num">Fixas + parcelas</th><th class="num">Livre</th></tr></thead>
+                    <tbody>
+                        {% for semana in outras %}
+                            {% if not semana.semana_atual %}
+                                <tr>
+                                    <td>{{ semana.rotulo }}</td>
+                                    <td class="money">{{ semana.cota_semana|brl }}</td>
+                                    <td class="money">{{ semana.compromissos|brl }}</td>
+                                    <td class="money">{{ semana.livre_semana|brl }}</td>
+                                </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    {% endwith %}
 
     <div class="dashboard-columns control-layout">
         <div class="control-goals-panel">

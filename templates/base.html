@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="{% static 'css/financas.css' %}?v=20260828-cofre">
 </head>
 {% if user.is_authenticated %}
-<body class="ds-shell">
+<body class="ds-shell" style="--ds-fundo: url('{% static 'img/vale-nevoa.jpg' %}')">
 <a class="ds-pular" href="#conteudo">Pular para o conteúdo</a>
 <input type="checkbox" id="nav" class="ds-nav-toggle" aria-hidden="true" tabindex="-1">
 
@@ -58,13 +58,6 @@
                 <span>Controle</span>
             </a>
         </div>
-        <div class="ds-nav-grupo">
-            <span class="ds-nav-label">Guia</span>
-            <a class="ds-nav-link{% if request.resolver_match.url_name == 'manual' %} is-active{% endif %}" href="{% url 'manual' %}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>
-                <span>Manual</span>
-            </a>
-        </div>
     </nav>
 
     <div class="ds-side-foot">
@@ -90,6 +83,11 @@
 <main class="ds-main" id="conteudo">
 <div class="ds-page">
 
+{% elif request.resolver_match.url_name == 'login' %}
+<body class="ds-shell ds-shell--visitante">
+<a class="ds-pular" href="#conteudo">Pular para o conteúdo</a>
+<div class="ds-auth" style="--ds-foto-login: url('{% static 'img/vale-nevoa.jpg' %}')">
+<main class="ds-auth-quadro" id="conteudo">
 {% else %}
 <body class="ds-shell ds-shell--visitante">
 <a class="ds-pular" href="#conteudo">Pular para o conteúdo</a>
@@ -118,6 +116,9 @@
     </footer>
 
 </div>
+</main>
+</div>
+{% elif request.resolver_match.url_name == 'login' %}
 </main>
 </div>
 {% else %}

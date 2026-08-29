@@ -25,6 +25,10 @@ logger = logging.getLogger(__name__)
 
 class UsuarioLoginView(LoginView):
     template_name = "registration/login.html"
+    # Sem isto, visitar /login/ já autenticado renderiza o formulário de novo
+    # em vez de mandar para o painel — o casco de página pública que a tela
+    # usa nem existe para quem está logado, e o resultado sai quebrado.
+    redirect_authenticated_user = True
 
     def post(self, request, *args, **kwargs):
         if "entrar_visitante" in request.POST:

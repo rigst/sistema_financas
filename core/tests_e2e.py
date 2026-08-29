@@ -25,7 +25,7 @@ def test_login_renderiza_no_navegador(live_server, page):
     """A tela de login carrega, aplica o CSS e traz o formulário utilizável."""
     page.goto(f"{live_server.url}/login/")
 
-    formulario = page.locator("form.auth-form")
+    formulario = page.locator(".ds-auth-card form")
     assert formulario.count() == 1
     assert formulario.locator("input[type=password]").is_visible()
 
@@ -33,7 +33,7 @@ def test_login_renderiza_no_navegador(live_server, page):
     # usuário. Conferir a cor computada é o que separa "o HTML chegou" de "a
     # página chegou": um {% static %} quebrado passa em qualquer teste do test
     # client, porque lá o CSS nunca é buscado.
-    fundo = page.locator("button.auth-submit").evaluate(
+    fundo = page.locator(".ds-auth-card button[type=submit]").evaluate(
         "el => getComputedStyle(el).backgroundColor"
     )
     assert fundo not in ("rgba(0, 0, 0, 0)", "transparent"), (
@@ -45,12 +45,12 @@ def test_login_renderiza_no_navegador(live_server, page):
 def test_credencial_errada_nao_derruba_a_pagina(live_server, page):
     """Erro de autenticação volta como formulário, não como 500 nem tela branca."""
     page.goto(f"{live_server.url}/login/")
-    page.fill("form.auth-form input[name=username]", "usuario-que-nao-existe")
-    page.fill("form.auth-form input[type=password]", SENHA_ERRADA)
-    page.locator("button.auth-submit").click()
+    page.fill(".ds-auth-card input[name=username]", "usuario-que-nao-existe")
+    page.fill(".ds-auth-card input[type=password]", SENHA_ERRADA)
+    page.locator(".ds-auth-card button[type=submit]").click()
 
     page.wait_for_load_state("load")
-    assert page.locator("form.auth-form").count() == 1
+    assert page.locator(".ds-auth-card form").count() == 1
     assert "/login/" in page.url
 
 

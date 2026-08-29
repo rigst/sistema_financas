@@ -238,24 +238,6 @@ class DashboardTests(TestCase):
         self.assertFalse(MentoriaFinanceiraIA.objects.filter(criado_por=self.user).exists())
         self.assertContains(response, "temporariamente desativada")
 
-    def test_manual_do_sistema_esta_disponivel(self):
-        response = self.client.get(reverse("manual"))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Manual")
-        self.assertContains(response, "Receitas")
-        self.assertContains(response, "Despesas")
-        self.assertContains(response, "Controle")
-        self.assertContains(response, "compartilhados")
-
-    def test_manual_exibe_legenda_de_icones_sem_textos_longos(self):
-        response = self.client.get(reverse("manual"))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Ações rápidas")
-        self.assertContains(response, "despesa parcelada")
-        self.assertNotContains(response, "Visualizar um cadastro sem editar.")
-        self.assertNotContains(response, "Abrir relatórios, PDF e Excel do orçamento.")
 
 
 class InfraestruturaTests(TestCase):

@@ -210,9 +210,3 @@ def gerar_mentoria_ia(request):
             )
         messages.success(request, "Mentoria financeira da IA atualizada.")
     return redirect("dashboard")
-
-
-@login_required
-@require_safe
-def manual(request):
-    return render(request, "core/manual.html")

@@ -34,10 +34,9 @@
     --ds-line: #d8dee2;
     --ds-line-dash: #b7c1c7;
 
-    /* Latão: dial, dobradiça, selo. Uso restrito por convenção. */
-    --cofre-latao: #9c7a34;
+    /* Latão: selo de confirmação, placa dos compartimentos. Uso restrito
+       por convenção — nunca fundo grande. */
     --cofre-latao-escuro: #765d27;
-    --cofre-latao-claro: #c9ac5f;
     --cofre-latao-veu: #f4ecd6;
     --cofre-latao-linha: #d3bd88;
 
@@ -48,10 +47,6 @@
     --cofre-warn-linha: color-mix(in srgb, var(--ds-warn) 26%, var(--ds-line));
     --cofre-danger-veu: color-mix(in srgb, var(--ds-danger) 8%, #fff);
     --cofre-danger-linha: color-mix(in srgb, var(--ds-danger) 26%, var(--ds-line));
-
-    /* Ink profundo do painel de entrada (porta de cofre fechada). */
-    --cofre-ink: #101923;
-    --cofre-ink-2: #16212d;
   }
 
   /* ======================================================================
@@ -202,12 +197,10 @@
   }
 
   .btn-primary,
-  a.btn-primary,
-  .auth-submit,
-  a.auth-submit {
+  a.btn-primary {
     background: var(--ds-accent); border-color: var(--ds-accent); color: var(--ds-accent-fg);
   }
-  .btn-primary:hover, .auth-submit:hover {
+  .btn-primary:hover {
     background: var(--ds-accent-dark); border-color: var(--ds-accent-dark);
   }
 
@@ -312,7 +305,9 @@
     color: var(--ds-danger); font-size: 0.9rem; line-height: 1.55; list-style: none;
   }
   .form-errors p + p { margin-top: 0.3rem; }
-  .auth-error-text { margin-bottom: 1rem; color: var(--ds-danger); font-weight: 600; }
+  /* No cartão de vidro escuro do login o tom padrão de erro (pensado para
+     papel claro) quase some — versão clara da mesma tinta. */
+  .auth-error-text { margin-bottom: 1rem; color: #ff9a8a; font-weight: 600; }
 
   .form-submenu {
     margin-top: 0.85rem; border: 1px solid var(--ds-line-dash); border-radius: var(--ds-radius-sm);
@@ -625,29 +620,7 @@
   /* ======================================================================
      CONTROLE — semanas, metas, fixas
      ====================================================================== */
-  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.9rem; margin-bottom: 1.1rem; }
-  .stat-card { padding: 0.9rem 1rem; border: 1px solid var(--ds-line); border-radius: var(--ds-radius-sm); background: var(--ds-surface); }
-  .stat-card-primary { border-color: var(--ds-accent-100); background: var(--ds-accent-50); }
-  .stat-card .label {
-    font-family: var(--ds-font-mono); font-size: 0.64rem; font-weight: 500;
-    text-transform: uppercase; letter-spacing: 0.1em; color: var(--ds-t-500);
-  }
-  .stat-card .value { display: block; margin-top: 0.35rem; font-family: var(--ds-font-mono); font-size: 1.5rem; font-weight: 600; letter-spacing: -0.01em; color: var(--ds-t-900); }
-
   .week-actions { justify-content: flex-end; }
-  .weekly-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.8rem; }
-  .week-card { position: relative; padding: 0.9rem; border: 1px solid var(--ds-line); border-radius: var(--ds-radius-sm); background: var(--ds-surface); min-width: 0; }
-  .week-card-current { border-color: var(--ds-accent); }
-  .week-card-current::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--ds-accent); border-radius: var(--ds-radius-sm) 0 0 var(--ds-radius-sm); }
-  .week-card-header { display: flex; justify-content: space-between; gap: 0.6rem; align-items: center; min-height: 1.6rem; }
-  .week-available, .big-money {
-    display: block; margin-top: 0.5rem; font-family: var(--ds-font-mono); font-size: 1.28rem; line-height: 1.15;
-    font-weight: 600; letter-spacing: -0.01em; color: var(--ds-t-900);
-  }
-  .week-breakdown { display: grid; gap: 0.35rem; margin-top: 0.75rem; }
-  .week-breakdown div { display: flex; justify-content: space-between; gap: 0.6rem; color: var(--ds-t-500); font-size: 0.82rem; }
-  .week-breakdown dt, .week-breakdown dd { margin: 0; }
-  .week-breakdown dd { color: var(--ds-t-900); font-family: var(--ds-font-mono); font-weight: 500; text-align: right; }
 
   .dashboard-columns { display: grid; grid-template-columns: minmax(0, 1fr) 20rem; gap: 1.4rem; align-items: start; }
   .control-layout { grid-template-columns: minmax(0, 1fr) minmax(14rem, 17rem); gap: 1rem; }
@@ -656,60 +629,22 @@
   .side-stack { display: grid; gap: 1rem; }
   .control-fixed-panel { margin-top: 0.4rem; }
   .simple-list { display: grid; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
-  .simple-list-item, .manual-role-card {
+  .simple-list-item {
     padding: 0.75rem 0.9rem; border: 1px solid var(--ds-line); border-radius: var(--ds-radius-sm); background: var(--ds-surface);
   }
   .simple-list li { padding: 0.6rem 0; border-bottom: 1px solid var(--ds-line); font-size: 0.9rem; color: var(--ds-t-700); }
   .simple-list li:last-child { border-bottom: 0; }
-  .manual-list li { padding: 0.4rem 0; }
 
   /* ======================================================================
-     MANUAL
+     LOGIN — a folha some, é a trilha na neblina. Estrutura e vidro são
+     do v2 (.ds-auth/.ds-auth-hero/.ds-auth-card); só o essencial aqui.
      ====================================================================== */
-  .manual-grid { margin-bottom: 1.1rem; }
-  .manual-grid p { margin-top: 0.5rem; color: var(--ds-t-500); line-height: 1.55; }
-  .manual-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-  .manual-list { padding-left: 1.1rem; }
-  .manual-icon-label { display: inline-block; }
-  .manual-icon-label .action-icon { width: 1.1rem; height: 1.1rem; margin-right: 0.5rem; vertical-align: text-bottom; }
-
-  /* ======================================================================
-     LOGIN — porta de cofre fechada, o dial ao fundo
-     ====================================================================== */
-  .auth-shell { width: 100%; min-height: calc(100vh - 12rem); display: flex; justify-content: center; align-items: center; padding: 2rem 0; }
-  .auth-card {
-    width: min(100%, 27rem); padding: 2.1rem 2rem;
-    position: relative; overflow: hidden; border-radius: var(--ds-radius);
-    background:
-      radial-gradient(38rem 38rem at 108% -18%, color-mix(in srgb, var(--cofre-latao) 20%, transparent), transparent 60%),
-      repeating-radial-gradient(circle at 100% 0%,
-        rgba(255,255,255,0.05) 0 1px, transparent 1px 15px),
-      linear-gradient(165deg, var(--cofre-ink), var(--cofre-ink-2));
-    border: 1px solid color-mix(in srgb, var(--cofre-latao) 30%, var(--cofre-ink));
-    box-shadow: 0 30px 70px rgba(6, 10, 14, 0.35);
-    color: #fff;
+  .ds-auth-hero h1 { max-width: 30rem; }
+  .ds-auth-disclaimer {
+    margin: 1.1rem 0 0; padding-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.14);
+    color: rgba(255, 255, 255, 0.58); font-size: 0.82rem; line-height: 1.6;
   }
-  .auth-header { position: relative; z-index: 1; margin-bottom: 1.4rem; }
-  .auth-header h2 {
-    font-family: var(--ds-font-display); font-variation-settings: "wdth" 116, "wght" 600;
-    font-size: clamp(1.6rem, 4vw, 2rem); letter-spacing: -0.02em; margin-bottom: 0.4rem; color: #fff;
-  }
-  .auth-header p { color: rgba(255,255,255,0.72); }
-  .auth-form { position: relative; z-index: 1; display: grid; gap: 0.9rem; }
-  .auth-form label { color: rgba(255,255,255,0.7); }
-  .auth-form input {
-    color: #fff; background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.24);
-  }
-  .auth-form input::placeholder { color: rgba(255,255,255,0.4); }
-  .auth-form input:focus { background: rgba(255,255,255,0.14); border-color: var(--cofre-latao-claro); outline-color: var(--cofre-latao-claro); }
-  .auth-submit { width: 100%; margin-top: 0.3rem; background: var(--cofre-latao-escuro); border-color: var(--cofre-latao-escuro); }
-  .auth-submit:hover { background: color-mix(in srgb, var(--cofre-latao-escuro) 84%, #000); }
-  .auth-visitor-section { position: relative; z-index: 1; margin-top: 1.15rem; padding-top: 1.05rem; border-top: 1px solid rgba(255,255,255,0.16); }
-  .auth-visitor-section p { color: rgba(255,255,255,0.72); margin-bottom: 0.4rem; font-size: 0.9rem; }
-  .auth-visitor-section .btn-secondary { width: 100%; background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.26); color: #fff; }
-  .auth-visitor-section .btn-secondary:hover { background: rgba(255,255,255,0.18); }
-  .auth-disclaimer { position: relative; z-index: 1; margin-top: 1.15rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.14); }
-  .auth-disclaimer p { color: rgba(255,255,255,0.58); font-size: 0.82rem; line-height: 1.6; }
+  .ds-auth-divisor .ds-btn--bloco { width: 100%; }
 
   /* ======================================================================
      DOCUMENTOS LEGAIS E ACEITE
@@ -829,16 +764,14 @@
      aqui só o conteúdo do app precisa empilhar.
      ====================================================================== */
   @media (max-width: 62rem) {
-    .form-grid, .expense-form-grid, .manual-layout { grid-template-columns: 1fr; }
+    .form-grid, .expense-form-grid { grid-template-columns: 1fr; }
     .dashboard-focus, .dashboard-columns, .control-layout { grid-template-columns: 1fr; }
     .dashboard-chart-grid { grid-template-columns: 1fr; }
-    .stats-grid { grid-template-columns: repeat(2, 1fr); }
-    .weekly-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .meta-pie-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .shared-dashboard-panel { grid-template-columns: 1fr; }
   }
   @media (max-width: 30rem) {
-    .stats-grid, .weekly-grid, .meta-pie-list { grid-template-columns: 1fr; }
+    .meta-pie-list { grid-template-columns: 1fr; }
     .actions-col, .status-col { min-width: 0; }
     .pie-layout { grid-template-columns: 1fr; justify-items: center; text-align: center; }
     .pie-layout .chart-legend { width: 100%; text-align: left; }

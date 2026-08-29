@@ -279,7 +279,7 @@ class FinanceiroSimplificadoViewTests(TestCase):
 
         response_controle = self.client.get(reverse("financeiro:controle"))
         self.assertEqual(response_controle.status_code, 200)
-        self.assertContains(response_controle, "Planejamento semanal")
+        self.assertContains(response_controle, "Resto do mês")
         self.assertContains(response_controle, "Emergência")
 
     def test_despesa_parcelada_pode_ser_informada_pelo_valor_da_parcela(self):
