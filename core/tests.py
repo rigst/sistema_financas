@@ -239,7 +239,6 @@ class DashboardTests(TestCase):
         self.assertContains(response, "temporariamente desativada")
 
 
-
 class InfraestruturaTests(TestCase):
     def test_workflow_de_ci_chama_o_pipeline_compartilhado(self):
         # O pipeline vive em github.com/rigst/ci; o arquivo local só declara os
