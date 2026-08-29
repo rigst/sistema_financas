@@ -1,304 +1,284 @@
 /* =====================================================================
-   Stölben UI: comportamentos opcionais (vanilla JS, sem dependências)
-   Inicializa via data-attributes. Tudo é progressive enhancement:
-   sem JS, o conteúdo continua acessível.
+   Stölben UI v2 — comportamentos de interface
+
+   Tudo aqui é opcional: nenhuma página depende deste arquivo para
+   funcionar ou para ser lida. O que ele faz é o que só o navegador
+   pode fazer — contar, preencher, avisar, abrir e mascarar.
+
+   Sem dependências. Carregar no fim do <body> (ou com defer).
    ===================================================================== */
 (function () {
-  "use strict";
-  document.documentElement.classList.add("js");
+    "use strict";
 
-  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var semMovimento = window.matchMedia
+        && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  /* ---- Revelar ao rolar (.ds-reveal) ---- */
-  function initReveal() {
-    var els = document.querySelectorAll(".ds-reveal");
-    if (reduce || !("IntersectionObserver" in window)) {
-      els.forEach(function (el) { el.classList.add("is-visible"); });
-      return;
+    function pronto(fn) {
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", fn);
+        } else { fn(); }
     }
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (e) {
-        if (e.isIntersecting) { e.target.classList.add("is-visible"); io.unobserve(e.target); }
-      });
-    }, { threshold: 0.12, rootMargin: "0px 0px -8% 0px" });
-    els.forEach(function (el) { io.observe(el); });
-  }
 
-  /* ---- Cabeçalho destacado ao rolar + link da seção atual ---- */
-  function initTopbar() {
-    var bar = document.querySelector("[data-ds-topbar]");
-    if (bar) {
-      var onScroll = function () { bar.classList.toggle("is-scrolled", window.scrollY > 8); };
-      window.addEventListener("scroll", onScroll, { passive: true });
-      onScroll();
-    }
-    var spyLinks = document.querySelectorAll("[data-ds-spy] a[href^='#']");
-    var sections = [];
-    spyLinks.forEach(function (a) {
-      var s = document.querySelector(a.getAttribute("href"));
-      if (s) sections.push(s);
-    });
-    if (sections.length && "IntersectionObserver" in window) {
-      var so = new IntersectionObserver(function (entries) {
-        entries.forEach(function (e) {
-          if (!e.isIntersecting) return;
-          var id = "#" + e.target.id;
-          spyLinks.forEach(function (a) { a.classList.toggle("is-active", a.getAttribute("href") === id); });
-        });
-      }, { rootMargin: "-45% 0px -50% 0px" });
-      sections.forEach(function (s) { so.observe(s); });
-    }
-  }
+    /* -----------------------------------------------------------------
+       1. NÚMEROS QUE CONTAM
+       O indicador conta até o valor mantendo o formato pt-BR que já
+       está no HTML. Se o número não for legível, o elemento fica como
+       veio — o valor correto nunca depende do JS.
+       ----------------------------------------------------------------- */
+    function contarNumeros(raiz) {
+        if (semMovimento) return;
+        (raiz || document).querySelectorAll("[data-ds-conta], .ds-kpi-value").forEach(function (el) {
+            if (el.dataset.dsContado === "1") return;
+            var partes = /^(\D*?)([\d.,]+)(\D*)$/.exec(el.textContent.trim());
+            if (!partes) return;
 
-  /* ---- Menu dropdown ([data-ds-menu]) ---- */
-  function initMenus() {
-    document.querySelectorAll("[data-ds-menu]").forEach(function (wrap) {
-      var btn = wrap.querySelector("[data-ds-menu-trigger]");
-      if (!btn) return;
-      btn.setAttribute("aria-haspopup", "true");
-      btn.setAttribute("aria-expanded", "false");
-      btn.addEventListener("click", function (e) {
-        e.stopPropagation();
-        var open = wrap.classList.toggle("is-open");
-        btn.setAttribute("aria-expanded", String(open));
-      });
-    });
-    document.addEventListener("click", function () {
-      document.querySelectorAll("[data-ds-menu].is-open").forEach(function (w) {
-        w.classList.remove("is-open");
-        var t = w.querySelector("[data-ds-menu-trigger]");
-        if (t) t.setAttribute("aria-expanded", "false");
-      });
-    });
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") document.querySelectorAll("[data-ds-menu].is-open").forEach(function (w) { w.classList.remove("is-open"); });
-    });
-  }
+            var prefixo = partes[1], bruto = partes[2], sufixo = partes[3];
+            var casas = /,(\d+)$/.exec(bruto);
+            casas = casas ? casas[1].length : 0;
+            var alvo = parseFloat(bruto.replace(/\./g, "").replace(",", "."));
+            if (!isFinite(alvo) || alvo === 0) return;
 
-  /* ---- Modais ([data-ds-open="id"], [data-ds-close]) ---- */
-  function initModals() {
-    var lastFocus = null;
-    function open(id) {
-      var ov = document.getElementById(id);
-      if (!ov) return;
-      lastFocus = document.activeElement;
-      ov.classList.add("is-open");
-      var f = ov.querySelector("input, button, textarea, select, a[href]");
-      if (f) f.focus();
-    }
-    function close(ov) { ov.classList.remove("is-open"); if (lastFocus) lastFocus.focus(); }
-    document.querySelectorAll("[data-ds-open]").forEach(function (b) {
-      b.addEventListener("click", function () { open(b.getAttribute("data-ds-open")); });
-    });
-    document.querySelectorAll(".ds-overlay").forEach(function (ov) {
-      ov.addEventListener("click", function (e) { if (e.target === ov) close(ov); });
-      ov.querySelectorAll("[data-ds-close]").forEach(function (b) { b.addEventListener("click", function () { close(ov); }); });
-    });
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") document.querySelectorAll(".ds-overlay.is-open").forEach(close);
-    });
-  }
-
-  /* ---- Tabs ([data-ds-tabs]) ---- */
-  function initTabs() {
-    document.querySelectorAll("[data-ds-tabs]").forEach(function (group) {
-      var tabs = group.querySelectorAll(".ds-tab");
-      tabs.forEach(function (tab) {
-        tab.addEventListener("click", function () {
-          tabs.forEach(function (t) { t.classList.remove("is-active"); t.setAttribute("aria-selected", "false"); });
-          tab.classList.add("is-active");
-          tab.setAttribute("aria-selected", "true");
-          var target = tab.getAttribute("data-ds-tab");
-          group.querySelectorAll(".ds-tabpanel").forEach(function (p) { p.hidden = p.getAttribute("data-ds-panel") !== target; });
-        });
-      });
-    });
-  }
-
-  /* ---- Tabela: marcar todas ([data-ds-check-all]) ---- */
-  function initTableSelect() {
-    document.querySelectorAll("[data-ds-check-all]").forEach(function (master) {
-      var table = master.closest("table");
-      if (!table) return;
-      var boxes = table.querySelectorAll("tbody [data-ds-row-check]");
-      master.addEventListener("change", function () {
-        boxes.forEach(function (b) {
-          b.checked = master.checked;
-          b.closest("tr").classList.toggle("is-selected", b.checked);
-        });
-      });
-      boxes.forEach(function (b) {
-        b.addEventListener("change", function () {
-          b.closest("tr").classList.toggle("is-selected", b.checked);
-          master.checked = Array.prototype.every.call(boxes, function (x) { return x.checked; });
-        });
-      });
-    });
-  }
-
-  /* ---- Toasts: window.dsToast(msg, tipo) e [data-ds-toast] ---- */
-  function ensureToastHost() {
-    var host = document.querySelector(".ds-toasts");
-    if (!host) { host = document.createElement("div"); host.className = "ds-toasts"; host.setAttribute("aria-live", "polite"); document.body.appendChild(host); }
-    return host;
-  }
-  var ICONS = {
-    success: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
-    danger: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
-    info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="11" x2="12" y2="16"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
-  };
-  window.dsToast = function (msg, type) {
-    type = type || "info";
-    var host = ensureToastHost();
-    var el = document.createElement("div");
-    el.className = "ds-toast ds-toast--" + type;
-    el.setAttribute("role", "status");
-    el.innerHTML = (ICONS[type] || ICONS.info) + "<span>" + msg + "</span>";
-    host.appendChild(el);
-    setTimeout(function () { el.classList.add("is-leaving"); setTimeout(function () { el.remove(); }, 240); }, 3200);
-  };
-  function initToastTriggers() {
-    document.querySelectorAll("[data-ds-toast]").forEach(function (b) {
-      b.addEventListener("click", function () { window.dsToast(b.getAttribute("data-ds-toast"), b.getAttribute("data-ds-toast-type") || "info"); });
-    });
-  }
-
-  /* ---- Segmented control ([data-ds-segment]) + troca de visualização ----
-     Se o botão tiver data-view="x", mostra o [data-view-panel="x"] dentro do
-     container [data-ds-views] mais próximo (alterna tabela/cards/lista/board). */
-  function initSegments() {
-    document.querySelectorAll("[data-ds-segment]").forEach(function (seg) {
-      var btns = seg.querySelectorAll("button");
-      btns.forEach(function (b) {
-        b.addEventListener("click", function () {
-          btns.forEach(function (x) { x.classList.remove("is-active"); x.setAttribute("aria-pressed", "false"); });
-          b.classList.add("is-active"); b.setAttribute("aria-pressed", "true");
-          var view = b.getAttribute("data-view");
-          if (view) {
-            var scope = seg.closest("[data-ds-views]");
-            if (!scope || !scope.querySelector("[data-view-panel]")) scope = seg.closest("main") || document;
-            scope.querySelectorAll("[data-view-panel]").forEach(function (p) {
-              p.hidden = p.getAttribute("data-view-panel") !== view;
+            el.dataset.dsContado = "1";
+            var fmt = new Intl.NumberFormat("pt-BR", {
+                minimumFractionDigits: casas, maximumFractionDigits: casas
             });
-          }
+            var inicio = null, duracao = 900;
+            function passo(agora) {
+                if (inicio === null) inicio = agora;
+                var t = Math.min((agora - inicio) / duracao, 1);
+                var suave = 1 - Math.pow(1 - t, 3);
+                el.textContent = prefixo + fmt.format(alvo * suave) + sufixo;
+                if (t < 1) window.requestAnimationFrame(passo);
+            }
+            el.textContent = prefixo + fmt.format(0) + sufixo;
+            window.requestAnimationFrame(passo);
         });
-      });
-    });
-  }
+    }
 
-  /* ---- Accordion ([data-ds-accordion]) ---- */
-  function initAccordions() {
-    document.querySelectorAll("[data-ds-accordion]").forEach(function (acc) {
-      acc.querySelectorAll(".ds-accordion-trigger").forEach(function (trig) {
-        var item = trig.closest(".ds-accordion-item");
-        var panel = item.querySelector(".ds-accordion-panel");
-        trig.setAttribute("aria-expanded", String(item.classList.contains("is-open")));
-        trig.addEventListener("click", function () {
-          var open = item.classList.toggle("is-open");
-          trig.setAttribute("aria-expanded", String(open));
-          if (panel) panel.hidden = !open;
+    /* -----------------------------------------------------------------
+       2. BARRAS QUE PREENCHEM
+       A largura final vem de data-ds-progresso="0..100". Sem JS a barra
+       fica vazia, então quem precisa do número escreve o número também.
+       ----------------------------------------------------------------- */
+    function preencherBarras(raiz) {
+        (raiz || document).querySelectorAll(".ds-progress-fill").forEach(function (barra) {
+            var pct = barra.dataset.dsProgresso;
+            if (pct === undefined) return;
+            pct = Math.max(0, Math.min(100, parseFloat(pct) || 0));
+            if (semMovimento) { barra.style.width = pct + "%"; return; }
+            window.requestAnimationFrame(function () {
+                window.requestAnimationFrame(function () { barra.style.width = pct + "%"; });
+            });
         });
-      });
-    });
-  }
+    }
 
-  /* ---- Dropzone ([data-ds-dropzone]) ---- */
-  function initDropzones() {
-    document.querySelectorAll("[data-ds-dropzone]").forEach(function (dz) {
-      ["dragenter", "dragover"].forEach(function (ev) {
-        dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.add("is-drag"); });
-      });
-      ["dragleave", "drop"].forEach(function (ev) {
-        dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.remove("is-drag"); });
-      });
-    });
-  }
+    /* -----------------------------------------------------------------
+       3. ENVIO EM CURSO
+       O botão que enviou o formulário mostra o filete e trava, para o
+       clique duplo não virar registro duplicado. Formulários marcados
+       com data-ds-sem-busy ficam de fora.
+       ----------------------------------------------------------------- */
+    function marcarEnvio() {
+        document.addEventListener("submit", function (e) {
+            var form = e.target;
+            if (!form || form.hasAttribute("data-ds-sem-busy")) return;
+            var botao = form.querySelector("button[type=submit], .ds-btn[type=submit]");
+            if (!botao || botao.classList.contains("is-busy")) return;
+            botao.classList.add("is-busy");
+            /* Se a navegação não acontecer (validação nativa, erro de
+               rede), o botão volta ao normal em vez de ficar travado. */
+            window.setTimeout(function () { botao.classList.remove("is-busy"); }, 8000);
+        }, true);
+    }
 
-  /* ---- Seletor de tema de acento ([data-ds-theme-select]) ----
-     Troca a classe .ds-theme-* na raiz ao vivo. value="" volta ao azul. */
-  var DS_THEMES = ["ds-theme-indigo", "ds-theme-violet", "ds-theme-teal", "ds-theme-emerald", "ds-theme-amber", "ds-theme-rose", "ds-theme-slate"];
-  function initThemeSelect() {
-    document.querySelectorAll("[data-ds-theme-select]").forEach(function (sel) {
-      sel.addEventListener("change", function () {
-        var root = document.documentElement; /* mesmo elemento do .ds-dark, p/ derivar tons certos */
-        DS_THEMES.forEach(function (t) { root.classList.remove(t); });
-        if (sel.value) root.classList.add(sel.value);
-      });
-    });
-  }
+    /* -----------------------------------------------------------------
+       4. AVISOS
+       Some sozinho depois de 6 s; o ponteiro em cima segura o relógio.
+       window.dsToast(mensagem, tipo) cria um do zero.
+       tipos: success (padrão) | warn | danger | info
+       ----------------------------------------------------------------- */
+    var ICONES = {
+        success: '<path d="M20 6 9 17l-5-5"/>',
+        danger:  '<path d="M18 6 6 18M6 6l12 12"/>',
+        warn:    '<path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>',
+        info:    '<path d="M12 16v-4m0-4h.01"/><circle cx="12" cy="12" r="10"/>'
+    };
+    function svg(tipo) {
+        return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"'
+            + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+            + (ICONES[tipo] || ICONES.info) + "</svg>";
+    }
+    function caixaAvisos() {
+        var caixa = document.querySelector("[data-ds-avisos]");
+        if (!caixa) {
+            caixa = document.createElement("div");
+            caixa.className = "ds-avisos";
+            caixa.setAttribute("data-ds-avisos", "");
+            caixa.setAttribute("role", "status");
+            caixa.setAttribute("aria-live", "polite");
+            document.body.appendChild(caixa);
+        }
+        return caixa;
+    }
+    function fecharAviso(aviso) {
+        aviso.classList.add("is-saindo");
+        window.setTimeout(function () { aviso.remove(); }, 280);
+    }
+    function ligarAviso(aviso) {
+        if (aviso.dataset.dsLigado === "1") return;
+        aviso.dataset.dsLigado = "1";
+        var botao = aviso.querySelector(".ds-aviso-fechar");
+        if (botao) botao.addEventListener("click", function () { fecharAviso(aviso); });
+        var relogio = window.setTimeout(function () { fecharAviso(aviso); }, 6000);
+        aviso.addEventListener("mouseenter", function () { window.clearTimeout(relogio); });
+        aviso.addEventListener("focusin", function () { window.clearTimeout(relogio); });
+    }
+    function avisos(raiz) {
+        (raiz || document).querySelectorAll(".ds-aviso").forEach(ligarAviso);
+    }
+    window.dsToast = function (mensagem, tipo) {
+        tipo = tipo || "success";
+        var aviso = document.createElement("div");
+        aviso.className = "ds-aviso ds-aviso--" + tipo;
+        aviso.innerHTML =
+            '<span class="ds-aviso-marca" aria-hidden="true">' + svg(tipo) + "</span>"
+            + "<p></p>"
+            + '<button type="button" class="ds-aviso-fechar" aria-label="Dispensar aviso">'
+            + svg("danger") + "</button>";
+        aviso.querySelector("p").textContent = mensagem;
+        caixaAvisos().appendChild(aviso);
+        ligarAviso(aviso);
+        return aviso;
+    };
 
-  /* ---- Modo claro / escuro / automático ----
-     Modos: "light", "dark", "auto" (segue o sistema; é o padrão).
-     Controle 3-vias: [data-ds-theme-mode] com botões [data-mode="light|dark|auto"].
-     Variante legada: [data-ds-dark-toggle] (alterna claro/escuro).
-     A leitura inicial deve ser feita por um script inline no <head> (evita flash). */
-  var mq = window.matchMedia("(prefers-color-scheme: dark)");
-  /* Este app só tem estilos para o tema claro (identidade "Carnê") e nenhum
-     botão de alternância; "auto" seguindo o sistema produziria um misto escuro
-     ilegível. Padrão travado em "light" até existir uma camada escura. */
-  function getMode() { try { return localStorage.getItem("ds-theme-mode") || "light"; } catch (e) { return "light"; } }
-  function applyMode() {
-    var m = getMode();
-    var dark = m === "dark" || (m === "auto" && mq.matches);
-    document.documentElement.classList.toggle("ds-dark", dark);
-  }
-  function setMode(m) {
-    try { if (m === "auto") localStorage.removeItem("ds-theme-mode"); else localStorage.setItem("ds-theme-mode", m); } catch (e) {}
-    applyMode(); syncModeControls();
-  }
-  function syncModeControls() {
-    var m = getMode();
-    document.querySelectorAll("[data-ds-theme-mode] [data-mode]").forEach(function (btn) {
-      var on = btn.getAttribute("data-mode") === m;
-      btn.classList.toggle("is-active", on);
-      btn.setAttribute("aria-pressed", String(on));
-    });
-    var dark = document.documentElement.classList.contains("ds-dark");
-    document.querySelectorAll("[data-ds-dark-toggle]").forEach(function (b) { b.setAttribute("aria-pressed", String(dark)); });
-  }
-  function initThemeMode() {
-    document.querySelectorAll("[data-ds-theme-mode] [data-mode]").forEach(function (btn) {
-      btn.addEventListener("click", function () { setMode(btn.getAttribute("data-mode")); });
-    });
-    document.querySelectorAll("[data-ds-dark-toggle]").forEach(function (btn) {
-      btn.addEventListener("click", function () { setMode(document.documentElement.classList.contains("ds-dark") ? "light" : "dark"); });
-    });
-    var onSys = function () { if (getMode() === "auto") applyMode(); };
-    if (mq.addEventListener) mq.addEventListener("change", onSys); else if (mq.addListener) mq.addListener(onSys);
-    applyMode(); syncModeControls();
-  }
+    /* -----------------------------------------------------------------
+       5. MODAIS
+       <button data-ds-abre="id-do-dialog"> abre o <dialog class="ds-modal">.
+       Clique fora fecha; Esc já é do navegador. O foco volta para o
+       gatilho ao fechar — sem isso o teclado se perde na página.
+       ----------------------------------------------------------------- */
+    function modais(raiz) {
+        (raiz || document).querySelectorAll("[data-ds-abre]").forEach(function (botao) {
+            if (botao.dataset.dsLigado === "1") return;
+            botao.dataset.dsLigado = "1";
+            botao.addEventListener("click", function () {
+                var dlg = document.getElementById(botao.dataset.dsAbre);
+                if (!dlg || typeof dlg.showModal !== "function") return;
+                dlg.dataset.dsGatilho = botao.id || "";
+                dlg.showModal();
+                var primeiro = dlg.querySelector(
+                    "input:not([type=hidden]), select, textarea, button:not(.ds-modal-fechar)");
+                if (primeiro) primeiro.focus();
+            });
+        });
+        (raiz || document).querySelectorAll("dialog.ds-modal").forEach(function (dlg) {
+            if (dlg.dataset.dsLigado === "1") return;
+            dlg.dataset.dsLigado = "1";
+            dlg.addEventListener("click", function (e) {
+                /* Só o clique no próprio <dialog> é clique no fundo: o
+                   conteúdo fica dentro de um filho e não dispara aqui. */
+                if (e.target === dlg) dlg.close();
+            });
+            dlg.addEventListener("close", function () {
+                var gatilho = dlg.dataset.dsGatilho && document.getElementById(dlg.dataset.dsGatilho);
+                if (gatilho) gatilho.focus();
+            });
+            dlg.querySelectorAll("[data-ds-fecha]").forEach(function (b) {
+                b.addEventListener("click", function () { dlg.close(); });
+            });
+        });
+        (raiz || document).querySelectorAll("dialog[data-ds-modal-inicial]").forEach(function (dlg) {
+            if (typeof dlg.showModal === "function" && !dlg.open) dlg.showModal();
+        });
+    }
 
-  /* ---- Navegação mobile / gaveta ([data-ds-nav-toggle]) ----
-     Abre/fecha a sidebar como gaveta no mobile. Fecha ao clicar no backdrop,
-     em um link da sidebar, ou com Esc. */
-  function initMobileNav() {
-    document.querySelectorAll("[data-ds-nav-toggle]").forEach(function (btn) {
-      var shell = btn.closest(".ds-shell") || document.querySelector(".ds-shell");
-      if (!shell) return;
-      function set(open) { shell.classList.toggle("is-nav-open", open); btn.setAttribute("aria-expanded", String(open)); }
-      btn.setAttribute("aria-expanded", "false");
-      btn.addEventListener("click", function () { set(!shell.classList.contains("is-nav-open")); });
-      var bd = shell.querySelector(".ds-nav-backdrop");
-      if (bd) bd.addEventListener("click", function () { set(false); });
-      shell.querySelectorAll(".ds-sidebar a").forEach(function (a) { a.addEventListener("click", function () { set(false); }); });
-      document.addEventListener("keydown", function (e) { if (e.key === "Escape") set(false); });
-    });
-  }
+    /* -----------------------------------------------------------------
+       6. MOEDA pt-BR
+       O campo é escrito como se lê (1.234,56) e volta ao decimal
+       canônico no envio, que é o que o servidor aceita.
+       Marcar com <input data-ds-moeda>.
+       ----------------------------------------------------------------- */
+    function centavos(texto) {
+        var bruto = String(texto || "").trim();
+        if (!bruto) return null;
+        /* Valor que já veio do servidor em decimal canônico (1234.56). */
+        if (/^-?\d+(\.\d{1,2})$/.test(bruto) && bruto.indexOf(",") < 0) {
+            return Math.round(Number(bruto) * 100);
+        }
+        var negativo = bruto.indexOf("-") >= 0;
+        var digitos = bruto.replace(/\D/g, "");
+        if (!digitos) return null;
+        var valor = parseInt(digitos, 10);
+        return negativo ? -valor : valor;
+    }
+    function moeda(raiz) {
+        (raiz || document).querySelectorAll("[data-ds-moeda]").forEach(function (campo) {
+            if (campo.dataset.dsLigado === "1") return;
+            campo.dataset.dsLigado = "1";
+            function formatar() {
+                var c = centavos(campo.value);
+                campo.value = c === null ? "" : new Intl.NumberFormat("pt-BR", {
+                    minimumFractionDigits: 2, maximumFractionDigits: 2
+                }).format(c / 100);
+            }
+            formatar();
+            campo.addEventListener("input", function () {
+                formatar();
+                campo.setSelectionRange(campo.value.length, campo.value.length);
+            });
+            campo.addEventListener("blur", formatar);
+        });
+    }
+    function normalizarMoedaNoEnvio() {
+        document.addEventListener("submit", function (e) {
+            e.target.querySelectorAll("[data-ds-moeda]").forEach(function (campo) {
+                var c = centavos(campo.value);
+                campo.value = c === null ? "" : (c / 100).toFixed(2);
+            });
+        }, true);
+    }
 
-  /* ---- Nav flutuante de site ([data-ds-nav]): escurece ao rolar ---- */
-  function initFloatingNav() {
-    document.querySelectorAll("[data-ds-nav]").forEach(function (nav) {
-      var onScroll = function () { nav.classList.toggle("is-scrolled", window.scrollY > 20); };
-      window.addEventListener("scroll", onScroll, { passive: true });
-      onScroll();
-    });
-  }
+    /* -----------------------------------------------------------------
+       7. GAVETA DA LATERAL (mobile)
+       O CSS já abre e fecha por :checked — isto só devolve o estado
+       para o leitor de tela e fecha a gaveta ao navegar.
+       ----------------------------------------------------------------- */
+    function gaveta() {
+        var toggle = document.querySelector(".ds-nav-toggle");
+        var burger = document.querySelector(".ds-burger");
+        if (!toggle || !burger) return;
+        function sincronizar() {
+            burger.setAttribute("aria-expanded", toggle.checked ? "true" : "false");
+        }
+        toggle.addEventListener("change", sincronizar);
+        sincronizar();
+        document.querySelectorAll(".ds-nav-link").forEach(function (link) {
+            link.addEventListener("click", function () {
+                if (toggle.checked) { toggle.checked = false; sincronizar(); }
+            });
+        });
+    }
 
-  function init() {
-    initReveal(); initTopbar(); initMenus(); initModals();
-    initTabs(); initTableSelect(); initToastTriggers();
-    initSegments(); initAccordions(); initDropzones(); initThemeSelect(); initThemeMode(); initMobileNav(); initFloatingNav();
-  }
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
-  else init();
+    /* -----------------------------------------------------------------
+       Início. Tudo que aceita raiz é reexecutável: quem troca pedaço de
+       página (htmx, fetch + innerHTML) chama window.dsUI.iniciar(no).
+       ----------------------------------------------------------------- */
+    function iniciarEm(raiz) {
+        contarNumeros(raiz);
+        preencherBarras(raiz);
+        avisos(raiz);
+        modais(raiz);
+        moeda(raiz);
+    }
+
+    window.dsUI = { iniciar: iniciarEm, toast: window.dsToast };
+
+    pronto(function () {
+        iniciarEm(document);
+        marcarEnvio();
+        normalizarMoedaNoEnvio();
+        gaveta();
+        /* htmx, quando presente, troca pedaços da página. */
+        document.body.addEventListener("htmx:afterSwap", function (e) { iniciarEm(e.target); });
+    });
 })();

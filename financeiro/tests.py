@@ -557,7 +557,7 @@ class FinanceiroSimplificadoViewTests(TestCase):
         self.client.force_login(self.outro_user)
         response = self.client.get(reverse("financeiro:despesa_lista"))
 
-        self.assertContains(response, 'Despesas<span class="nav-badge">1</span>', html=True)
+        self.assertContains(response, '<span>Despesas</span><span class="ds-nav-badge">1</span>', html=True)
         self.assertNotContains(response, 'href="/financeiro/despesas/compartilhadas/"')
 
     def test_formulario_de_despesa_oculta_campos_de_compartilhamento_por_padrao(self):
@@ -636,7 +636,7 @@ class FinanceiroSimplificadoViewTests(TestCase):
 
         self.client.force_login(self.user)
         response_lista = self.client.get(reverse("financeiro:despesa_lista"))
-        self.assertContains(response_lista, 'Despesas<span class="nav-badge">1</span>', html=True)
+        self.assertContains(response_lista, '<span>Despesas</span><span class="ds-nav-badge">1</span>', html=True)
         self.assertContains(response_lista, "shared-status-recusado")
         self.assertContains(response_lista, "Recusado")
         self.assertContains(response_lista, "outro_fin recusou o compartilhamento.")

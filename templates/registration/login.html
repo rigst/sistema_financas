@@ -29,8 +29,10 @@
 
         <div class="auth-visitor-section">
             <p>Quer apenas conhecer a interface? O acesso visitante cria uma conta temporária.</p>
-            {# O aceite acontece na própria página de aceite, não aqui: o texto
-               que a pessoa precisa ler não cabe ao lado de um botão. #}
+            {% comment %}
+            O aceite acontece na própria página de aceite, não aqui: o texto
+            que a pessoa precisa ler não cabe ao lado de um botão.
+            {% endcomment %}
             <a class="btn btn-secondary auth-submit" href="{% url 'legal:aceite_visitante' %}">Entrar como visitante</a>
         </div>
 

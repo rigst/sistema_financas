@@ -30,6 +30,11 @@ staticfiles/
 .codex
 .codex/
 
+# Capturas de falha dos testes visuais (testes_navegador/test_visual.py) —
+# geradas ao rodar, nunca versionadas. As referências em
+# testes_navegador/referencia/ são o oposto: ficam versionadas de propósito.
+testes_navegador/diferencas/
+
 # Sistema operacional
 .DS_Store
 Thumbs.db
