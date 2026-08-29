@@ -815,7 +815,11 @@
   .legal-acao-botoes { display: flex; flex-wrap: wrap; align-items: center; gap: 0.7rem; margin-top: 1.15rem; }
   .legal-recusa { margin-top: 1.4rem; font-size: 0.85rem; color: var(--ds-t-500); }
   .link-button { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; text-decoration: underline; color: var(--ds-accent-dark); }
-  .legal-corpo a, .legal-atalhos a, .legal-aviso a, .legal-historico a, .confirmacao-texto a { color: var(--ds-accent-dark); }
+  /* Sublinhado, e não só cor: link em meio a texto corrido reprova o WCAG
+     1.4.1 se a única distinção for a cor (axe: link-in-text-block, serious). */
+  .legal-corpo a, .legal-atalhos a, .legal-aviso a, .legal-historico a, .confirmacao-texto a {
+    color: var(--ds-accent-dark); text-decoration: underline;
+  }
   .legal-corpo a:hover, .legal-atalhos a:hover, .confirmacao-texto a:hover { color: var(--ds-accent); }
 
   @media (prefers-reduced-motion: reduce) { .confirmacao { transition: none; } }
