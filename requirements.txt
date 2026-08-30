@@ -5,6 +5,10 @@ gunicorn==23.0.0
 psycopg[binary]==3.2.12
 sqlparse==0.6.0
 anthropic==1.1.0
+# A partir da 1.x o SDK anthropic não puxa mais httpx como transitiva
+# (trocou de cliente HTTP interno). core/tests.py importa httpx direto
+# pra montar um httpx.Request de teste — precisa ficar explícito aqui.
+httpx==0.28.1
 
 redis==5.2.1
 
