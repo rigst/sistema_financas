@@ -12,7 +12,7 @@ VENV=/var/www/sistema_financas/venv
 ENV_FILE=/var/www/sistema_financas/shared/.env
 SERVICES=(sistema_financas.service)
 HEALTH_URL="https://financas.stolben.com/healthz/"
-HEALTH_HEADER="X-Healthz-Token: defina-um-token-aleatorio-para-healthz"
+HEALTH_HEADER=""   # montado depois de carregar o .env — nunca hardcoded aqui (gitleaks reprova, com razão)
 BACKUP_SCRIPT=/var/www/sistema_financas/shared/scripts/backup_postgres.sh
 EXTRA_ENV=""
 LOCK_FILE=/tmp/sistema_financas_cd_deploy.lock
@@ -48,6 +48,8 @@ main() {
   source "$ENV_FILE"
   [[ -n "$EXTRA_ENV" ]] && eval "export $EXTRA_ENV"
   set +a
+
+  [[ -n "${DJANGO_HEALTHZ_TOKEN:-}" ]] && HEALTH_HEADER="X-Healthz-Token: $DJANGO_HEALTHZ_TOKEN"
 
   "$VENV/bin/python" manage.py check --deploy --fail-level ERROR
   "$VENV/bin/python" manage.py migrate --check || "$VENV/bin/python" manage.py migrate
