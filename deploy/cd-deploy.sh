@@ -68,10 +68,10 @@ main() {
     local codigo
     for _ in 1 2 3 4 5; do
       codigo="$(curl -s -o /dev/null -w '%{http_code}' ${HEALTH_HEADER:+-H "$HEALTH_HEADER"} "$HEALTH_URL")"
-      [[ "$codigo" == "200" ]] && break
+      [[ "$codigo" =~ ^[23][0-9][0-9]$ ]] && break   # 2xx/3xx: alguns apps redirecionam a home pro login
       sleep 2
     done
-    if [[ "$codigo" != "200" ]]; then
+    if [[ ! "$codigo" =~ ^[23][0-9][0-9]$ ]]; then
       echo "Smoke-test falhou ($codigo). Rollback manual: git -C $APP_DIR reset --hard $antes"
       exit 1
     fi
