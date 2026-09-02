@@ -310,13 +310,48 @@ if IS_TEST:
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    "formatters": {
+        "padrao": {"format": "{asctime} {levelname} {name} {message}", "style": "{"},
+    },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
+            "formatter": "padrao",
         },
     },
     "root": {
         "handlers": ["console"],
         "level": os.getenv("DJANGO_LOG_LEVEL", "INFO"),
     },
+    "loggers": {
+        "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+    },
 }
+
+# ==============================================================================
+# Monitoramento de erros (Sentry) — ativo só quando SENTRY_DSN está definido.
+# ==============================================================================
+
+SENTRY_DSN = os.getenv("SENTRY_DSN", "").strip()
+# `not IS_TEST` porque o .env é lido em qualquer execução local, inclusive a
+# da suíte, e traz o DSN de produção: sem isso, rodar os testes na máquina
+# manda evento de verdade para o projeto do Sentry. Na CI não aparece — lá o
+# .env não existe — o que torna o problema invisível para quem não roda local.
+if SENTRY_DSN and not IS_TEST:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.celery import CeleryIntegration
+        from sentry_sdk.integrations.django import DjangoIntegration
+
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            integrations=[DjangoIntegration(), CeleryIntegration()],
+            environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
+            release=os.getenv("SENTRY_RELEASE") or None,
+            traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.0")),
+            send_default_pii=False,
+        )
+    except Exception:
+        # Pacote ausente ou integração indisponível (ex.: Celery não instalado):
+        # seguimos sem monitoramento, sem quebrar o app.
+        pass
