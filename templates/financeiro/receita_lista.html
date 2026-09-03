@@ -17,8 +17,8 @@
     </div>
 
     <form method="get" class="filters-form">
-        <input type="text" name="q" placeholder="Buscar receita" value="{{ busca }}">
-        <select name="status"><option value="" {% if not status %}selected{% endif %}>Todas</option><option value="recebida" {% if status == "recebida" %}selected{% endif %}>Recebidas</option><option value="prevista" {% if status == "prevista" %}selected{% endif %}>Previstas</option></select>
+        <input aria-label="Buscar receitas" type="text" name="q" placeholder="Buscar receita" value="{{ busca }}">
+        <select aria-label="Filtrar por tipo" name="status"><option value="" {% if not status %}selected{% endif %}>Todas</option><option value="recebida" {% if status == "recebida" %}selected{% endif %}>Recebidas</option><option value="prevista" {% if status == "prevista" %}selected{% endif %}>Previstas</option></select>
         {% if mostrar_inativos %}<input type="hidden" name="inativos" value="1">{% endif %}
         <button class="btn btn-secondary btn-icon-action" type="submit" title="Buscar"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.2-4.2"/></svg><span class="visually-hidden">Buscar</span></button>
     </form>

@@ -17,9 +17,9 @@
     </div>
 
     <form method="get" class="filters-form">
-        <input type="text" name="q" placeholder="Buscar despesa" value="{{ busca }}">
-        <select name="tipo"><option value="" {% if not tipo %}selected{% endif %}>Todos os tipos</option><option value="variavel" {% if tipo == "variavel" %}selected{% endif %}>Variáveis</option><option value="fixa" {% if tipo == "fixa" %}selected{% endif %}>Fixas</option><option value="parcelada" {% if tipo == "parcelada" %}selected{% endif %}>Parceladas</option></select>
-        <select name="compartilhamento"><option value="" {% if not compartilhamento_filtro %}selected{% endif %}>Todas</option><option value="compartilhadas" {% if compartilhamento_filtro == "compartilhadas" %}selected{% endif %}>Compartilhadas</option></select>
+        <input aria-label="Buscar despesas" type="text" name="q" placeholder="Buscar despesa" value="{{ busca }}">
+        <select aria-label="Filtrar por tipo" name="tipo"><option value="" {% if not tipo %}selected{% endif %}>Todos os tipos</option><option value="variavel" {% if tipo == "variavel" %}selected{% endif %}>Variáveis</option><option value="fixa" {% if tipo == "fixa" %}selected{% endif %}>Fixas</option><option value="parcelada" {% if tipo == "parcelada" %}selected{% endif %}>Parceladas</option></select>
+        <select aria-label="Filtrar por compartilhamento" name="compartilhamento"><option value="" {% if not compartilhamento_filtro %}selected{% endif %}>Todas</option><option value="compartilhadas" {% if compartilhamento_filtro == "compartilhadas" %}selected{% endif %}>Compartilhadas</option></select>
         {% if mostrar_inativos %}<input type="hidden" name="inativos" value="1">{% endif %}
         <button class="btn btn-secondary btn-icon-action" type="submit" title="Buscar"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.2-4.2"/></svg><span class="visually-hidden">Buscar</span></button>
     </form>
