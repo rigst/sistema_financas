@@ -1,4 +1,4 @@
-asgiref==3.11.1
+asgiref==3.12.1
 Django==6.0.8
 dj-database-url==3.0.1
 gunicorn==26.2.0
