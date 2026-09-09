@@ -32,7 +32,15 @@ IS_PRODUCTION = ENV == "production"
 # `"test" in sys.argv` cobria só `manage.py test`. O CI roda pytest, e sem a
 # segunda condição o bloco `if IS_TEST` mais abaixo nunca valia para a suíte:
 # ela rodava com o hasher de produção e com o HEALTHZ_TOKEN do ambiente.
-IS_TEST = "test" in sys.argv or Path(sys.argv[0]).name.startswith(("pytest", "py.test"))
+# A terceira condição cobre `python -m pytest`: nessa invocação o argv[0] é o
+# `__main__.py` do pacote, o prefixo não bate e IS_TEST ficava False — a suíte
+# rodava com SECURE_SSL_REDIRECT ligado, o hasher de produção e o Sentry ativo.
+# O pytest se denuncia pelo módulo importado, como já se faz no dojo.
+IS_TEST = (
+    "test" in sys.argv
+    or Path(sys.argv[0]).name.startswith(("pytest", "py.test"))
+    or "pytest" in sys.modules
+)
 
 
 def env_bool(nome, default=False):
