@@ -64,29 +64,30 @@ jobs:
       #
       # Lista vazia significa "nada tolerado": ao acrescentar uma etapa nova,
       # declare-a aqui primeiro e meça o passivo antes de fechar.
-      # As etapas de qualidade entram toleradas enquanto o passivo é medido.
-      # Lista vazia significa "nada tolerado": ligá-las sem declarar aqui
-      # reprovaria no primeiro dia.
-      soft-fail: "diff,frontend,layout"
+      # As três etapas de qualidade entraram aqui em 10/09/2026 e saíram no
+      # mesmo dia: os quatro achados bloqueantes eram `<option>` sem tag de
+      # fechamento dentro de `<datalist>`, corrigidos no mesmo PR.
+      soft-fail: ""
 
-      # --- qualidade (primeira rodada: medir, não bloquear) ---
+      # --- qualidade ---
       #
-      # Procedimento da seção 8 do RUNBOOK: rodar, ler o resumo no painel do
-      # job, conferir se algum achado é falso positivo neste projeto, e só
-      # então trocar os `nenhum` por `erro` e tirar do soft-fail.
+      # Apertado em 10/09/2026. O passivo restante é aviso: 1 seletor
+      # duplicado e 50 alvos de toque abaixo dos 24px que o WCAG 2.5.8 pede —
+      # esse último é dívida de design, e vale uma passada no CSS quando
+      # houver tempo.
       run-diff-quality: true
-      diff-quality-fail-on: nenhum
+      diff-quality-fail-on: erro
 
       # frontend-paths precisa ser explícito: o glob de CSS a partir da raiz
       # varre o venv/ inteiro e o job trava sem mensagem de erro.
       run-frontend: true
       frontend-paths: "static"
       template-paths: "templates"
-      frontend-fail-on: nenhum
+      frontend-fail-on: erro
 
       # As mesmas rotas públicas que o a11y já audita.
       run-layout: true
-      layout-fail-on: nenhum
+      layout-fail-on: erro
       layout-setup-command: python manage.py importar_documentos_legais --publicar
       layout-paths: |
         /login/
