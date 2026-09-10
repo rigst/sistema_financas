@@ -355,3 +355,8 @@ class GuardaDeTesteTests(SimpleTestCase):
         # suíte rodava com o SECURE_SSL_REDIRECT de produção — 301 em todo
         # request do test client — além do hasher lento e do Sentry ligado.
         self.assertTrue(settings.IS_TEST)
+
+    def test_a_suite_nao_grava_na_midia_de_producao(self):
+        # IS_TEST trocava hasher e mailer, mas não o MEDIA_ROOT: a suíte
+        # gravava uploads de verdade na mídia compartilhada do servidor.
+        self.assertIn("sistema-financas-test-media-", str(settings.MEDIA_ROOT))
