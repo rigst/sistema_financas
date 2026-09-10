@@ -1,5 +1,6 @@
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -259,6 +260,14 @@ MEDIA_ROOT = os.getenv(
     "DJANGO_MEDIA_ROOT",
     "/var/www/sistema_financas/shared/media" if IS_PRODUCTION else str(BASE_DIR / "media"),
 )
+
+# IS_TEST já troca hasher, mailer e afins, mas não trocava o MEDIA_ROOT: a
+# suíte gravava uploads de verdade: em disco, ou na mídia compartilhada (com
+# DJANGO_MEDIA_ROOT setado) ou em BASE_DIR/media, que é a árvore de produção.
+# Em 2026-09-10 havia 114 cópias do mesmo logo de 227 bytes em
+# sistema_orcamentos/shared/media, e nenhuma referenciada no banco.
+if IS_TEST:
+    MEDIA_ROOT = tempfile.mkdtemp(prefix="sistema-financas-test-media-")
 
 SESSION_COOKIE_SECURE = env_bool("DJANGO_SESSION_COOKIE_SECURE", default=IS_PRODUCTION)
 CSRF_COOKIE_SECURE = env_bool("DJANGO_CSRF_COOKIE_SECURE", default=IS_PRODUCTION)
