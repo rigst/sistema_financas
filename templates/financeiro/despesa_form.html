@@ -24,7 +24,7 @@
                 <div data-installments-field><label for="{{ form.valor_parcela.id_for_label }}">Valor da parcela</label>{{ form.valor_parcela }}{{ form.valor_parcela.errors }}</div>
                 <div><label for="{{ form.status.id_for_label }}">Situação</label>{{ form.status }}{{ form.status.errors }}</div>
                 <div class="full"><label for="{{ form.categoria.id_for_label }}">Categoria</label>{{ form.categoria }}{{ form.categoria.errors }}</div>
-                {% if form.categorias_sugeridas %}<datalist id="categorias-despesa">{% for categoria in form.categorias_sugeridas %}<option value="{{ categoria }}">{% endfor %}</datalist>{% endif %}
+                {% if form.categorias_sugeridas %}<datalist id="categorias-despesa">{% for categoria in form.categorias_sugeridas %}<option value="{{ categoria }}"></option>{% endfor %}</datalist>{% endif %}
                 <div class="full"><label for="{{ form.observacoes.id_for_label }}">Observações</label>{{ form.observacoes }}{{ form.observacoes.errors }}</div>
             </div>
             <fieldset class="shared-expense-fields">
@@ -39,8 +39,8 @@
                     <div><label for="{{ form.data_prevista_ressarcimento.id_for_label }}">Previsão de ressarcimento</label>{{ form.data_prevista_ressarcimento }}{{ form.data_prevista_ressarcimento.errors }}</div>
                 </div>
                 {% if form.usuarios_sugeridos %}
-                    <datalist id="usuarios-sistema">{% for usuario in form.usuarios_sugeridos %}<option value="{{ usuario }}">{% endfor %}</datalist>
-                    <datalist id="usuarios-sistema-com-criador"><option value="{{ request.user.username }}">{% for usuario in form.usuarios_sugeridos %}<option value="{{ usuario }}">{% endfor %}</datalist>
+                    <datalist id="usuarios-sistema">{% for usuario in form.usuarios_sugeridos %}<option value="{{ usuario }}"></option>{% endfor %}</datalist>
+                    <datalist id="usuarios-sistema-com-criador"><option value="{{ request.user.username }}"></option>{% for usuario in form.usuarios_sugeridos %}<option value="{{ usuario }}"></option>{% endfor %}</datalist>
                 {% endif %}
             </fieldset>
             <div class="inline-actions inline-actions-end"><a class="btn btn-secondary" href="{% url 'financeiro:despesa_lista' %}" title="Cancelar"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg><span>Cancelar</span></a><button class="btn btn-primary" type="submit" title="Salvar despesa"><svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg><span>Salvar despesa</span></button></div>
