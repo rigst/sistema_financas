@@ -1,5 +1,4 @@
 import logging
-import secrets
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import cast
@@ -7,7 +6,7 @@ from typing import cast
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseNotFound, JsonResponse
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -34,16 +33,6 @@ from financeiro.planejamento import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-@require_safe
-def healthz(request):
-    healthz_token = getattr(settings, "HEALTHZ_TOKEN", "")
-    if healthz_token:
-        token_recebido = request.headers.get("X-Healthz-Token", "").strip()
-        if not token_recebido or not secrets.compare_digest(token_recebido, healthz_token):
-            return HttpResponseNotFound()
-    return JsonResponse({"status": "ok"})
 
 
 @login_required

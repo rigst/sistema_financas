@@ -1,6 +1,7 @@
 from django.urls import path
 
-from .views import dashboard, gerar_mentoria_ia, healthz
+from .healthz import healthz
+from .views import dashboard, gerar_mentoria_ia
 
 urlpatterns = [
     path("healthz/", healthz, name="healthz"),
