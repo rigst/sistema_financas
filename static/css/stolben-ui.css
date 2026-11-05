@@ -861,7 +861,7 @@
         background-size: 1.05rem;
     }
     .ds-form select[multiple], .ds-campo select[multiple] {
-        appearance: auto; -webkit-appearance: auto;
+        appearance: auto;
         padding-right: 0.8rem; background-image: none;
     }
     .ds-form input[type="file"] { padding: 0.38rem; }
