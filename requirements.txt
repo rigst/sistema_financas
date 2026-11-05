@@ -1,22 +1,22 @@
-asgiref==3.11.1
-Django==6.0.8
-dj-database-url==3.0.1
+asgiref==3.13.0
+Django==6.1.2
+dj-database-url==3.1.2
 gunicorn==26.2.0
-psycopg[binary]==3.2.12
-sqlparse==0.6.0
-anthropic==0.117.0
+psycopg[binary]==3.3.6
+sqlparse==0.6.1
+anthropic==2.4.0
 
-redis==5.2.1
+redis==8.1.0
 
 # Conformidade legal (app `legal`): render e sanitização das políticas.
-markdown==3.10.2
-nh3==0.3.6
+markdown==3.11.2
+nh3==0.3.7
 
 # Tema do admin.
-django-unfold==0.101.0
+django-unfold==0.110.1
 
 # Monitoramento de erros (ativo só com SENTRY_DSN definido)
-sentry-sdk==2.68.1
+sentry-sdk==2.73.0
 
 # O pip entra aqui como qualquer outra dependência, e não como ferramenta à
 # parte. Ele é o que o CD executa a cada deploy, e enquanto não estava
@@ -28,4 +28,4 @@ sentry-sdk==2.68.1
 #
 # Não use `pip install --upgrade pip` no deploy: isso instalaria versão não
 # fixada, que é o que o pin e o `--require-hashes` existem para evitar.
-pip==26.2.1
+pip==26.3
