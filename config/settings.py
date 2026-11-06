@@ -295,6 +295,15 @@ CONTENT_SECURITY_POLICY = os.getenv(
 
 ADMIN_PATH_PREFIX = "/admin/"
 
+# Recursos do navegador que o app não usa ficam negados para a página e para
+# qualquer iframe. Mesmo valor da frota (o dracma manda o mesmo via nginx). Não
+# há getUserMedia/MediaRecorder/geolocation no front; se um dia houver, troque
+# o recurso para `(self)` em vez de `()`. Vazio desliga o cabeçalho.
+PERMISSIONS_POLICY = os.getenv(
+    "DJANGO_PERMISSIONS_POLICY",
+    "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()",
+)
+
 # Política exclusiva do admin. O 'unsafe-eval' é exigido pelo Alpine.js que o
 # django-unfold usa: ele compila as expressões de `x-data`/`x-init` com
 # `new Function()`. Sem isso o painel carrega sem menu, abas nem tema. A
