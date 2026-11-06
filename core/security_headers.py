@@ -12,6 +12,10 @@ class ContentSecurityPolicyMiddleware:
     portanto exige 'unsafe-eval'. Em vez de afrouxar o site inteiro por causa do
     painel, a exceção fica restrita ao prefixo do admin — que já é acessível
     apenas a quem tem `is_staff`.
+
+    Também aplica o `Permissions-Policy` (settings.PERMISSIONS_POLICY), que vale
+    para o site inteiro, admin incluído, e independe de ENABLE_CSP: o app não usa
+    câmera, microfone, localização, pagamento nem USB, então tudo fica negado.
     """
 
     def __init__(self, get_response):
@@ -32,4 +36,7 @@ class ContentSecurityPolicyMiddleware:
         response = self.get_response(request)
         if getattr(settings, "ENABLE_CSP", False) and "Content-Security-Policy" not in response:
             response["Content-Security-Policy"] = self._politica(request).format(nonce=nonce)
+        politica_permissoes = getattr(settings, "PERMISSIONS_POLICY", "")
+        if politica_permissoes:
+            response.setdefault("Permissions-Policy", politica_permissoes)
         return response
